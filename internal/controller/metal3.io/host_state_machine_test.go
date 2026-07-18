@@ -1405,6 +1405,10 @@ func (p *mockProvisioner) GetHealth(_ context.Context) string {
 	return ""
 }
 
+func (p *mockProvisioner) EnsurePorts(_ context.Context) error {
+	return nil
+}
+
 func TestUpdateBootModeStatus(t *testing.T) {
 	testCases := []struct {
 		Scenario       string

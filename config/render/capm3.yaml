@@ -405,6 +405,10 @@ spec:
                             address of the switch
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
+                        switchSystemName:
+                          description: SwitchSystemName is expected to be the common
+                            name for the switch
+                          type: string
                       required:
                       - portID
                       - switchID

@@ -342,3 +342,7 @@ func (p *demoProvisioner) HasPowerFailure(_ context.Context) bool {
 func (p *demoProvisioner) GetHealth(_ context.Context) string {
 	return ""
 }
+
+func (p *demoProvisioner) EnsurePorts(_ context.Context) error {
+	return nil
+}

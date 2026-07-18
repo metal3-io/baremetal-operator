@@ -441,3 +441,7 @@ func (p *fixtureProvisioner) GetHealth(_ context.Context) string {
 	}
 	return p.state.Health
 }
+
+func (p *fixtureProvisioner) EnsurePorts(_ context.Context) error {
+	return nil
+}

@@ -24,6 +24,15 @@ var ErrNotReady = errors.New("provisioner is not ready")
 // with provisioning.
 type EventPublisher func(reason, message string)
 
+// PortConfig represents the configuration attributes to be applied to node
+// ports.
+type PortConfig struct {
+	SwitchPortConfig metal3api.SwitchPortConfig
+	// LocalLinkConnection is only provided if the user has provided an
+	// override for what could be provided by LLDP during node inspection.
+	LocalLinkConnection *metal3api.SwitchPortIdentifier
+}
+
 type HostData struct {
 	ObjectMeta                     metav1.ObjectMeta
 	BMCAddress                     string
@@ -31,6 +40,7 @@ type HostData struct {
 	DisableCertificateVerification bool
 	BootMACAddress                 string
 	ProvisionerID                  string
+	PortConfigs                    map[string]*PortConfig
 }
 
 func BuildHostData(host metal3api.BareMetalHost, bmcCreds bmc.Credentials) HostData {
@@ -244,6 +254,10 @@ type Provisioner interface {
 	// Possible values are HealthOK, HealthWarning, HealthCritical, or
 	// empty string if unavailable.
 	GetHealth(ctx context.Context) string
+
+	// EnsurePorts ensures all network ports in the provisioning system
+	// have the correct switch port configurations applied.
+	EnsurePorts(ctx context.Context) error
 }
 
 // Health status values returned by GetHealth().

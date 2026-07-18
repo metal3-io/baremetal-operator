@@ -463,8 +463,8 @@ type FirmwareConfig struct {
 	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
 }
 
-// SwitchPort defines the attributes required to identify a switch port.
-type SwitchPort struct {
+// SwitchPortIdentifier defines the attributes required to identify a switch port.
+type SwitchPortIdentifier struct {
 	// SwitchID is expected to be the management MAC address of the switch
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	SwitchID string `json:"switchID"`
@@ -472,6 +472,24 @@ type SwitchPort struct {
 	// PortID is expected to be the configuration name of the port in the
 	// switch management system.
 	PortID string `json:"portID"`
+
+	// SwitchSystemName is expected to be the common name for the switch
+	SwitchSystemName string `json:"switchSystemName,omitempty"`
+}
+
+// SwitchPortConfig represents the switchport configuration to be applied to
+// node ports.  Includes JSON tags to facilitate marshaling to/from API format.
+type SwitchPortConfig struct {
+	// Mode is the switch port mode (access or trunk)
+	Mode SwitchPortMode `json:"mode"`
+	// NativeVLAN is the native/untagged VLAN ID
+	NativeVLAN int `json:"nativeVLAN"`
+	// AllowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
+	// +optional
+	AllowedVLANs []int `json:"allowedVLANs,omitempty"`
+	// MTU is the maximum transmission unit size
+	// +optional
+	MTU *int `json:"mtu,omitempty"`
 }
 
 // NetworkInterface defines the network configuration for a specific interface.
@@ -502,7 +520,7 @@ type NetworkInterface struct {
 	// information; therefore, caution must be exercised when supplying this
 	// value.
 	// +optional
-	SwitchPort *SwitchPort `json:"switchPort,omitempty"`
+	SwitchPort *SwitchPortIdentifier `json:"switchPort,omitempty"`
 }
 
 // BareMetalHostSpec defines the desired state of BareMetalHost.

@@ -145,6 +145,10 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// The updater only updates disable_power_off if it has changed
 		updater.SetTopLevelOpt("disable_power_off", data.DisablePowerOff, ironicNode.DisablePowerOff)
 
+		if p.config.enableNetworking {
+			updater.SetTopLevelOpt("network_interface", p.config.networkInterface, ironicNode.NetworkInterface)
+		}
+
 		// Update cpu_arch in Properties if specified.
 		// This is important for multi-arch deployments to ensure the correct
 		// architecture-specific IPA kernel/ramdisk is used via deploy_kernel_by_arch.
@@ -279,6 +283,10 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 		},
 	}
 
+	if p.config.enableNetworking {
+		nodeCreateOpts.NetworkInterface = p.config.networkInterface
+	}
+
 	ironicNode, err = nodes.Create(ctx, p.client, nodeCreateOpts).Extract()
 	if err == nil {
 		p.publisher("Registered", "Registered new host")
@@ -303,7 +311,7 @@ func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *
 		return nil
 	}
 
-	ironicNodePorts, err := p.getPorts(ctx, ironicNode.UUID, "")
+	ironicNodePorts, err := p.getPorts(ctx, ironicNode.UUID, "", false)
 	if err != nil {
 		return err
 	}

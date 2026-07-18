@@ -232,3 +232,71 @@ func TestSwitchPortConfigsEqual(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildLocalLinkFromNIC(t *testing.T) {
+	tests := []struct {
+		name string
+		nic  metal3api.NIC
+		want map[string]interface{}
+	}{
+		{
+			name: "nil LLDP",
+			nic:  metal3api.NIC{MAC: "aa:bb:cc:dd:ee:ff"},
+			want: nil,
+		},
+		{
+			name: "empty LLDP",
+			nic:  metal3api.NIC{MAC: "aa:bb:cc:dd:ee:ff", LLDP: &metal3api.LLDP{}},
+			want: nil,
+		},
+		{
+			name: "full LLDP",
+			nic: metal3api.NIC{
+				MAC: "aa:bb:cc:dd:ee:ff",
+				LLDP: &metal3api.LLDP{
+					SwitchID:         "00:11:22:33:44:55",
+					PortID:           "Eth1/1",
+					SwitchSystemName: "switch-01",
+				},
+			},
+			want: map[string]interface{}{
+				"switch_id":   "00:11:22:33:44:55",
+				"port_id":     "Eth1/1",
+				"switch_info": "switch-01",
+			},
+		},
+		{
+			name: "partial LLDP - switch_id only",
+			nic: metal3api.NIC{
+				MAC: "aa:bb:cc:dd:ee:ff",
+				LLDP: &metal3api.LLDP{
+					SwitchID: "00:11:22:33:44:55",
+				},
+			},
+			want: map[string]interface{}{
+				"switch_id": "00:11:22:33:44:55",
+			},
+		},
+		{
+			name: "partial LLDP - port_id and switch_info",
+			nic: metal3api.NIC{
+				MAC: "aa:bb:cc:dd:ee:ff",
+				LLDP: &metal3api.LLDP{
+					PortID:           "Eth1/1",
+					SwitchSystemName: "switch-01",
+				},
+			},
+			want: map[string]interface{}{
+				"port_id":     "Eth1/1",
+				"switch_info": "switch-01",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildLocalLinkFromNIC(tt.nic)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

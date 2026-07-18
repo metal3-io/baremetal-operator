@@ -281,8 +281,9 @@ func (p *ironicProvisioner) findExistingHost(ctx context.Context, bootMACAddress
 	return nil, nil //nolint:nilnil
 }
 
-func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, macAddress string, pxe bool) error {
-	p.log.Info("creating ironic port for node", "NodeUUID", uuid, "MAC", macAddress, "PXE status", pxe)
+func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, nic metal3api.NIC) error {
+	macAddress := strings.ToLower(nic.MAC)
+	p.log.Info("creating ironic port for node", "NodeUUID", uuid, "MAC", macAddress, "PXE status", nic.PXE)
 
 	// checking if port already exists in Ironic
 	portsList, errPortList := p.getPorts(ctx, "", macAddress, false)
@@ -303,7 +304,7 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 	createOpts := ports.CreateOpts{
 		NodeUUID:   uuid,
 		Address:    macAddress,
-		PXEEnabled: &pxe,
+		PXEEnabled: &nic.PXE,
 	}
 
 	// Set port configuration if networking is enabled
@@ -314,6 +315,13 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 			}
 			if portConfig.LocalLinkConnection != nil {
 				createOpts.LocalLinkConnection = buildLocalLinkFromConfig(portConfig.LocalLinkConnection)
+			}
+		}
+
+		// Fall back to LLDP data from inspection if no manual LLC was set
+		if createOpts.LocalLinkConnection == nil {
+			if llc := buildLocalLinkFromNIC(nic); llc != nil {
+				createOpts.LocalLinkConnection = llc
 			}
 		}
 	}

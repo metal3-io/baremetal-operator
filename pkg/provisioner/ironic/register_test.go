@@ -1926,3 +1926,173 @@ func TestRegisterNewNodeWithoutBootMACButWithHardwareData(t *testing.T) {
 	assert.True(t, portMACs["11:22:33:44:55:66"], "First NIC should have PXE enabled")
 	assert.False(t, portMACs["77:88:99:aa:bb:cc"], "Second NIC should have PXE disabled")
 }
+
+// TestRegisterNewNodeWithLLDPData tests that ports created from HardwareData
+// with LLDP information get local_link_connection set from the LLDP data.
+func TestRegisterNewNodeWithLLDPData(t *testing.T) {
+	host := makeHost()
+	host.Spec.BootMACAddress = "aa:bb:cc:dd:ee:ff"
+	host.Status.Provisioning.ID = ""
+
+	hardwareData := &metal3api.HardwareData{
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{
+				NIC: []metal3api.NIC{
+					{
+						MAC:  "aa:bb:cc:dd:ee:ff",
+						PXE:  true,
+						Name: "eth0",
+						LLDP: &metal3api.LLDP{
+							SwitchID:         "00:11:22:33:44:55",
+							PortID:           "Eth1/1",
+							SwitchSystemName: "switch-01",
+						},
+					},
+					{
+						MAC:  "11:22:33:44:55:66",
+						PXE:  false,
+						Name: "eth1",
+						LLDP: &metal3api.LLDP{
+							SwitchID: "00:11:22:33:44:55",
+							PortID:   "Eth1/2",
+						},
+					},
+					{
+						MAC:  "77:88:99:aa:bb:cc",
+						PXE:  false,
+						Name: "eth2",
+					},
+				},
+			},
+		},
+	}
+
+	createdPorts := []ports.Port{}
+
+	ironic := testserver.NewIronic(t)
+
+	ironic.AddDefaultResponse("/v1/nodes/myns"+nameSeparator+"myhost", "GET", http.StatusNotFound, "")
+	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
+	ironic.AddDefaultResponse("/v1/nodes/new-node-uuid", "PATCH", http.StatusOK,
+		`{"uuid": "new-node-uuid", "provision_state": "enroll"}`)
+	ironic.AddDefaultResponse("/v1/nodes/new-node-uuid/states/provision", "PUT", http.StatusAccepted, "{}")
+
+	ironic.Handler("/v1/nodes", setupNodeHandlerForRegister(string(nodes.Enroll)))
+	ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+	prov.config.enableNetworking = true
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		HardwareData: hardwareData,
+	}, false, false)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+	assert.Equal(t, "new-node-uuid", provID)
+	assert.Len(t, createdPorts, 3, "Expected 3 ports")
+
+	portsByMAC := make(map[string]ports.Port)
+	for _, port := range createdPorts {
+		portsByMAC[port.Address] = port
+	}
+
+	// eth0 has full LLDP — should have local_link_connection
+	eth0 := portsByMAC["aa:bb:cc:dd:ee:ff"]
+	assert.Equal(t, "00:11:22:33:44:55", eth0.LocalLinkConnection["switch_id"])
+	assert.Equal(t, "Eth1/1", eth0.LocalLinkConnection["port_id"])
+	assert.Equal(t, "switch-01", eth0.LocalLinkConnection["switch_info"])
+
+	// eth1 has partial LLDP — should have switch_id and port_id
+	eth1 := portsByMAC["11:22:33:44:55:66"]
+	assert.Equal(t, "00:11:22:33:44:55", eth1.LocalLinkConnection["switch_id"])
+	assert.Equal(t, "Eth1/2", eth1.LocalLinkConnection["port_id"])
+	assert.Nil(t, eth1.LocalLinkConnection["switch_info"])
+
+	// eth2 has no LLDP — should have no local_link_connection
+	eth2 := portsByMAC["77:88:99:aa:bb:cc"]
+	assert.Empty(t, eth2.LocalLinkConnection)
+}
+
+// TestRegisterNewNodeWithLLDPAndManualOverride tests that manual LocalLinkConnection
+// from NetworkInterface.SwitchPort takes precedence over LLDP data.
+func TestRegisterNewNodeWithLLDPAndManualOverride(t *testing.T) {
+	host := makeHost()
+	host.Spec.BootMACAddress = "aa:bb:cc:dd:ee:ff"
+	host.Status.Provisioning.ID = ""
+
+	hardwareData := &metal3api.HardwareData{
+		Spec: metal3api.HardwareDataSpec{
+			HardwareDetails: &metal3api.HardwareDetails{
+				NIC: []metal3api.NIC{
+					{
+						MAC:  "aa:bb:cc:dd:ee:ff",
+						PXE:  true,
+						Name: "eth0",
+						LLDP: &metal3api.LLDP{
+							SwitchID:         "lldp-switch-id",
+							PortID:           "lldp-port-id",
+							SwitchSystemName: "lldp-switch-name",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	createdPorts := []ports.Port{}
+
+	ironic := testserver.NewIronic(t)
+
+	ironic.AddDefaultResponse("/v1/nodes/myns"+nameSeparator+"myhost", "GET", http.StatusNotFound, "")
+	ironic.AddDefaultResponse("/v1/nodes/myhost", "GET", http.StatusNotFound, "")
+	ironic.AddDefaultResponse("/v1/nodes/new-node-uuid", "PATCH", http.StatusOK,
+		`{"uuid": "new-node-uuid", "provision_state": "enroll"}`)
+	ironic.AddDefaultResponse("/v1/nodes/new-node-uuid/states/provision", "PUT", http.StatusAccepted, "{}")
+
+	ironic.Handler("/v1/nodes", setupNodeHandlerForRegister(string(nodes.Enroll)))
+	ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	// Set manual LLC override via portConfigs
+	prov.portConfigs = map[string]*provisioner.PortConfig{
+		"aa:bb:cc:dd:ee:ff": {
+			LocalLinkConnection: &metal3api.SwitchPortIdentifier{
+				SwitchID:         "manual-switch-id",
+				PortID:           "manual-port-id",
+				SwitchSystemName: "manual-switch-name",
+			},
+		},
+	}
+	prov.config.enableNetworking = true
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		HardwareData: hardwareData,
+	}, false, false)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+	assert.Equal(t, "new-node-uuid", provID)
+	assert.Len(t, createdPorts, 1)
+
+	// Manual override should take precedence over LLDP
+	port := createdPorts[0]
+	assert.Equal(t, "manual-switch-id", port.LocalLinkConnection["switch_id"])
+	assert.Equal(t, "manual-port-id", port.LocalLinkConnection["port_id"])
+	assert.Equal(t, "manual-switch-name", port.LocalLinkConnection["switch_info"])
+}

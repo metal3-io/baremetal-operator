@@ -29,6 +29,31 @@ func buildLocalLinkFromConfig(config *metal3api.SwitchPortIdentifier) map[string
 	return llc
 }
 
+// buildLocalLinkFromNIC creates a local_link_connection map from stored LLDP data.
+func buildLocalLinkFromNIC(nic metal3api.NIC) map[string]interface{} {
+	if nic.LLDP == nil {
+		return nil
+	}
+
+	connection := make(map[string]interface{})
+
+	if nic.LLDP.SwitchID != "" {
+		connection["switch_id"] = nic.LLDP.SwitchID
+	}
+	if nic.LLDP.PortID != "" {
+		connection["port_id"] = nic.LLDP.PortID
+	}
+	if nic.LLDP.SwitchSystemName != "" {
+		connection["switch_info"] = nic.LLDP.SwitchSystemName
+	}
+
+	if len(connection) == 0 {
+		return nil
+	}
+
+	return connection
+}
+
 // buildSwitchPortFromConfig builds a map with snake_case keys suitable for
 // storing in Ironic's port extra field, independent of the struct's JSON tags.
 func buildSwitchPortFromConfig(config *metal3api.SwitchPortConfig) map[string]any {

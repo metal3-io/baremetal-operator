@@ -466,7 +466,7 @@ type FirmwareConfig struct {
 // SwitchPort defines the attributes required to identify a switch port.
 type SwitchPort struct {
 	// SwitchID is expected to be the management MAC address of the switch
-	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
 	SwitchID string `json:"switchID"`
 
 	// PortID is expected to be the configuration name of the port in the
@@ -488,7 +488,7 @@ type NetworkInterface struct {
 	// of a NIC discovered during inspection (see HardwareData resource).
 	// Mutually exclusive with Name.
 	// +optional
-	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
 	MACAddress string `json:"macAddress,omitempty"`
 
 	// HostNetworkAttachment references the HostNetworkAttachment for this interface

@@ -227,7 +227,7 @@ func TestValidateAttachment(t *testing.T) {
 
 func TestFindBMHReferences(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	attachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -349,7 +349,7 @@ func TestFindBMHReferences(t *testing.T) {
 
 func TestHNAValidateUpdate(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	oldAttachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -499,7 +499,7 @@ func TestHNAValidateUpdate(t *testing.T) {
 
 func TestHNAValidateDelete(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	attachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -590,7 +590,7 @@ func TestHNAValidateDelete(t *testing.T) {
 
 func TestFindBMHReferencesCrossNamespace(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	attachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -666,7 +666,7 @@ func TestFindBMHReferencesCrossNamespace(t *testing.T) {
 
 func TestHNAValidateUpdateFailClosed(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	oldAttachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -705,7 +705,7 @@ func TestHNAValidateUpdateFailClosed(t *testing.T) {
 
 func TestHNAValidateDeleteFailClosed(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	attachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -729,7 +729,7 @@ func TestHNAValidateDeleteFailClosed(t *testing.T) {
 
 func TestHNAValidateUpdateWarnings(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	oldAttachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-attachment", Namespace: "test-ns"},
@@ -777,7 +777,7 @@ func TestHNAValidateUpdateWarnings(t *testing.T) {
 
 func TestHNAValidateDeleteWarnings(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	attachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-attachment", Namespace: "test-ns"},
@@ -821,7 +821,7 @@ func TestHNAValidateDeleteWarnings(t *testing.T) {
 
 func TestFindBMHReferencesMultipleInterfacesSameBMH(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = metal3api.AddToScheme(scheme)
+	require.NoError(t, metal3api.AddToScheme(scheme))
 
 	attachment := &metal3api.HostNetworkAttachment{
 		ObjectMeta: metav1.ObjectMeta{Name: "shared-attachment", Namespace: "test-ns"},

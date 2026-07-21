@@ -19,11 +19,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -58,7 +58,7 @@ func (webhook *HostNetworkAttachment) validateUpdate(ctx context.Context, oldAtt
 	}
 
 	// Check if spec has changed
-	if reflect.DeepEqual(oldAttachment.Spec, newAttachment.Spec) {
+	if equality.Semantic.DeepEqual(oldAttachment.Spec, newAttachment.Spec) {
 		// No spec changes, allow the update (probably just metadata or status)
 		return warnings, nil
 	}

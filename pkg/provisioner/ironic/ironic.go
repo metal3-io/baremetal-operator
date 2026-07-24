@@ -788,6 +788,15 @@ func (p *ironicProvisioner) GetFirmwareComponents(ctx context.Context) ([]metal3
 			CurrentVersion:     fwc.CurrentVersion,
 			LastVersionFlashed: fwc.LastVersionFlashed,
 		}
+		if fwc.Vendor != nil {
+			component.Vendor = *fwc.Vendor
+		}
+		if fwc.Model != nil {
+			component.Model = *fwc.Model
+		}
+		if fwc.SerialNumber != nil {
+			component.SerialNumber = *fwc.SerialNumber
+		}
 		// Check if UpdatedAt is nil before adding it.
 		if fwc.UpdatedAt != nil {
 			component.UpdatedAt = metav1.Time{
@@ -795,7 +804,7 @@ func (p *ironicProvisioner) GetFirmwareComponents(ctx context.Context) ([]metal3
 			}
 		}
 		componentsInfo = append(componentsInfo, component)
-		p.log.V(1).Info("firmware component found for node", "component", fwc.Component, "node", p.nodeID)
+		p.log.V(1).Info("firmware component found for node", "component", fwc.Component, "vendor", component.Vendor, "model", component.Model, "serialNumber", component.SerialNumber, "node", p.nodeID)
 	}
 
 	return componentsInfo, err

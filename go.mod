@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/cpuguy83/dockercfg v0.3.2
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/google/uuid v1.6.0
 	github.com/gophercloud/gophercloud/v2 v2.13.0

@@ -1,7 +1,10 @@
 package vbmctlapi
 
 import (
+	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v2"
 )
 
 func TestVMConfigDefaults(t *testing.T) {
@@ -48,6 +51,42 @@ func TestVMConfigDefaults(t *testing.T) {
 				t.Errorf("VCPUs: got %d, want %d", result.VCPUs, tt.expected.VCPUs)
 			}
 		})
+	}
+}
+
+func TestBMCEmulatorConfigMarshalYAMLUsesLegacyFlatShapeForValues(t *testing.T) {
+	cfg := BMCEmulatorConfig{
+		Type: BMCEmulatorTypeSushyTools,
+		SushyToolsConfig: SushyToolsConfig{
+			ConfigFile:    "/etc/sushy-tools.conf",
+			ListenAddress: "192.0.2.10",
+			ListenPort:    8001,
+			StoragePool:   "pool-1",
+			LibvirtURI:    "qemu:///system",
+		},
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("yaml.Marshal returned error: %v", err)
+	}
+
+	output := string(data)
+	for _, expected := range []string{
+		"type: sushy-tools",
+		"configFile: /etc/sushy-tools.conf",
+		"listenAddress: 192.0.2.10",
+		"listenPort: 8001",
+		"storagePool: pool-1",
+		"libvirtUri: qemu:///system",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("expected marshaled YAML to contain %q, got:\n%s", expected, output)
+		}
+	}
+
+	if strings.Contains(output, "sushyToolsConfig:") {
+		t.Fatalf("expected legacy flat YAML shape, got:\n%s", output)
 	}
 }
 

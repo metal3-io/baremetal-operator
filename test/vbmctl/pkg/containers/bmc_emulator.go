@@ -5,12 +5,12 @@ package containers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
-	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	container "github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 )
@@ -70,7 +70,7 @@ func deleteEmulatorInstance(ctx context.Context, containerName string) error {
 
 func createVBMCEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorConfig) error {
 	// Fill in configuration
-	cfg.ContainerName = ensureVbmctlPrefix(config.BMCEmulatorTypeVBMC)
+	cfg.ContainerName = ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeVBMC)
 	cfg.VolumeMounts = []vbmctlapi.VolumeMount{
 		{HostPath: "/var/run/libvirt/libvirt-sock", BindSpec: "/var/run/libvirt/libvirt-sock"},
 		{HostPath: "/var/run/libvirt/libvirt-sock-ro", BindSpec: "/var/run/libvirt/libvirt-sock-ro"},
@@ -82,26 +82,27 @@ func createVBMCEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorC
 }
 
 func deleteVBMCEmulatorInstance(ctx context.Context) error {
-	return deleteEmulatorInstance(ctx, ensureVbmctlPrefix(config.BMCEmulatorTypeVBMC))
+	return deleteEmulatorInstance(ctx, ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeVBMC))
 }
 
 func getVBMCEmulatorInfo(ctx context.Context) (info string, err error) {
-	return GetContainerInfo(ctx, ensureVbmctlPrefix(config.BMCEmulatorTypeVBMC))
+	return GetContainerInfo(ctx, ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeVBMC))
 }
 
 func createSushyToolsEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorConfig) error {
 	// Validate that the config file if it is specified exists and is a file
-	if cfg.ConfigFile != "" {
-		info, err := os.Stat(cfg.ConfigFile)
+	sushyCfg := &cfg.SushyToolsConfig
+	if sushyCfg.ConfigFile != "" {
+		info, err := os.Stat(sushyCfg.ConfigFile)
 		if err != nil {
-			return fmt.Errorf("failed to access sushy-tools config file %q: %w", cfg.ConfigFile, err)
+			return fmt.Errorf("failed to access sushy-tools config file %q: %w", sushyCfg.ConfigFile, err)
 		} else if info.IsDir() {
-			return fmt.Errorf("sushy-tools config file %q is a directory", cfg.ConfigFile)
+			return fmt.Errorf("sushy-tools config file %q is a directory", sushyCfg.ConfigFile)
 		}
 	}
 
 	// Fill in configuration
-	cfg.ContainerName = ensureVbmctlPrefix(config.BMCEmulatorTypeSushyTools)
+	cfg.ContainerName = ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeSushyTools)
 	cfg.VolumeMounts = []vbmctlapi.VolumeMount{
 		{HostPath: "/var/run/libvirt", BindSpec: "/var/run/libvirt:Z"},
 	}
@@ -111,40 +112,44 @@ func createSushyToolsEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmu
 	// If a config file is specified, set the environment variable and volume mount for it.
 	// We use ":Z" in the bind spec to ensure proper SELinux labeling in case the host is
 	// running with SELinux enabled.
-	if cfg.ConfigFile != "" {
+	if sushyCfg.ConfigFile != "" {
 		cfg.Env["SUSHY_EMULATOR_CONFIG"] = "/etc/sushy/sushy-emulator.conf"
-		cfg.VolumeMounts = append(cfg.VolumeMounts, vbmctlapi.VolumeMount{HostPath: cfg.ConfigFile, BindSpec: "/etc/sushy/sushy-emulator.conf:Z"})
+		cfg.VolumeMounts = append(cfg.VolumeMounts, vbmctlapi.VolumeMount{HostPath: sushyCfg.ConfigFile, BindSpec: "/etc/sushy/sushy-emulator.conf:Z"})
 	}
 
 	// Set command-line arguments for the emulator based on the provided configuration.
-	if cfg.ListenAddress != "" {
-		cfg.Cmd = append(cfg.Cmd, "--interface", cfg.ListenAddress)
+	if sushyCfg.ListenAddress != "" {
+		cfg.Cmd = append(cfg.Cmd, "--interface", sushyCfg.ListenAddress)
 	}
 
-	if cfg.ListenPort != 0 {
-		cfg.Cmd = append(cfg.Cmd, "--port", strconv.FormatUint(uint64(cfg.ListenPort), 10))
+	if sushyCfg.ListenPort != 0 {
+		cfg.Cmd = append(cfg.Cmd, "--port", strconv.FormatUint(uint64(sushyCfg.ListenPort), 10))
 	}
 
 	// Overwrite specific configuration with values provided by vbmctl
-	cfg.Cmd = append(cfg.Cmd, "--storage-pool", cfg.StoragePool)
-	cfg.Cmd = append(cfg.Cmd, "--libvirt-uri", cfg.LibvirtURI)
+	cfg.Cmd = append(cfg.Cmd, "--storage-pool", sushyCfg.StoragePool)
+	cfg.Cmd = append(cfg.Cmd, "--libvirt-uri", sushyCfg.LibvirtURI)
 
 	return createEmulatorInstance(ctx, cfg)
 }
 
 func deleteSushyToolsEmulatorInstance(ctx context.Context) error {
-	return deleteEmulatorInstance(ctx, ensureVbmctlPrefix(config.BMCEmulatorTypeSushyTools))
+	return deleteEmulatorInstance(ctx, ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeSushyTools))
 }
 
 func getSushyToolsEmulatorInfo(ctx context.Context) (info string, err error) {
-	return GetContainerInfo(ctx, ensureVbmctlPrefix(config.BMCEmulatorTypeSushyTools))
+	return GetContainerInfo(ctx, ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeSushyTools))
 }
 
 func CreateBMCEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorConfig) error {
+	if cfg == nil {
+		return errors.New("invalid BMC emulator configuration")
+	}
+
 	switch cfg.Type {
-	case config.BMCEmulatorTypeVBMC:
+	case vbmctlapi.BMCEmulatorTypeVBMC:
 		return createVBMCEmulatorInstance(ctx, cfg)
-	case config.BMCEmulatorTypeSushyTools:
+	case vbmctlapi.BMCEmulatorTypeSushyTools:
 		return createSushyToolsEmulatorInstance(ctx, cfg)
 	default:
 		return fmt.Errorf("unsupported BMC emulator type: %s", cfg.Type)
@@ -153,9 +158,9 @@ func CreateBMCEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorCo
 
 func DeleteBMCEmulatorInstance(ctx context.Context, emulatorType string) error {
 	switch emulatorType {
-	case config.BMCEmulatorTypeVBMC:
+	case vbmctlapi.BMCEmulatorTypeVBMC:
 		return deleteVBMCEmulatorInstance(ctx)
-	case config.BMCEmulatorTypeSushyTools:
+	case vbmctlapi.BMCEmulatorTypeSushyTools:
 		return deleteSushyToolsEmulatorInstance(ctx)
 	default:
 		return fmt.Errorf("unsupported BMC emulator type: %s", emulatorType)
@@ -164,9 +169,9 @@ func DeleteBMCEmulatorInstance(ctx context.Context, emulatorType string) error {
 
 func GetBMCEmulatorInfo(ctx context.Context, emulatorType string) (info string, err error) {
 	switch emulatorType {
-	case config.BMCEmulatorTypeVBMC:
+	case vbmctlapi.BMCEmulatorTypeVBMC:
 		return getVBMCEmulatorInfo(ctx)
-	case config.BMCEmulatorTypeSushyTools:
+	case vbmctlapi.BMCEmulatorTypeSushyTools:
 		return getSushyToolsEmulatorInfo(ctx)
 	default:
 		return "", fmt.Errorf("unsupported BMC emulator type: %s", emulatorType)

@@ -227,7 +227,7 @@ func main() {
     }
 
     // Create a network
-    network, err := networkManager.CreateNetwork(ctx, vbmctlapi.NetworkConfig{
+    network, err := networkManager.CreateNetwork(ctx, api.NetworkConfig{
         Name:    "baremetal-e2e",
         Bridge:  "metal3",
         Address: "192.168.222.1",
@@ -279,11 +279,15 @@ func main() {
     }
 
     // Create a BMC emulator
-    err = containers.CreateBMCEmulatorInstance(ctx, &api.BMCEmulatorConfig{
-        Image:         "my-bmc-emulator:latest",
-        Type:          "sushy-tools",
+    emulatorConfig := &api.BMCEmulatorConfig{
+        Type:  "sushy-tools",
+        Image: "my-bmc-emulator:latest",
+    }
+    emulatorConfig.SushyToolsConfig = api.SushyToolsConfig{
         ConfigFile:    "/path/to/config/file",
-    })
+    }
+
+    err = containers.CreateBMCEmulatorInstance(ctx, emulatorConfig)
     if err != nil {
         log.Fatal(err)
     }

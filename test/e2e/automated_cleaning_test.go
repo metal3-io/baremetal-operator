@@ -201,6 +201,12 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning", "
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("file not found"), "Test file /mnt/data/test_file_vdb.txt should have been cleaned")
 
+		By("Disabling cleaning to allow quick deletion")
+		helper, err = patch.NewHelper(&bmh, clusterProxy.GetClient())
+		Expect(err).NotTo(HaveOccurred())
+		bmh.Spec.AutomatedCleaningMode = metal3api.CleaningModeDisabled
+		Expect(helper.Patch(ctx, &bmh)).To(Succeed())
+
 	})
 	AfterEach(func() {
 		CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))

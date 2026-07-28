@@ -18,7 +18,7 @@ require (
 	golang.org/x/sys v0.47.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.35.7
-	k8s.io/apiextensions-apiserver v0.35.6
+	k8s.io/apiextensions-apiserver v0.35.7
 	k8s.io/apimachinery v0.35.7
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
@@ -65,6 +65,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobuffalo/flect v1.0.3 // indirect
 	github.com/google/btree v1.1.3 // indirect
+	github.com/google/cel-go v0.29.0 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-github/v82 v82.0.0 // indirect
@@ -130,7 +131,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.35.6 // indirect
+	k8s.io/apiserver v0.35.7 // indirect
 	k8s.io/client-go v0.35.7 // indirect
 	k8s.io/cluster-bootstrap v0.35.4 // indirect
 	k8s.io/component-base v0.35.7 // indirect

@@ -76,7 +76,7 @@ const (
 	DefaultImageServerContainerName = "vbmctl-image-server"
 
 	// DefaultBMCEmulatorType is the default BMC emulator type.
-	DefaultBMCEmulatorType = BMCEmulatorTypeVBMC
+	DefaultBMCEmulatorType = vbmctlapi.BMCEmulatorTypeVBMC
 
 	// DefaultBMCEmulatorVBMCImage is the default container image for the VBMC BMC emulator.
 	DefaultBMCEmulatorVBMCImage = "quay.io/metal3-io/vbmc"
@@ -86,15 +86,6 @@ const (
 
 	// DefaultBMCEmulatorSushyToolsListenPort is the default listen port for the sushy-tools BMC emulator.
 	DefaultBMCEmulatorSushyToolsListenPort = 8000
-)
-
-// BMC emulator types.
-const (
-	// BMC emulator type: vbmc.
-	BMCEmulatorTypeVBMC = "vbmc"
-
-	// BMC emulator type: sushy-tools.
-	BMCEmulatorTypeSushyTools = "sushy-tools"
 )
 
 // Config is the top-level configuration for vbmctl.
@@ -291,17 +282,18 @@ func (c *Config) Validate() error {
 		if c.Spec.BMCEmulator.Type == "" {
 			return errors.New("BMC emulator type is required")
 		}
-		if c.Spec.BMCEmulator.Type != BMCEmulatorTypeVBMC && c.Spec.BMCEmulator.Type != BMCEmulatorTypeSushyTools {
+		if c.Spec.BMCEmulator.Type != vbmctlapi.BMCEmulatorTypeVBMC && c.Spec.BMCEmulator.Type != vbmctlapi.BMCEmulatorTypeSushyTools {
 			return fmt.Errorf("unsupported BMC emulator type: %s", c.Spec.BMCEmulator.Type)
 		}
 		if c.Spec.BMCEmulator.Image == "" {
 			return errors.New("BMC emulator container image is required")
 		}
-		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools {
-			if c.Spec.BMCEmulator.ListenAddress == "" && c.Spec.BMCEmulator.ConfigFile == "" {
+		if c.Spec.BMCEmulator.Type == vbmctlapi.BMCEmulatorTypeSushyTools {
+			sushy := &c.Spec.BMCEmulator.SushyToolsConfig
+			if sushy.ListenAddress == "" && sushy.ConfigFile == "" {
 				return errors.New("either listen address or config file must be specified for sushy-tools BMC emulator")
 			}
-			if c.Spec.BMCEmulator.ListenPort == 0 && c.Spec.BMCEmulator.ConfigFile == "" {
+			if sushy.ListenPort == 0 && sushy.ConfigFile == "" {
 				return errors.New("either listen port or config file must be specified for sushy-tools BMC emulator")
 			}
 		}
@@ -418,25 +410,28 @@ func (c *Config) ApplyDefaults() {
 		}
 		if c.Spec.BMCEmulator.Image == "" {
 			switch c.Spec.BMCEmulator.Type {
-			case BMCEmulatorTypeVBMC:
+			case vbmctlapi.BMCEmulatorTypeVBMC:
 				c.Spec.BMCEmulator.Image = DefaultBMCEmulatorVBMCImage
-			case BMCEmulatorTypeSushyTools:
+			case vbmctlapi.BMCEmulatorTypeSushyTools:
 				c.Spec.BMCEmulator.Image = DefaultBMCEmulatorSushyToolsImage
 			default:
 				// If the type is unrecognized, we won't set a default image
 			}
 		}
-		if c.Spec.BMCEmulator.Type == BMCEmulatorTypeSushyTools {
-			if c.Spec.BMCEmulator.ListenPort == 0 && c.Spec.BMCEmulator.ConfigFile == "" {
-				c.Spec.BMCEmulator.ListenPort = DefaultBMCEmulatorSushyToolsListenPort
+		if c.Spec.BMCEmulator.Type == vbmctlapi.BMCEmulatorTypeSushyTools {
+			sushy := &c.Spec.BMCEmulator.SushyToolsConfig
+			if sushy.ListenPort == 0 && sushy.ConfigFile == "" {
+				sushy.ListenPort = DefaultBMCEmulatorSushyToolsListenPort
 			}
-			if c.Spec.BMCEmulator.ListenAddress == "" && c.Spec.BMCEmulator.ConfigFile == "" {
-				c.Spec.BMCEmulator.ListenAddress = DefaultNetworkAddress
+			if sushy.ListenAddress == "" && sushy.ConfigFile == "" {
+				sushy.ListenAddress = DefaultNetworkAddress
 			}
+			sushy.StoragePool = c.Spec.Pool.Name
+			sushy.LibvirtURI = c.Spec.Libvirt.URI
 		}
-		// Set storage pool and libvirt URI for BMC emulator to match the main config
-		c.Spec.BMCEmulator.StoragePool = c.Spec.Pool.Name
-		c.Spec.BMCEmulator.LibvirtURI = c.Spec.Libvirt.URI
+		if c.Spec.BMCEmulator.Type == vbmctlapi.BMCEmulatorTypeVBMC {
+			c.Spec.BMCEmulator.VBMCConfig = vbmctlapi.VBMCConfig{}
+		}
 	}
 
 	if len(c.Spec.Networks) > 0 {

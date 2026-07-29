@@ -192,16 +192,6 @@ Example configuration:
 				fmt.Println("No image server configuration found in the config file.")
 			}
 
-			if cfg.Spec.BMCEmulator != nil {
-				err = containers.CreateBMCEmulatorInstance(ctx, cfg.Spec.BMCEmulator)
-				if err != nil {
-					return err
-				}
-			} else {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("No BMC emulator configuration found in the config file.")
-			}
-
 			conn, err := libvirtgo.NewConnect(cfg.Spec.Libvirt.URI)
 			if err != nil {
 				return fmt.Errorf("failed to connect to libvirt: %w", err)
@@ -245,6 +235,16 @@ Example configuration:
 			for _, pair := range cfg.Spec.VethPairs {
 				//nolint:forbidigo // CLI output is intentional
 				fmt.Printf("  - between %s and %s\n", pair.Link1, pair.Link2)
+			}
+
+			if cfg.Spec.BMCEmulator != nil {
+				err = containers.CreateBMCEmulatorInstance(ctx, cfg.Spec.BMCEmulator)
+				if err != nil {
+					return err
+				}
+			} else {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Println("No BMC emulator configuration found in the config file.")
 			}
 
 			vmManager, err := libvirt.NewVMManager(conn, libvirt.VMManagerOptions{

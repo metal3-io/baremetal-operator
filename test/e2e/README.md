@@ -155,6 +155,9 @@ both redfish and ipmi protocols in CI.
   live-ISO image.
 - Automated cleaning: Check that when automated cleaning is enabled the disks are
   cleaned after deprovision.
+- Networking: Check that switch port configurations specified via NetworkInterfaces
+  and HostNetworkAttachments are correctly resolved, validated, and applied to
+  Ironic ports during registration.
 
 **Optional tests:**
 

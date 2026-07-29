@@ -729,8 +729,8 @@ spec:
                     applied to an Ironic port for a network interface.
                   properties:
                     localLinkConnection:
-                      description: SwitchPortIdentifier defines the attributes required
-                        to identify a switch port.
+                      description: LocalLinkConnection is the local link connection
+                        data from Ironic
                       properties:
                         portID:
                           description: |-
@@ -754,9 +754,8 @@ spec:
                       description: Name is the network interface name (e.g., "eno1np0")
                       type: string
                     switchPortConfig:
-                      description: |-
-                        SwitchPortConfig represents the switchport configuration for individual
-                        node ports.
+                      description: SwitchPortConfig is the switch port configuration
+                        that was applied
                       properties:
                         allowedVLANs:
                           description: AllowedVLANs is the list of allowed tagged

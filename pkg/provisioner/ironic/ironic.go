@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
+	"github.com/gophercloud/gophercloud/v2/pagination"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -75,6 +77,8 @@ type ironicConfig struct {
 	maxBusyHosts                          int
 	externalURL                           string
 	provNetDisabled                       bool
+	enableNetworking                      bool
+	networkInterface                      string
 }
 
 // Provisioner implements the provisioning.Provisioner interface
@@ -88,6 +92,8 @@ type ironicProvisioner struct {
 	nodeID string
 	// the address of the BMC
 	bmcAddress string
+	// port configurations keyed by MAC address
+	portConfigs map[string]*provisioner.PortConfig
 	// whether to disable SSL certificate verification
 	disableCertVerification bool
 	// credentials to log in to the BMC
@@ -175,14 +181,24 @@ func (p *ironicProvisioner) getNode(ctx context.Context) (*nodes.Node, error) {
 	return nil, fmt.Errorf("failed to find node by ID %s: %w", p.nodeID, err)
 }
 
-// get ports in Ironic with address or node uuid filter.
-func (p *ironicProvisioner) getPorts(ctx context.Context, nodeUUID string, macAddress string) ([]ports.Port, error) {
-	opts := ports.ListOpts{
-		Fields: []string{
+type portFieldLevel bool
+
+const (
+	portBasicFields  portFieldLevel = false
+	portDetailFields portFieldLevel = true
+)
+
+// getPorts returns ports in Ironic filtered by node UUID and/or MAC address.
+// portBasicFields returns only uuid, node_uuid, and address.
+// portDetailFields returns all fields (needed for extra, local_link_connection, etc.).
+func (p *ironicProvisioner) getPorts(ctx context.Context, nodeUUID string, macAddress string, detail portFieldLevel) ([]ports.Port, error) {
+	opts := ports.ListOpts{}
+	if !detail {
+		opts.Fields = []string{
 			"node_uuid",
 			"uuid",
 			"address",
-		},
+		}
 	}
 	if nodeUUID != "" {
 		opts.NodeUUID = nodeUUID
@@ -191,7 +207,14 @@ func (p *ironicProvisioner) getPorts(ctx context.Context, nodeUUID string, macAd
 		opts.Address = macAddress
 	}
 
-	allPages, err := ports.List(p.client, opts).AllPages(ctx)
+	var pager pagination.Pager
+	if detail {
+		pager = ports.ListDetail(p.client, opts)
+	} else {
+		pager = ports.List(p.client, opts)
+	}
+
+	allPages, err := pager.AllPages(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to page over list of ports: %w", err)
 	}
@@ -233,7 +256,7 @@ func (p *ironicProvisioner) findExistingHost(ctx context.Context, bootMACAddress
 	// Skip MAC-based lookup if bootMACAddress is empty to avoid false conflicts
 	if bootMACAddress != "" {
 		p.log.Info("looking for existing node by MAC", "MAC", bootMACAddress)
-		allPorts, err := p.getPorts(ctx, "", bootMACAddress)
+		allPorts, err := p.getPorts(ctx, "", bootMACAddress, portBasicFields)
 
 		if err != nil {
 			p.log.Info("failed to find an existing port with address", "MAC", bootMACAddress)
@@ -266,11 +289,12 @@ func (p *ironicProvisioner) findExistingHost(ctx context.Context, bootMACAddress
 	return nil, nil //nolint:nilnil
 }
 
-func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, macAddress string, pxe bool) error {
-	p.log.Info("creating ironic port for node", "NodeUUID", uuid, "MAC", macAddress, "PXE status", pxe)
+func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, nic metal3api.NIC) error {
+	macAddress := strings.ToLower(nic.MAC)
+	p.log.Info("creating ironic port for node", "NodeUUID", uuid, "MAC", macAddress, "PXE status", nic.PXE)
 
 	// checking if port already exists in Ironic
-	portsList, errPortList := p.getPorts(ctx, "", macAddress)
+	portsList, errPortList := p.getPorts(ctx, "", macAddress, portBasicFields)
 	if errPortList != nil {
 		p.log.Info("failed to look for existing ports in Ironic", "MAC", macAddress)
 		return errPortList
@@ -285,16 +309,95 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, mac
 		return nil
 	}
 
-	_, err := ports.Create(
-		ctx,
-		p.client,
-		ports.CreateOpts{
-			NodeUUID:   uuid,
-			Address:    macAddress,
-			PXEEnabled: &pxe,
-		}).Extract()
+	createOpts := ports.CreateOpts{
+		NodeUUID:   uuid,
+		Address:    macAddress,
+		PXEEnabled: &nic.PXE,
+	}
+
+	// Set port configuration if networking is enabled
+	if p.config.enableNetworking {
+		if portConfig, found := p.portConfigs[macAddress]; found && portConfig != nil {
+			createOpts.Extra = map[string]interface{}{
+				"switchport": buildSwitchPortFromConfig(&portConfig.SwitchPortConfig),
+			}
+			if portConfig.SwitchPortIdentifier != nil {
+				createOpts.LocalLinkConnection = buildLocalLinkFromConfig(portConfig.SwitchPortIdentifier)
+			}
+		}
+
+		// Fall back to LLDP data from inspection if no manual LLC was set
+		if createOpts.LocalLinkConnection == nil {
+			if llc := buildLocalLinkFromNIC(nic); llc != nil {
+				createOpts.LocalLinkConnection = llc
+			}
+		}
+	}
+
+	_, err := ports.Create(ctx, p.client, createOpts).Extract()
 	if err != nil {
 		return fmt.Errorf("failed to create ironic port for node %s, MAC: %s: %w", uuid, macAddress, err)
+	}
+
+	return nil
+}
+
+// updateNodePort updates port with local_link_connection and switchport data.
+func (p *ironicProvisioner) updateNodePort(ctx context.Context, existingPort ports.Port, portConfig *provisioner.PortConfig) error {
+	var updateOpts ports.UpdateOpts
+
+	// Add switch port config if available; otherwise remove
+	if portConfig != nil {
+		existing, exists := existingPort.Extra["switchport"]
+		equal := false
+		if exists && existing != nil {
+			var err error
+			equal, err = switchPortConfigsEqual(existing, &portConfig.SwitchPortConfig)
+			if err != nil {
+				return fmt.Errorf("failed to parse switchport config for port %s: %w", existingPort.UUID, err)
+			}
+		}
+		if !equal {
+			op := ports.AddOp
+			if exists {
+				op = ports.ReplaceOp
+			}
+			updateOpts = append(updateOpts, ports.UpdateOperation{
+				Op:    op,
+				Path:  "/extra/switchport",
+				Value: buildSwitchPortFromConfig(&portConfig.SwitchPortConfig),
+			})
+		}
+
+		if portConfig.SwitchPortIdentifier != nil {
+			llc := buildLocalLinkFromConfig(portConfig.SwitchPortIdentifier)
+			if llc != nil && !reflect.DeepEqual(existingPort.LocalLinkConnection, llc) {
+				op := ports.AddOp
+				if len(existingPort.LocalLinkConnection) > 0 {
+					op = ports.ReplaceOp
+				}
+				updateOpts = append(updateOpts, ports.UpdateOperation{
+					Op:    op,
+					Path:  "/local_link_connection",
+					Value: llc,
+				})
+			}
+		}
+	} else if existingPort.Extra["switchport"] != nil {
+		updateOpts = append(updateOpts, ports.UpdateOperation{
+			Op:   ports.RemoveOp,
+			Path: "/extra/switchport",
+		})
+
+		// NOTE(alegacy): Don't remove any local_link_connection data as it
+		// may have been provided by LLDP.
+	}
+
+	if len(updateOpts) > 0 {
+		_, err := ports.Update(ctx, p.client, existingPort.UUID, updateOpts).Extract()
+		if err != nil {
+			return fmt.Errorf("failed to update attributes for port %s: %w", existingPort.UUID, err)
+		}
 	}
 
 	return nil

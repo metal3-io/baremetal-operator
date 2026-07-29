@@ -836,8 +836,10 @@ type OperationHistory struct {
 // applied to an Ironic port for a network interface.
 type AppliedPortConfig struct {
 	// Name is the network interface name (e.g., "eno1np0")
-	Name             string           `json:"name"`
+	Name string `json:"name"`
+	// SwitchPortConfig is the switch port configuration that was applied
 	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
+	// LocalLinkConnection is the local link connection data from Ironic
 	// +optional
 	LocalLinkConnection *SwitchPortIdentifier `json:"localLinkConnection,omitempty"`
 }

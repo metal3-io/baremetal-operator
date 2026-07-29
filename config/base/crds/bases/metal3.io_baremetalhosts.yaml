@@ -733,8 +733,9 @@ spec:
                       description: Name is the network interface name (e.g., "eno1np0")
                       type: string
                     switchPort:
-                      description: SwitchPortIdentifier defines the attributes required
-                        to identify a switch port.
+                      description: |-
+                        SwitchPort is the identifier of the switch port that was
+                        configured.  If not provided then LLDP information will be used.
                       properties:
                         portID:
                           description: |-
@@ -755,9 +756,8 @@ spec:
                       - switchID
                       type: object
                     switchPortConfig:
-                      description: |-
-                        SwitchPortConfig represents the switchport configuration for individual
-                        node ports.
+                      description: SwitchPortConfig is the switch port configuration
+                        that was applied
                       properties:
                         allowedVLANs:
                           description: AllowedVLANs is the list of allowed tagged

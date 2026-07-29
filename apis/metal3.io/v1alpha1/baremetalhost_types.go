@@ -841,8 +841,11 @@ type OperationHistory struct {
 // applied to an Ironic port for a network interface.
 type AppliedNetworkAttachmentConfig struct {
 	// Name is the network interface name (e.g., "eno1np0")
-	Name             string           `json:"name"`
+	Name string `json:"name"`
+	// SwitchPortConfig is the switch port configuration that was applied
 	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
+	// SwitchPort is the identifier of the switch port that was
+	// configured.  If not provided then LLDP information will be used.
 	// +optional
 	SwitchPort *SwitchPortIdentifier `json:"switchPort,omitempty"`
 }

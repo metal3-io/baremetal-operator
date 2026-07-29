@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
+	"strings"
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
-	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/ports"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -49,6 +51,8 @@ func bmcAddressMatches(ironicNode *nodes.Node, driverInfo map[string]any) bool {
 // it has previously been using, without implying that either set of
 // credentials is correct.
 func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.ManagementAccessData, credentialsChanged, restartOnFailure bool) (result provisioner.Result, provID string, err error) {
+	p.portConfigs = data.PortConfigs
+
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {
 		result, err = operationFailed(err.Error())
@@ -155,6 +159,10 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// The updater only updates disable_power_off if it has changed
 		updater.SetTopLevelOpt("disable_power_off", data.DisablePowerOff, ironicNode.DisablePowerOff)
 
+		if p.config.enableNetworking {
+			updater.SetTopLevelOpt("network_interface", p.config.networkInterface, ironicNode.NetworkInterface)
+		}
+
 		// Update cpu_arch in Properties if specified.
 		// This is important for multi-arch deployments to ensure the correct
 		// architecture-specific IPA kernel/ramdisk is used via deploy_kernel_by_arch.
@@ -179,7 +187,10 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// Try to create ports from two sources
 		// bootMACAddress if available
 		// HardwareData whenever inspection data is available.
-		err = p.createPortsForNode(ctx, ironicNode, data.HardwareData)
+		// Avoid updating existing ports during active operations
+		// (provisioning, deprovisioning, etc.) to prevent disruption.
+		updateExisting := provisioner.CanUpdateSwitchPortConfig(data.State)
+		err = p.createPortsForNode(ctx, ironicNode, data.HardwareData, updateExisting)
 		if err != nil {
 			result, err = transientError(err)
 			return result, provID, err
@@ -298,6 +309,10 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 		},
 	}
 
+	if p.config.enableNetworking {
+		nodeCreateOpts.NetworkInterface = p.config.networkInterface
+	}
+
 	ironicNode, err = nodes.Create(ctx, p.client, nodeCreateOpts).Extract()
 	if err == nil {
 		p.publisher("Registered", "Registered new host")
@@ -311,7 +326,7 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 	return ironicNode, false, nil
 }
 
-func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *nodes.Node, hardwareData *metal3api.HardwareData) error {
+func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *nodes.Node, hardwareData *metal3api.HardwareData, updateExisting bool) error {
 	var nics []metal3api.NIC
 	if hardwareData != nil && hardwareData.Spec.HardwareDetails != nil {
 		nics = hardwareData.Spec.HardwareDetails.NIC
@@ -322,34 +337,65 @@ func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *
 		return nil
 	}
 
-	ironicNodePorts, err := p.getPorts(ctx, ironicNode.UUID, "")
+	needDetail := updateExisting && p.config.enableNetworking && p.portConfigs != nil
+	detail := portFieldLevel(needDetail)
+	ironicNodePorts, err := p.getPorts(ctx, ironicNode.UUID, "", detail)
 	if err != nil {
 		return err
 	}
 
-	ironicNodePortsList := map[string]ports.Port{}
+	// Build a map tracking which MAC addresses are already present in Ironic
+	ironicNodePortsList := map[string]bool{}
 	for _, port := range ironicNodePorts {
-		ironicNodePortsList[port.Address] = port
+		ironicNodePortsList[strings.ToLower(port.Address)] = true
 	}
 
-	// Mac/PXE status map
-	portMacsToCreate := map[string]bool{}
+	// Build a map of ports to create from NICs in the hardware data that
+	// currently are not in Ironic.
+	portsToCreate := make(map[string]metal3api.NIC)
 	for _, nic := range nics {
-		if _, ok := ironicNodePortsList[nic.MAC]; nic.MAC != "" && !ok {
-			portMacsToCreate[nic.MAC] = nic.PXE
+		mac := strings.ToLower(nic.MAC)
+		if _, ok := ironicNodePortsList[mac]; mac != "" && !ok {
+			if strings.EqualFold(p.bootMACAddress, mac) {
+				nic.PXE = true
+			}
+			portsToCreate[mac] = nic
 		}
 	}
 
-	if _, ok := ironicNodePortsList[p.bootMACAddress]; p.bootMACAddress != "" && !ok {
-		portMacsToCreate[p.bootMACAddress] = true
+	bootMACAddress := strings.ToLower(p.bootMACAddress)
+	if _, ok := ironicNodePortsList[bootMACAddress]; bootMACAddress != "" && !ok {
+		if _, ok := portsToCreate[bootMACAddress]; !ok {
+			portsToCreate[bootMACAddress] = metal3api.NIC{
+				MAC: bootMACAddress,
+				PXE: true,
+			}
+		}
 	}
 
-	p.log.Info("creating ports for node", "nodeUUID", ironicNode.UUID, "MACs", portMacsToCreate)
+	p.log.Info("creating ports for node", "nodeUUID", ironicNode.UUID, "MACs", slices.Collect(maps.Keys(portsToCreate)))
 
-	for mac, pxe := range portMacsToCreate {
-		err := p.createNodePort(ctx, ironicNode.UUID, mac, pxe)
+	for _, nic := range portsToCreate {
+		err = p.createNodePort(ctx, ironicNode.UUID, nic)
 		if err != nil {
 			return err
+		}
+	}
+
+	// Update switchport configs on existing ports that have drifted.
+	// The detail flag on the initial listing ensures we have the Extra
+	// and LocalLinkConnection fields needed for comparison.
+	if updateExisting && p.config.enableNetworking && p.portConfigs != nil {
+		p.log.Info("updating ports for node", "nodeUUID", ironicNode.UUID, "MACs", slices.Collect(maps.Keys(ironicNodePortsList)))
+		for _, port := range ironicNodePorts {
+			mac := strings.ToLower(port.Address)
+			// Absent keys yield nil, which tells updateNodePort to remove
+			// any existing switchport config — this is intentional cleanup
+			// for ports no longer referenced by a NetworkInterface.
+			config := p.portConfigs[mac]
+			if err := p.updateNodePort(ctx, port, config); err != nil {
+				return err
+			}
 		}
 	}
 

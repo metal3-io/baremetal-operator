@@ -98,19 +98,30 @@ fi
 
 # Image server variables
 CIRROS_VERSION="0.6.2"
+SYSRESCUE_VERSION="11.00"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
-ISO_FILE="systemrescue-11.00-amd64.iso"
+ISO_FILE="systemrescue-${SYSRESCUE_VERSION}-amd64.iso"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
 export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
 export IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 mkdir -p "${IMAGE_DIR}"
 
+cache_image() {
+    wget --no-verbose -P "${IMAGE_DIR}/" "$@"
+}
+
+ARTIFACTORY_ROOT=https://artifactory.nordix.org/artifactory
+
 ## Download disk images
 if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
-    wget --no-verbose -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
+    if ! cache_image "${ARTIFACTORY_ROOT}/metal3/images/iso/${IMAGE_FILE}"; then
+        cache_image https://download.cirros-cloud.net/"${CIRROS_VERSION}/${IMAGE_FILE}"
+    fi
 fi
 if [[ ! -f "${IMAGE_DIR}/${ISO_FILE}" ]]; then
-    wget --no-verbose -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/"${ISO_FILE}"
+    if ! cache_image "${ARTIFACTORY_ROOT}/metal3/images/sysrescue/${ISO_FILE}"; then
+        wget --no-verbose -O "${IMAGE_DIR}/${ISO_FILE}" https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/"${SYSRESCUE_VERSION}"/"${ISO_FILE}"/download
+    fi
 fi
 
 ## Download IPA (Ironic Python Agent) image
@@ -118,9 +129,11 @@ fi
 # This saves time, especially during ironic upgrade tests and also
 # gives us early failure in case there is some issue downloading it.
 IPA_FILE="ipa-centos9-master.tar.gz"
-IPA_BASEURI=https://artifactory.nordix.org/artifactory/openstack-remote/ironic-python-agent/dib/
+IPA_BASEURI="${ARTIFACTORY_ROOT}/openstack-remote/ironic-python-agent/dib/"
 if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
-    wget --no-verbose -P "${IMAGE_DIR}/" "${IPA_BASEURI}/${IPA_FILE}"
+    if ! cache_image "${IPA_BASEURI}/${IPA_FILE}"; then
+        cache_image https://tarballs.opendev.org/openstack/ironic-python-agent/dib/"${IPA_FILE}"
+    fi
 fi
 
 # shellcheck disable=SC2016

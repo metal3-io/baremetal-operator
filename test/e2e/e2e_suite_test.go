@@ -6,6 +6,7 @@ package e2e
 import (
 	"context"
 	"flag"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -167,6 +168,12 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			Name:      "ironic",
 			Namespace: bmoIronicNamespace,
 			Intervals: e2eConfig.GetIntervals("ironic", "wait-deployment"),
+			SecurityConfig: &IronicSecurityConfig{
+				Host:          net.JoinHostPort(e2eConfig.GetVariable("IRONIC_PROVISIONING_IP"), e2eConfig.GetVariable("IRONIC_PROVISIONING_PORT")),
+				Username:      e2eConfig.GetVariable("IRONIC_USERNAME"),
+				Password:      e2eConfig.GetVariable("IRONIC_PASSWORD"),
+				ClientTimeout: e2eConfig.GetDurationVariable("IRONIC_CLIENT_TIMEOUT"),
+			},
 		})
 	}
 

@@ -435,12 +435,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	allowedHNANamespaces := make([]string, 0, len(watchNamespaces))
+	for ns := range watchNamespaces {
+		allowedHNANamespaces = append(allowedHNANamespaces, ns)
+	}
+	if len(allowedHNANamespaces) > 0 {
+		setupLog.Info("restricting HNA references to watched namespaces", "namespaces", allowedHNANamespaces)
+	}
+
 	if err = (&metal3iocontroller.BareMetalHostReconciler{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName("BareMetalHost"),
 		ProvisionerFactory:     provisionerFactory,
 		APIReader:              mgr.GetAPIReader(),
 		MaxProvisioningRetries: maxProvisioningRetries,
+		AllowedHNANamespaces:   allowedHNANamespaces,
 	}).SetupWithManager(mgr, preprovImgEnable, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")
 		os.Exit(1)

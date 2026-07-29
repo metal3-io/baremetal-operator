@@ -223,13 +223,13 @@ func TestParse(t *testing.T) {
 			}
 
 			if len(url.Query()) != len(tc.Query) {
-				t.Fatalf("unexpected query length: %q , expected %q",
+				t.Fatalf("unexpected query length: %d , expected %d",
 					len(url.Query()), len(tc.Query))
 			}
 
 			for queryKey, queryArg := range tc.Query {
 				if len(url.Query()[queryKey]) != len(queryArg) {
-					t.Fatalf("unexpected query length: %q , expected %q",
+					t.Fatalf("unexpected query length: %d , expected %d",
 						len(url.Query()[queryKey]), len(queryArg))
 				}
 

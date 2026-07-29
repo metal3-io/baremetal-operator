@@ -363,12 +363,15 @@ spec:
                         name:
                           description: Name of the HostNetworkAttachment resource
                           maxLength: 253
+                          minLength: 1
                           type: string
                         namespace:
                           description: Namespace of the HostNetworkAttachment (defaults
                             to BMH namespace)
                           maxLength: 63
                           type: string
+                      required:
+                      - name
                       type: object
                     macAddress:
                       description: |-
@@ -405,10 +408,16 @@ spec:
                             address of the switch
                           pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                           type: string
+                        switchSystemName:
+                          description: SwitchSystemName is expected to be the common
+                            name for the switch
+                          type: string
                       required:
                       - portID
                       - switchID
                       type: object
+                  required:
+                  - hostNetworkAttachment
                   type: object
                 type: array
               online:
@@ -708,6 +717,75 @@ spec:
           status:
             description: BareMetalHostStatus defines the observed state of BareMetalHost.
             properties:
+              appliedPortConfigs:
+                description: |-
+                  AppliedPortConfigs stores the resolved port configurations that were
+                  last successfully applied to Ironic ports. This records the actual
+                  VLAN/MTU/mode values (not HNA references) so that drift detection
+                  can identify changes to HostNetworkAttachment specs or deletions.
+                items:
+                  description: |-
+                    AppliedPortConfig records the port configuration that was last successfully
+                    applied to an Ironic port for a network interface.
+                  properties:
+                    localLinkConnection:
+                      description: SwitchPortIdentifier defines the attributes required
+                        to identify a switch port.
+                      properties:
+                        portID:
+                          description: |-
+                            PortID is expected to be the configuration name of the port in the
+                            switch management system.
+                          type: string
+                        switchID:
+                          description: SwitchID is expected to be the management MAC
+                            address of the switch
+                          pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
+                          type: string
+                        switchSystemName:
+                          description: SwitchSystemName is expected to be the common
+                            name for the switch
+                          type: string
+                      required:
+                      - portID
+                      - switchID
+                      type: object
+                    name:
+                      description: Name is the network interface name (e.g., "eno1np0")
+                      type: string
+                    switchPortConfig:
+                      description: |-
+                        SwitchPortConfig represents the switchport configuration for individual
+                        node ports.
+                      properties:
+                        allowedVLANs:
+                          description: AllowedVLANs is the list of allowed tagged
+                            VLAN IDs (trunk mode)
+                          items:
+                            type: integer
+                          type: array
+                        mode:
+                          description: Mode is the switch port mode (access or trunk)
+                          enum:
+                          - access
+                          - trunk
+                          - hybrid
+                          type: string
+                        mtu:
+                          description: MTU is the maximum transmission unit size
+                          type: integer
+                        nativeVLAN:
+                          description: NativeVLAN is the native/untagged VLAN ID
+                          type: integer
+                      required:
+                      - mode
+                      - nativeVLAN
+                      type: object
+                  required:
+                  - name
+                  - switchPortConfig
+                  type: object
+                type: array
               conditions:
                 description: Conditions defines current service state of the BareMetalHost.
                 items:

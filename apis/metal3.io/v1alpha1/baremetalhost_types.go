@@ -219,6 +219,9 @@ const (
 	WarningHealthReason = "Warning"
 	// CriticalHealthReason is the reason used when BMC reports critical errors.
 	CriticalHealthReason = "CriticalError"
+
+	// NetworkInterfacesValidCondition documents the validity of the network interfaces.
+	NetworkInterfacesValidCondition string = "NetworkInterfacesValid"
 )
 
 // OperationalStatus represents the state of the host.
@@ -463,8 +466,8 @@ type FirmwareConfig struct {
 	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
 }
 
-// SwitchPort defines the attributes required to identify a switch port.
-type SwitchPort struct {
+// SwitchPortIdentifier defines the attributes required to identify a switch port.
+type SwitchPortIdentifier struct {
 	// SwitchID is expected to be the management MAC address of the switch
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
 	SwitchID string `json:"switchID"`
@@ -472,6 +475,24 @@ type SwitchPort struct {
 	// PortID is expected to be the configuration name of the port in the
 	// switch management system.
 	PortID string `json:"portID"`
+
+	// SwitchSystemName is expected to be the common name for the switch
+	SwitchSystemName string `json:"switchSystemName,omitempty"`
+}
+
+// SwitchPortConfig represents the switchport configuration for individual
+// node ports.
+type SwitchPortConfig struct {
+	// Mode is the switch port mode (access or trunk)
+	Mode SwitchPortMode `json:"mode"`
+	// NativeVLAN is the native/untagged VLAN ID
+	NativeVLAN int `json:"nativeVLAN"`
+	// AllowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
+	// +optional
+	AllowedVLANs []int `json:"allowedVLANs,omitempty"`
+	// MTU is the maximum transmission unit size
+	// +optional
+	MTU *int `json:"mtu,omitempty"`
 }
 
 // NetworkInterface defines the network configuration for a specific interface.
@@ -492,7 +513,7 @@ type NetworkInterface struct {
 	MACAddress string `json:"macAddress,omitempty"`
 
 	// HostNetworkAttachment references the HostNetworkAttachment for this interface
-	HostNetworkAttachment HostNetworkAttachmentRef `json:"hostNetworkAttachment,omitempty"`
+	HostNetworkAttachment HostNetworkAttachmentRef `json:"hostNetworkAttachment"`
 
 	// SwitchPort defines the switch port on which this interface is attached.
 	// This is intended to be a replacement for LLDP information if
@@ -502,7 +523,7 @@ type NetworkInterface struct {
 	// information; therefore, caution must be exercised when supplying this
 	// value.
 	// +optional
-	SwitchPort *SwitchPort `json:"switchPort,omitempty"`
+	SwitchPort *SwitchPortIdentifier `json:"switchPort,omitempty"`
 }
 
 // BareMetalHostSpec defines the desired state of BareMetalHost.
@@ -811,6 +832,16 @@ type OperationHistory struct {
 	Deprovision OperationMetric `json:"deprovision,omitempty"`
 }
 
+// AppliedPortConfig records the port configuration that was last successfully
+// applied to an Ironic port for a network interface.
+type AppliedPortConfig struct {
+	// Name is the network interface name (e.g., "eno1np0")
+	Name             string           `json:"name"`
+	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
+	// +optional
+	LocalLinkConnection *SwitchPortIdentifier `json:"localLinkConnection,omitempty"`
+}
+
 // BareMetalHostStatus defines the observed state of BareMetalHost.
 type BareMetalHostStatus struct {
 	// Important: Run "make generate manifests" to regenerate code
@@ -882,6 +913,13 @@ type BareMetalHostStatus struct {
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=32
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// AppliedPortConfigs stores the resolved port configurations that were
+	// last successfully applied to Ironic ports. This records the actual
+	// VLAN/MTU/mode values (not HNA references) so that drift detection
+	// can identify changes to HostNetworkAttachment specs or deletions.
+	// +optional
+	AppliedPortConfigs []AppliedPortConfig `json:"appliedPortConfigs,omitempty"`
 }
 
 // ProvisionStatus holds the state information for a single target.
@@ -1223,9 +1261,10 @@ func (iface *NetworkInterface) IsValid() bool {
 }
 
 // GetKey returns the key to use for the network interface.
+// MAC addresses are normalized to lowercase for consistent lookups.
 func (iface *NetworkInterface) GetKey() string {
 	if iface.MACAddress != "" {
-		return iface.MACAddress
+		return strings.ToLower(iface.MACAddress)
 	}
 	return iface.Name
 }

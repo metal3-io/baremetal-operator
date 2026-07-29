@@ -580,6 +580,19 @@ func TestValidateCreate(t *testing.T) {
 			oldBMH: nil,
 		},
 		{
+			name: "validImageURLOCI",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL: "oci://example.com/image:latest",
+					},
+				},
+			},
+			oldBMH: nil,
+		},
+		{
 			name: "validImageLiveISO",
 			newBMH: &metal3api.BareMetalHost{
 				TypeMeta:   tm,
@@ -607,6 +620,21 @@ func TestValidateCreate(t *testing.T) {
 			},
 			oldBMH:    nil,
 			wantedErr: "image URL test1 is invalid: parse \"test1\": invalid URI for request",
+		},
+		{
+			name: "invalidImageURLScheme",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL:      "unix://example.com",
+						Checksum: "be254ebfd73e66ca91f6d91f5050aa2ee1ec4813ee65ba472f608ed340cbff09",
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "image URL unix://example.com is invalid: invalid scheme in URL, \"unix\" not allowed",
 		},
 		{
 			name: "emptyImageURL",

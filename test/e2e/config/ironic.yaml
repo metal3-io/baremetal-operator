@@ -30,7 +30,7 @@ variables:
   DEPLOY_CERT_MANAGER: "true"
   IRSO_KUSTOMIZATION: "data/ironic-standalone-operator/operator"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
-  IRONIC_KUSTOMIZATION: "data/ironic-standalone-operator/ironic/overlays/e2e"
+  IRONIC_KUSTOMIZATION: "data/ironic-standalone-operator/ironic/overlays/e2e-release-31.0"
 
   # These settings are for the separate cluster that are used for upgrade tests
   UPGRADE_DEPLOY_CERT_MANAGER: "true"

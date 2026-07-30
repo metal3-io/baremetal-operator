@@ -11,7 +11,7 @@ formatters:
     - mock*
 
 run:
-  go: "1.25"
+  go: "1.26"
   build-tags:
   - e2e
   - vbmctl

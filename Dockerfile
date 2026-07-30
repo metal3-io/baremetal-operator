@@ -1,5 +1,5 @@
 # Support FROM override
-ARG BUILD_IMAGE=docker.io/golang:1.25.12@sha256:d7912cedddfa15b2900a8dfb7187df0af5ec2cb424a371139b5b352fd3e6b740
+ARG BUILD_IMAGE=docker.io/golang:1.26.5@sha256:3aff6657219a4d9c14e27fb1d8976c49c29fddb70ba835014f477e1c70636647
 ARG BASE_IMAGE=gcr.io/distroless/base-debian13:nonroot@sha256:a557d784ac275c287d2bdf3172f47bece8d2a0ef3c0fdefb712e95084a04a562
 
 # Shared SDK stage: pinned Go toolchain, modules, and checked-out tree.

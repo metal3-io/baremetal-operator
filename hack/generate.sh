@@ -35,6 +35,6 @@ else
         --volume "${PWD}:${WORKDIR}:ro,z" \
         --entrypoint sh \
         --workdir "${WORKDIR}" \
-        quay.io/metal3-io/basic-checks:golang-1.25 \
+        quay.io/metal3-io/basic-checks:golang-1.26 \
         "${WORKDIR}"/hack/generate.sh "$@"
 fi

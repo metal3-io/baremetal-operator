@@ -11,7 +11,7 @@
 #                      reproduction of an external author depending on BMO)
 #   plugin-load-tester runs plugin-load-test against the .so, build fails on
 #                      any error
-ARG BUILD_IMAGE=docker.io/golang:1.25.12@sha256:d7912cedddfa15b2900a8dfb7187df0af5ec2cb424a371139b5b352fd3e6b740
+ARG BUILD_IMAGE=docker.io/golang:1.26.5@sha256:3aff6657219a4d9c14e27fb1d8976c49c29fddb70ba835014f477e1c70636647
 
 FROM $BUILD_IMAGE AS bmo-builder
 WORKDIR /bmo

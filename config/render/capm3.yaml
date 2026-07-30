@@ -655,8 +655,9 @@ spec:
               taints:
                 description: |-
                   Taints is the full, authoritative list of taints to apply to
-                  the corresponding Machine. This list will overwrite any
-                  modifications made to the Machine on an ongoing basis.
+                  the corresponding Machine.
+
+                  Deprecated: the Taints field was never actually implemented.
                 items:
                   description: |-
                     The node this Taint is attached to has the "effect" on

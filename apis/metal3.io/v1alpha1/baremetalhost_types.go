@@ -507,12 +507,10 @@ type NetworkInterface struct {
 
 // BareMetalHostSpec defines the desired state of BareMetalHost.
 type BareMetalHostSpec struct {
-	// Important: Run "make generate manifests" to regenerate code
-	// after modifying this file
-
 	// Taints is the full, authoritative list of taints to apply to
-	// the corresponding Machine. This list will overwrite any
-	// modifications made to the Machine on an ongoing basis.
+	// the corresponding Machine.
+	//
+	// Deprecated: the Taints field was never actually implemented.
 	// +optional
 	Taints []corev1.Taint `json:"taints,omitempty"`
 

@@ -67,10 +67,11 @@ const (
 // BareMetalHostReconciler reconciles a BareMetalHost object.
 type BareMetalHostReconciler struct {
 	client.Client
-	Log                logr.Logger
-	ProvisionerFactory provisioner.Factory
-	APIReader          client.Reader
-	Recorder           record.EventRecorder
+	Log                    logr.Logger
+	ProvisionerFactory     provisioner.Factory
+	APIReader              client.Reader
+	Recorder               record.EventRecorder
+	MaxProvisioningRetries int
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -2044,6 +2045,23 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(ctx context.Context, p
 func (r *BareMetalHostReconciler) actionManageAvailable(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.V(VerbosityLevelTrace).Info("actionManageAvailable started")
 	if info.host.NeedsProvisioning() {
+		if !reflect.DeepEqual(info.host.Spec.Image, info.host.Status.LastAttemptedImage) {
+			if info.host.Status.ProvisioningFailCount > 0 {
+				info.log.Info("image spec changed, resetting provisioning fail count")
+			}
+			info.host.Status.ProvisioningFailCount = 0
+		}
+
+		limit := r.MaxProvisioningRetries
+		if limit > 0 && info.host.Status.ProvisioningFailCount >= limit {
+			info.log.Info("provisioning retry limit reached, not retrying",
+				"failCount", info.host.Status.ProvisioningFailCount,
+				"limit", limit)
+			return recordActionFailure(info, metal3api.ProvisioningError,
+				fmt.Sprintf("provisioning failed %d times, retry limit (%d) reached; change image or reset provisioningFailCount to retry",
+					info.host.Status.ProvisioningFailCount, limit))
+		}
+
 		clearError(info.host)
 		return actionComplete{}
 	}

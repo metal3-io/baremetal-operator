@@ -1002,6 +1002,53 @@ spec:
                   The name of the profile matching the hardware details.
                   Hardware profiles are deprecated and should not be relied on.
                 type: string
+              lastAttemptedImage:
+                description: |-
+                  LastAttemptedImage stores the full image spec of the last provisioning
+                  attempt, used to detect user-initiated image changes (URL, checksum,
+                  format, etc.) that should reset the provisioning retry limit counter.
+                properties:
+                  checksum:
+                    description: |-
+                      Checksum is the checksum for the image. Required for all formats
+                      except for "live-iso" and OCI images (oci://).
+                    type: string
+                  checksumType:
+                    description: |-
+                      ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+                      The special value "auto" can be used to detect the algorithm from the checksum.
+                      If missing, MD5 is used. If in doubt, use "auto".
+                    enum:
+                    - md5
+                    - sha256
+                    - sha512
+                    - auto
+                    type: string
+                  format:
+                    description: |-
+                      Format contains the format of the image (raw, qcow2, ...).
+                      When set to "live-iso", an ISO 9660 image referenced by the url will
+                      be live-booted and not deployed to disk.
+                    enum:
+                    - raw
+                    - qcow2
+                    - vdi
+                    - vmdk
+                    - live-iso
+                    type: string
+                  ociAuthSecretName:
+                    description: |-
+                      OCIAuthSecretName optionally names a Docker-config secret containing
+                      registry credentials for oci:// images. Must be in the same namespace
+                      as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
+                      Only used when Image.URL has the oci:// scheme.
+                    type: string
+                  url:
+                    description: URL is a location of an image to deploy.
+                    type: string
+                required:
+                - url
+                type: object
               lastUpdated:
                 description: LastUpdated identifies when this status was last observed.
                 format: date-time
@@ -1413,6 +1460,14 @@ spec:
                 - ID
                 - state
                 type: object
+              provisioningFailCount:
+                default: 0
+                description: |-
+                  ProvisioningFailCount records how many times provisioning has failed
+                  consecutively for the current image. Unlike ErrorCount, it is not reset
+                  on deprovisioning and is only cleared on successful provisioning or when
+                  a new image is specified.
+                type: integer
               triedCredentials:
                 description: The last credentials we sent to the provisioning backend.
                 properties:
@@ -1440,6 +1495,7 @@ spec:
             - operationalStatus
             - poweredOn
             - provisioning
+            - provisioningFailCount
             type: object
         type: object
     served: true

@@ -315,6 +315,11 @@ func (in *BareMetalHostStatus) DeepCopyInto(out *BareMetalHostStatus) {
 	in.GoodCredentials.DeepCopyInto(&out.GoodCredentials)
 	in.TriedCredentials.DeepCopyInto(&out.TriedCredentials)
 	in.OperationHistory.DeepCopyInto(&out.OperationHistory)
+	if in.LastAttemptedImage != nil {
+		in, out := &in.LastAttemptedImage, &out.LastAttemptedImage
+		*out = new(Image)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]metav1.Condition, len(*in))

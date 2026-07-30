@@ -9,7 +9,6 @@ set -eux
 IS_CONTAINER="${IS_CONTAINER:-false}"
 ARTIFACTS="${ARTIFACTS:-/tmp}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-podman}"
-WORKDIR="${WORKDIR:-/workdir}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
     export XDG_CACHE_HOME="/tmp/.cache"
@@ -32,9 +31,9 @@ else
         --env DEPLOY_KERNEL_URL=http://172.22.0.1/images/ironic-python-agent.kernel \
         --env DEPLOY_RAMDISK_URL=http://172.22.0.1/images/ironic-python-agent.initramfs \
         --env IRONIC_ENDPOINT=http://localhost:6385/v1/ \
-        --volume "${PWD}:${WORKDIR}:ro,z" \
+        --volume "${PWD}:/workdir:ro,z" \
         --entrypoint sh \
-        --workdir "${WORKDIR}" \
+        --workdir /workdir \
         quay.io/metal3-io/basic-checks:golang-1.26 \
-        "${WORKDIR}"/hack/generate.sh "$@"
+        /workdir/hack/generate.sh "$@"
 fi

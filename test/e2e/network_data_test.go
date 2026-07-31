@@ -28,11 +28,17 @@ const networkDataTemplate = `{
   "networks": [
     {
       "id": "network0",
+      "link": "iface1",
+      "type": "ipv4_dhcp",
+      "network_id": "test-pp-network_dummy"
+    },
+    {
+      "id": "network1",
       "link": "iface0",
-      "type": "ipv4",
+      "type": "%s",
       "ip_address": "%s",
-      "netmask": "255.255.255.0",
-      "network_id": "test-network"
+      "netmask": "%s",
+      "network_id": "test-pp-network"
     }
   ],
   "services": []
@@ -64,11 +70,27 @@ func getNetworkData(specName, connectIP string) simpleNetworkData {
 func getNewIPAddress() string {
 	// Derive a test IP from bmc.IPAddress by flipping the top bit of the
 	// last octet. This keeps us on the same subnet while avoiding collisions
-	// with the real address (e.g. 192.168.222.122 -> 192.168.222.250).
-	ip := net.ParseIP(bmc.IPAddress).To4()
+	// with the real address (e.g. 192.168.222.122 -> 192.168.222.250, or
+	// fd55::122 -> fd55::1A2).
+	ip := net.ParseIP(bmc.IPAddress)
 	Expect(ip).NotTo(BeNil(), "failed to parse BMC IP address %q", bmc.IPAddress)
-	ip[3] ^= 0x80
+	if ip.To4() == nil {
+		// address is v6
+		ip[15] ^= 0x80
+	} else {
+		ip = ip.To4()
+		ip[3] ^= 0x80
+	}
 	return ip.String()
+}
+
+func getNetmask() string {
+	ip := net.ParseIP(bmc.IPAddress)
+	if ip.To4() == nil {
+		return "ffff:ffff:ffff:ffff::"
+	} else {
+		return "255.255.255.0"
+	}
 }
 
 var _ = Describe("Network Data", Label("required", "network-data", "ironic"), func() {
@@ -114,7 +136,13 @@ var _ = Describe("Network Data", Label("required", "network-data", "ironic"), fu
 
 		By("Creating a network data secret with static IP configuration")
 		staticIP := getNewIPAddress()
-		networkData := fmt.Sprintf(networkDataTemplate, expectedMAC, staticIP)
+		networkData := fmt.Sprintf(
+			networkDataTemplate,
+			expectedMAC,
+			e2eConfig.GetVariable("IP_FAMILY"),
+			staticIP,
+			getNetmask(),
+		)
 		netSecret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, networkDataSecretName, map[string]string{
 			"networkData": networkData,
 		})
@@ -224,7 +252,13 @@ var _ = Describe("Network Data", Label("required", "network-data", "ironic"), fu
 
 		By("Creating a network data secret with static IP configuration")
 		staticIP := getNewIPAddress()
-		networkData := fmt.Sprintf(networkDataTemplate, expectedMAC, staticIP)
+		networkData := fmt.Sprintf(
+			networkDataTemplate,
+			expectedMAC,
+			e2eConfig.GetVariable("IP_FAMILY"),
+			staticIP,
+			getNetmask(),
+		)
 		netSecret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, networkDataSecretName, map[string]string{
 			"networkData": networkData,
 		})

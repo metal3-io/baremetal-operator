@@ -45,13 +45,13 @@ variables:
   # This allows upgrade tests to run alongside other tests, but requires a separate
   # provisioning IP (see UPGRADE_IRONIC_PROVISIONING_IP).
   UPGRADE_USE_EXISTING_CLUSTER: "false"
-  UPGRADE_IRONIC_PROVISIONING_IP: "192.168.222.3"
+  UPGRADE_IRONIC_PROVISIONING_IP: "${UPGRADE_IRONIC_PROVISIONING_IP}"
 
-  IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
-  ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"
+  IMAGE_URL: "http://${IP_ADDRESS}/cirros-0.6.2-x86_64-disk.img"
+  ISO_IMAGE_URL: "http://${IP_ADDRESS}/minimal_linux_live-v2.iso"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.19.2"
-  SSH_CHECK_PROVISIONED: "true"
+  SSH_CHECK_PROVISIONED: "${SSH_CHECK_ENABLED}"
   SSH_USERNAME: "root"
   SSH_PORT: "22"
   SSH_PRIV_KEY: "./images/ssh_testkey"
@@ -59,11 +59,12 @@ variables:
   FETCH_IRONIC_NODES: "true"
   IRONIC_USERNAME: "changeme"
   IRONIC_PASSWORD: "changeme"
-  IRONIC_PROVISIONING_IP: "192.168.222.2"
+  IRONIC_PROVISIONING_IP: "${IRONIC_PROVISIONING_IP}"
   IRONIC_PROVISIONING_PORT: "6385"
   IRONIC_CLIENT_TIMEOUT: "15s"
   # Boot mode can be legacy, UEFI or UEFISecureBoot
   BOOT_MODE: "UEFI"
+  IP_FAMILY: "${IP_FAMILY}"
 
   NAMESPACE_SCOPED: "true"
 
@@ -94,17 +95,6 @@ intervals:
   default/wait-reconcile: [ "1s", "10ms" ]
   baremetalswitch/wait-secret-updated: [ "30s", "500ms" ]
   default/wait-user-data: [ "5s", "1s" ]
-
-kindExtraPortMappings:
-# Expose Ironic ports so they are reachable outside of kind
-- containerPort: 6180
-  hostPort: 6180
-  listenAddress: "0.0.0.0"
-  protocol: TCP
-- containerPort: 6385
-  hostPort: 6385
-  listenAddress: "0.0.0.0"
-  protocol: TCP
 
 bmoUpgradeSpecs:
 # Upgrade BMO 0.12 -> main

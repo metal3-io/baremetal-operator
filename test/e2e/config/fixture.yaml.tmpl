@@ -29,15 +29,16 @@ variables:
   # Since there is no ironic involved, we do not risk having any port collisions.
   UPGRADE_USE_EXISTING_CLUSTER: "false"
 
-  IMAGE_URL: "http://192.168.222.1/cirros-0.6.2-x86_64-disk.img"
-  ISO_IMAGE_URL: "http://192.168.222.1/cirros.iso"
+  IMAGE_URL: "http://${IP_ADDRESS}/cirros-0.6.2-x86_64-disk.img"
+  ISO_IMAGE_URL: "http://${IP_ADDRESS}/minimal_linux_live-v2.iso"
   IMAGE_CHECKSUM: "c8fc807773e5354afe61636071771906"
   CERT_MANAGER_VERSION: "v1.19.2"
-  SSH_CHECK_PROVISIONED: "false"
+  SSH_CHECK_PROVISIONED: "${SSH_CHECK_ENABLED}"
   FETCH_IRONIC_NODES: "false"
-  IRONIC_PROVISIONING_IP: "192.168.222.2"
+  IRONIC_PROVISIONING_IP: "${IRONIC_PROVISIONING_IP}"
   # Boot mode can be legacy, UEFI or UEFISecureBoot
   BOOT_MODE: "UEFI"
+  IP_FAMILY: "${IP_FAMILY}"
 
   NAMESPACE_SCOPED: "false"
 

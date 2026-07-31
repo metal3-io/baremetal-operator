@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: ironic-standalone-operator-system
 
 resources:
-- https://github.com/metal3-io/ironic-standalone-operator/releases/download/v0.11.0/install.yaml
+- https://github.com/metal3-io/ironic-standalone-operator/releases/download/v0.10.0/install.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -11,7 +11,7 @@ generatorOptions:
 configMapGenerator:
 - name: ironic-operator-config
   literals:
-  - IPA_BASEURI=http://192.168.222.1
+  - IPA_BASEURI=${HOST_ADDRESS}
 
 patches:
 - target:

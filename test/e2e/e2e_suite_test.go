@@ -91,6 +91,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			Name:              "bmo-e2e",
 			Images:            e2eConfig.GetClusterctlImages(),
 			ExtraPortMappings: e2eConfig.KindExtraPortMappings,
+			IPFamily:          e2eConfig.GetVariable("IP_FAMILY"),
 		})
 		Expect(clusterProvider).ToNot(BeNil(), "Failed to create a cluster")
 		kubeconfigPath = clusterProvider.GetKubeconfigPath()

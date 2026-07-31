@@ -63,6 +63,9 @@ export PATH="/usr/local/go/bin:${PATH}"
 # CAPI test framework uses kubectl in the background
 "${REPO_ROOT}/hack/e2e/ensure_kubectl.sh"
 "${REPO_ROOT}/hack/e2e/ensure_yq.sh"
+# Source the correct address set
+export USE_IPV6="${USE_IPV6:-false}"
+. "${REPO_ROOT}/hack/e2e/ip_addressing.sh"
 
 sudo apt-get update
 sudo apt-get install -y libvirt-dev pkg-config gettext-base curl
@@ -79,10 +82,6 @@ IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
 # Build vbmctl
 make build-vbmctl
 sudo setcap cap_net_admin+epi ./bin/vbmctl
-
-# This IP is defined by the network we created above. It is sushy-tools / image
-# server endpoint, not ironic.
-export IP_ADDRESS="192.168.222.1"
 
 # E2E emulator configuration variables
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
@@ -102,7 +101,7 @@ SYSRESCUE_VERSION="11.00"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 ISO_FILE="systemrescue-${SYSRESCUE_VERSION}-amd64.iso"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
-export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
+export IMAGE_URL="http://${HOST_ADDRESS}/${IMAGE_FILE}"
 export IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 mkdir -p "${IMAGE_DIR}"
 
@@ -137,7 +136,7 @@ if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
 fi
 
 # shellcheck disable=SC2016
-envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
+envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR},${SUBNET_MASK}' < \
   "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
   "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
 
@@ -153,7 +152,7 @@ envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PO
 # error. Poll the Redfish endpoint, restarting the container if needed, and fail
 # loudly if it never comes up
 wait_for_sushy_tools() {
-  local redfish_url="http://${IP_ADDRESS}:${BMO_E2E_LISTEN_PORT}/redfish/v1/"
+  local redfish_url="http://${HOST_ADDRESS}:${BMO_E2E_LISTEN_PORT}/redfish/v1/"
   local container attempts=0 max_attempts=30
 
   # Detect the sushy-tools container name (vbmctl may name it with or without an
@@ -231,7 +230,7 @@ EOF
     ./sysrescue-customize --auto --recipe-dir recipe --source "${ISO_FILE}" --dest=sysrescue-out.iso
     popd
 fi
-export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
+export ISO_IMAGE_URL="http://${HOST_ADDRESS}/sysrescue-out.iso"
 
 # Generate credentials
 BMO_OVERLAYS=(

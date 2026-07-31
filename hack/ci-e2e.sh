@@ -14,6 +14,10 @@
 set -eux
 
 REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
+. "${REPO_ROOT}/hack/e2e/partial_envsubst.sh"
+# Get the IP addresse and inject them into configuration
+export USE_IPV6="${USE_IPV6:-false}"
+. "${REPO_ROOT}/hack/e2e/ip_addressing.sh"
 
 cd "${REPO_ROOT}" || exit 1
 
@@ -101,10 +105,6 @@ if [[ "${CI_E2E_SKIP_BUILDING,,}" != "true" ]]; then
   build_binaries
 fi
 
-# This IP is defined by the network we created above. It is sushy-tools / image
-# server endpoint, not ironic.
-export IP_ADDRESS="192.168.222.1"
-
 # E2E emulator configuration variables
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   export BMO_E2E_IMAGE="${VBMC_IMAGE}"
@@ -123,7 +123,7 @@ SYSRESCUE_VERSION="11.00"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 ISO_FILE="systemrescue-${SYSRESCUE_VERSION}-amd64.iso"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
-export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
+export IMAGE_URL="http://${HOST_ADDRESS}/${IMAGE_FILE}"
 export IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 mkdir -p "${IMAGE_DIR}"
 
@@ -150,9 +150,8 @@ fi
 
 if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
   # shellcheck disable=SC2016
-  envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
-    "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
-    "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
+  partial_envsubst "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" \
+    '${BMO_E2E_EMULATOR},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}'
 
   # Create VMs to act as BMHs in the tests and the libvirt network. Create
   # also image server and E2E emulator containers.
@@ -167,7 +166,7 @@ fi
 # error. Poll the Redfish endpoint, restarting the container if needed, and fail
 # loudly if it never comes up
 wait_for_sushy_tools() {
-  local redfish_url="http://${IP_ADDRESS}:${BMO_E2E_LISTEN_PORT}/redfish/v1/"
+  local redfish_url="http://${HOST_ADDRESS}:${BMO_E2E_LISTEN_PORT}/redfish/v1/"
   local container attempts=0 max_attempts=30
 
   # Detect the sushy-tools container name (vbmctl may name it with or without an
@@ -245,7 +244,7 @@ EOF
   ./sysrescue-customize --auto --recipe-dir recipe --source "${ISO_FILE}" --dest=sysrescue-out.iso
   popd
 fi
-export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
+export ISO_IMAGE_URL="http://${HOST_ADDRESS}/sysrescue-out.iso"
 
 # Generate credentials
 BMO_OVERLAYS=(
@@ -272,10 +271,12 @@ echo "${IRONIC_USERNAME}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-username"
 echo "${IRONIC_PASSWORD}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-password"
 
 if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
+  # shellcheck disable=SC2034
+  SSH_PUB_KEY_CONTENT="${pub_ssh_key}"
   # shellcheck disable=SC2016
-  SSH_PUB_KEY_CONTENT="${pub_ssh_key}" envsubst '${SSH_PUB_KEY_CONTENT}' < \
-    "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml.tmpl" > \
-    "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml"
+  partial_envsubst "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml" '${SSH_PUB_KEY_CONTENT}'
+
+  "${REPO_ROOT}/hack/e2e/ip_addressing.sh" --inject
 fi
 
 # We need to gather artifacts/logs before exiting also if there are errors

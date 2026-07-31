@@ -6,8 +6,12 @@ _artifacts
 artifacts*.tar.gz
 test/e2e/images
 test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml
-test/e2e/config/vbmctl.yaml
+test/e2e/config/*.yaml
 out
+config/overlays/e2e/ironic.env
+test/e2e/data/ironic-standalone-operator/components/tls/certificate.yaml
+test/e2e/data/ironic-standalone-operator/operator/irso-v0.10/kustomization.yaml
+test/e2e/data/ironic-standalone-operator/operator/irso-v0.11/kustomization.yaml
 
 # Created by https://www.gitignore.io/api/go
 ### Go ###

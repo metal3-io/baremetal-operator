@@ -58,8 +58,8 @@ export GINKGO_FOCUS="upgrade"
 can be found as the first string value (formatting included) of the line with
 `Describe` or `It`. These can also be combined with other proceeding sections to
 match to even more specific test sections. The value `GINKGO_FOCUS` uses is a
-regexp that should match the description of the spec but not match the regexp
-specified in `GINKGO_SKIP`.
+regexp (case sensitive) that should match the description of the spec but not
+match the regexp specified in `GINKGO_SKIP`.
 
 Example:
 
@@ -122,12 +122,22 @@ test suite with it:
 make test-e2e
 ```
 
+If you want to run tests using IPv6 only networking, set `USE_IPV6=true`. IPv6
+tests do not support fixture tests. IrSO version 0.10 is minimum requirement for
+the tests. At the time of writing, this also requires using IPA image which is
+built with `DIB_SIMPLE_INIT_NO_DHCP_FALLBACK=1`. This is not the case with the
+upstream IPA image.
+
+IPv6 only tests also disables checking provisioned images over SSH, because
+assigning static IPv6 addresses with dnsmasq is not as straightforward as
+assigning IPv4 addresses.
+
 ## BMCs config
 
 In case you want to run the tests with your own hardware, the information
 regarding BMCs should be stored in a yaml file, whose path is exported to
 `E2E_BMCS_CONF_FILE` variable (please take a look at
-[bmcs-redfish-virtualmedia.yaml](config/bmcs-redfish-virtualmedia.yaml)
+[bmcs-redfish-virtualmedia.yaml](config/bmcs-redfish-virtualmedia.yaml.tmpl)
 to understand the file structure).
 
 ## Tests

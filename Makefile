@@ -64,6 +64,7 @@ E2E_BMCS_CONF_FILE ?= $(ROOT_DIR)/test/e2e/config/bmcs-fixture.yaml
 USE_EXISTING_CLUSTER ?= false
 SKIP_RESOURCE_CLEANUP ?= false
 GINKGO_NOCOLOR ?= false
+USE_IPV6 ?= false
 
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT_VER := v2.10.1
@@ -150,8 +151,13 @@ verify-e2e-prerequisites: ## Check that required tools exist for e2e tests
 	@echo "Ensure the local environment is ready for e2e tests..."
 	VERIFY_ONLY=1 ./hack/e2e/ensure_e2e_prerequisites.sh
 
+.PHONY: template-addresses
+template-addresses: ## Put IP addresses into templates
+	@echo "Insert IP addresses into configuration..."
+	./hack/e2e/ip_addressing.sh --inject
+
 .PHONY: test-e2e
-test-e2e: $(GINKGO) ## Run the end-to-end tests
+test-e2e: $(GINKGO) template-addresses ## Run the end-to-end tests
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \
 		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e,vbmctl --focus="$(GINKGO_FOCUS)" \
 		$(_SKIP_ARGS)  $(_SKIP_LABELS_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \

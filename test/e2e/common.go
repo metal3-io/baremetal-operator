@@ -15,6 +15,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -538,7 +539,12 @@ func EstablishSSHConnection(e2eConfig *Config, ipAddress string) *ssh.Client {
 	signer, err := ssh.ParsePrivateKey(key)
 	Expect(err).NotTo(HaveOccurred(), "unable to parse private key")
 	auth := ssh.PublicKeys(signer)
+	parsedAddress, err := netip.ParseAddr(ipAddress)
+	Expect(err).NotTo(HaveOccurred(), "unable to parse ip address")
 	address := fmt.Sprintf("%s:%s", ipAddress, e2eConfig.GetVariable("SSH_PORT"))
+	if parsedAddress.Is6() {
+		address = fmt.Sprintf("[%s]:%s", ipAddress, e2eConfig.GetVariable("SSH_PORT"))
+	}
 
 	config := &ssh.ClientConfig{
 		User:            user,

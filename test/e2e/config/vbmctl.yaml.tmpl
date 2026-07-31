@@ -32,8 +32,8 @@ spec:
   networks:
   - name: baremetal-e2e
     bridge: metal3
-    address: 192.168.222.1
-    netmask: 24
+    address: "${IP_ADDRESS}"
+    netmask: ${SUBNET_MASK}
   vethPairs:
   - link1: metal3
     link2: kind-bridge

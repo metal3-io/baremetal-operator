@@ -27,3 +27,6 @@ rm -rf /tmp/pool_oo/*
 virsh -c qemu:///system pool-destroy baremetal-e2e || true
 virsh -c qemu:///system pool-delete baremetal-e2e || true
 virsh -c qemu:///system pool-undefine baremetal-e2e || true
+
+# Delete configuration yaml files created during setup.
+"${REPO_ROOT}/hack/e2e/ip_addressing.sh" --clean

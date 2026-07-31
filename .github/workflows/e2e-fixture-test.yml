@@ -34,7 +34,8 @@ jobs:
       env:
         E2E_CONF_FILE: ${{ github.workspace }}/test/e2e/config/fixture.yaml
         GINKGO_NODES: 1
-      run: make test-e2e
+      run: |
+        make test-e2e
 
     - name: Upload artifacts
       if: ${{ !cancelled() }}

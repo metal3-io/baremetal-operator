@@ -46,15 +46,15 @@ func (a *ipmiAccessDetails) Type() string {
 	return a.bmcType
 }
 
-// NeedsMAC returns true when the host is going to need a separate
-// port created rather than having it discovered.
+// NeedsMAC returns true only for VirtualBMC (the libvirt-based hosts used for
+// dev and testing), where a MAC address is required regardless of whether
+// inspection is enabled: VirtualBMC IPMI addresses are not unique and the
+// IPMI address cannot be fetched from inside the VM, so the MAC cannot be
+// discovered automatically. Regular IPMI hosts can have their MAC discovered
+// during inspection, so they return false; a MAC is only required for them
+// when inspection is disabled, which the callers enforce via
+// host.InspectionDisabled().
 func (a *ipmiAccessDetails) NeedsMAC() bool {
-	// libvirt-based hosts used for dev and testing require a MAC
-	// address, specified as part of the host, but we don't want the
-	// provisioner to have to know the rules about which drivers
-	// require what so we hide that detail inside this class and just
-	// let the provisioner know that "some" drivers require a MAC and
-	// it should ask.
 	return a.bmcType == "libvirt"
 }
 

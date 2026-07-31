@@ -30,8 +30,10 @@ func (a *redfishVirtualMediaAccessDetails) Type() string {
 }
 
 // NeedsMAC returns false for virtual media drivers since they can boot
-// from virtual media without requiring a pre-configured boot MAC address.
-// The MAC address can be populated after hardware inspection completes.
+// from virtual media without requiring a pre-configured boot MAC address,
+// and the MAC can be populated after hardware inspection completes. When
+// inspection is disabled a MAC is still required, but that requirement is
+// enforced by the callers via host.InspectionDisabled().
 func (a *redfishVirtualMediaAccessDetails) NeedsMAC() bool {
 	return false
 }

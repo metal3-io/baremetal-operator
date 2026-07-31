@@ -284,7 +284,7 @@ func TestStaticDriverInfo(t *testing.T) {
 		{
 			Scenario:   "redfish",
 			input:      "redfish://192.168.122.1",
-			needsMac:   true,
+			needsMac:   false,
 			driver:     "redfish",
 			bios:       "",
 			boot:       "ipxe",
@@ -332,7 +332,7 @@ func TestStaticDriverInfo(t *testing.T) {
 		{
 			Scenario:   "redfish uefi http boot",
 			input:      "redfish-uefihttp+https://192.168.122.1",
-			needsMac:   true,
+			needsMac:   false,
 			driver:     "redfish",
 			bios:       "",
 			boot:       "redfish-https",
@@ -344,7 +344,7 @@ func TestStaticDriverInfo(t *testing.T) {
 		{
 			Scenario:   "idrac redfish",
 			input:      "idrac-redfish://192.168.122.1",
-			needsMac:   true,
+			needsMac:   false,
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "ipxe",

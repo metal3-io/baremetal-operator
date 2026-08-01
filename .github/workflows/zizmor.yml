@@ -21,19 +21,19 @@ jobs:
       security-events: write
     steps:
     - name: Checkout repository
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       with:
         persist-credentials: false
     # Upload SARIF to Security tab on push to main
     - name: Run zizmor (SARIF)
       if: github.event_name == 'push'
-      uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+      uses: zizmorcore/zizmor-action@6fc4b006235f201fdab3722e17240ab420d580e5 # v0.6.1
       with:
         config: .zizmor.yml
     # Block PRs with findings
     - name: Run zizmor (PR check)
       if: github.event_name == 'pull_request'
-      uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+      uses: zizmorcore/zizmor-action@6fc4b006235f201fdab3722e17240ab420d580e5 # v0.6.1
       with:
         advanced-security: false
         config: .zizmor.yml

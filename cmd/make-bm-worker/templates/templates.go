@@ -70,7 +70,7 @@ type Template struct {
 	BMCAddress                     string
 	DisableCertificateVerification bool
 	Username                       string
-	Password                       string //nolint:gosec
+	Password                       string
 	HardwareProfile                string
 	BootMacAddress                 string
 	BootMode                       string

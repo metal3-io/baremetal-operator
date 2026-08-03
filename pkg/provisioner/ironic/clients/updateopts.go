@@ -62,7 +62,7 @@ func deref(v any) any {
 	if v == nil {
 		return nil
 	}
-	if reflect.TypeOf(v).Kind() != reflect.Ptr {
+	if reflect.TypeOf(v).Kind() != reflect.Pointer {
 		return v
 	}
 	ptrVal := reflect.ValueOf(v)

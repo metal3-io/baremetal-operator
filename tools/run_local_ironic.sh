@@ -177,8 +177,6 @@ fi
 
 "$SCRIPTDIR/tools/remove_local_ironic.sh"
 
-IRONIC_MARIADB_PASSWORD=
-
 POD=""
 
 if [[ "${CONTAINER_RUNTIME}" == "podman" ]]; then
@@ -201,7 +199,7 @@ if ${IPA_DOWNLOAD_ENABLED}; then
   sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
 fi
 
-# Start dnsmasq, http, mariadb, and ironic containers using same image
+# Start dnsmasq, http, and ironic containers using same image
 
 # See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/rundnsmasq
@@ -218,16 +216,12 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "${IRONIC_DATA_DIR}:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
-# For database setup, use MariaDB Operator:
-# https://github.com/mariadb-operator/mariadb-operator
-
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/runironic
 # shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD_MOUNT} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     ${IRONIC_MARIADB_PASSWORD} --entrypoint /bin/runironic \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start ironic-endpoint-keepalived

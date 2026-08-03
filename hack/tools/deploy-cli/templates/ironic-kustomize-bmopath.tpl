@@ -16,9 +16,6 @@ components:
 {{- if .DeployKeepAlived }}
 - ../../components/keepalived/
 {{ end }}
-{{- if .DeployMariadb }}
-- ../../components/mariadb/
-{{ end }}
 
 {{- if .DeployBasicAuth }}
 secretGenerator:
@@ -36,7 +33,6 @@ configMapGenerator:
 - name: ironic-host-ip
   literals:
   - IRONIC_HOST_IP={{ .IronicHostIP }}
-  - MARIADB_HOST_IP={{ .MariaDBHostIP }}
 
 replacements:
 {{/* Replace *_HOST_IP in certificates with the *_HOST_IP from the configmap */}}
@@ -57,19 +53,6 @@ replacements:
           group: cert-manager.io
           kind: Certificate
           name: ironic-cacert
-        fieldPaths:
-          - .spec.ipAddresses.0
-{{- if .DeployMariadb }}
-  - source:
-      kind: ConfigMap
-      name: ironic-host-ip
-      fieldPath: .data.MARIADB_HOST_IP
-    targets:
-      - select:
-          version: v1
-          group: cert-manager.io
-          kind: Certificate
-          name: mariadb-cert
         fieldPaths:
           - .spec.ipAddresses.0
 {{ end }}

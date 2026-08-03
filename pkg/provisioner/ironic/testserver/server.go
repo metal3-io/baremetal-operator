@@ -250,6 +250,7 @@ func (m *MockServer) sendData(w http.ResponseWriter, r *http.Request, code int, 
 	m.logRequest(r, payload)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
+	//nolint:gosec // G705: payload is test-fixture data in a mock server, not user-controlled input
 	fmt.Fprint(w, payload)
 }
 

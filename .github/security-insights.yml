@@ -49,7 +49,7 @@ repository:
     - name: golangci-lint
       type: SAST
       rulesets: [default]
-      comment: Go static analysis. Runs in GitHub Actions and Prow presubmit.
+      comment: Go static analysis. Runs in Prow presubmit.
       integration:
         adhoc: false
         ci: true

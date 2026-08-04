@@ -239,3 +239,81 @@ func TestInspectHardware(t *testing.T) {
 		})
 	}
 }
+
+func TestInspectHardwareFastInspection(t *testing.T) {
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+
+	ironic := testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+		UUID:           nodeUUID,
+		ProvisionState: "manageable",
+	}).NodeUpdate(nodes.Node{
+		UUID:           nodeUUID,
+		ProvisionState: "manageable",
+	}).WithNodeStatesProvisionUpdate(nodeUUID).WithInventoryFailed(nodeUUID, http.StatusNotFound)
+	ironic.Start()
+	defer ironic.Stop()
+
+	host := makeHost()
+	host.Spec.BMC.Address = "redfish://192.168.122.1/redfish/v1/Systems/1"
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = nodeUUID
+
+	publishedMsg := ""
+	publisher := func(reason, message string) {
+		publishedMsg = reason + " " + message
+	}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, publisher, ironic.Endpoint(), auth)
+	require.NoError(t, err)
+
+	result, started, _, err := prov.InspectHardware(t.Context(),
+		provisioner.InspectData{
+			BootMode:       metal3api.DefaultBootMode,
+			InspectionMode: metal3api.InspectionModeFast,
+		},
+		false, false, false)
+
+	require.NoError(t, err)
+	assert.True(t, started)
+	assert.True(t, result.Dirty)
+	assert.Equal(t, "InspectionStarted Hardware inspection started", publishedMsg)
+
+	updates := ironic.GetLastNodeUpdateRequestFor(nodeUUID)
+	var foundInspectInterface bool
+	for _, update := range updates {
+		if update.Path == "/inspect_interface" {
+			assert.Equal(t, "redfish", update.Value)
+			foundInspectInterface = true
+		}
+	}
+	assert.True(t, foundInspectInterface, "expected inspect_interface to be set to redfish")
+}
+
+func TestInspectHardwareFastInspectionUnsupported(t *testing.T) {
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+
+	ironic := testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+		UUID:           nodeUUID,
+		ProvisionState: "manageable",
+	}).WithInventoryFailed(nodeUUID, http.StatusNotFound)
+	ironic.Start()
+	defer ironic.Stop()
+
+	host := makeHost()
+	host.Status.Provisioning.ID = nodeUUID
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	require.NoError(t, err)
+
+	result, started, _, err := prov.InspectHardware(t.Context(),
+		provisioner.InspectData{
+			BootMode:       metal3api.DefaultBootMode,
+			InspectionMode: metal3api.InspectionModeFast,
+		},
+		false, false, false)
+
+	require.NoError(t, err)
+	assert.False(t, started)
+	assert.Contains(t, result.ErrorMessage, "does not support fast (out-of-band) inspection")
+}

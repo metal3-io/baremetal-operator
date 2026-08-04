@@ -81,7 +81,7 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 		errs = append(errs, annotationErrors...)
 	}
 
-	if err := validateInspectionMode(host); err != nil {
+	if err := validateInspectionMode(host, bmcAccess); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -420,7 +420,7 @@ func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *metal
 	return errs
 }
 
-func validateInspectionMode(host *metal3api.BareMetalHost) error {
+func validateInspectionMode(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetails) error {
 	inspectAnnotation := host.Annotations[metal3api.InspectAnnotationPrefix]
 
 	// Check for contradicting values when both are set
@@ -438,8 +438,13 @@ func validateInspectionMode(host *metal3api.BareMetalHost) error {
 	// but we validate here for safety)
 	if host.Spec.InspectionMode != "" &&
 		host.Spec.InspectionMode != metal3api.InspectionModeDisabled &&
-		host.Spec.InspectionMode != metal3api.InspectionModeAgent {
-		return fmt.Errorf("invalid inspectionMode value: %s, allowed values are 'disabled' or 'agent'", host.Spec.InspectionMode)
+		host.Spec.InspectionMode != metal3api.InspectionModeAgent &&
+		host.Spec.InspectionMode != metal3api.InspectionModeFast {
+		return fmt.Errorf("invalid inspectionMode value: %s, allowed values are 'disabled', 'agent', or 'fast'", host.Spec.InspectionMode)
+	}
+
+	if host.Spec.InspectionMode == metal3api.InspectionModeFast && bmcAccess != nil && bmcAccess.InspectInterface() == "" {
+		return fmt.Errorf("BMC driver %s does not support fast (out-of-band) inspection", bmcAccess.Type())
 	}
 
 	return nil

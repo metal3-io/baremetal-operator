@@ -90,6 +90,7 @@ type ManagementAccessData struct {
 	CPUArchitecture            string
 	HardwareData               *metal3api.HardwareData
 	DisableInspection          bool
+	InspectionMode             metal3api.InspectionMode
 }
 
 type AdoptData struct {
@@ -99,6 +100,7 @@ type AdoptData struct {
 type InspectData struct {
 	BootMode        metal3api.BootMode
 	CPUArchitecture string
+	InspectionMode  metal3api.InspectionMode
 }
 
 // FirmwareConfig and FirmwareSettings are used for implementation of similar functionality

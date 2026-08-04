@@ -117,6 +117,10 @@ func (a *ipmiAccessDetails) VendorInterface() string {
 	return ""
 }
 
+func (a *ipmiAccessDetails) InspectInterface() string {
+	return ""
+}
+
 func (a *ipmiAccessDetails) SupportsSecureBoot() bool {
 	return false
 }

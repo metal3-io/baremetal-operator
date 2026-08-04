@@ -136,6 +136,66 @@ func TestRegisterCreateNode(t *testing.T) {
 	assert.Equal(t, "agent", createdNode.InspectInterface)
 }
 
+func TestRegisterCreateNodeFastInspection(t *testing.T) {
+	host := makeHost()
+	host.Spec.BMC.Address = "redfish://192.168.122.1/redfish/v1/Systems/1"
+	host.Spec.BootMACAddress = ""
+	host.Spec.Image = nil
+	host.Status.Provisioning.ID = ""
+
+	var createdNode *nodes.Node
+
+	createCallback := func(node nodes.Node) {
+		createdNode = &node
+	}
+
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		InspectionMode: metal3api.InspectionModeFast,
+	}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotEmpty(t, createdNode.UUID)
+	assert.Equal(t, createdNode.UUID, provID)
+	assert.Equal(t, "redfish", createdNode.InspectInterface)
+}
+
+func TestRegisterFastInspectionUnsupported(t *testing.T) {
+	host := makeHost()
+	host.Spec.BootMACAddress = ""
+	host.Status.Provisioning.ID = ""
+
+	ironic := testserver.NewIronic(t).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nil, ironic.Endpoint(), auth)
+	if err != nil {
+		t.Fatalf("could not create provisioner: %s", err)
+	}
+
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{
+		InspectionMode: metal3api.InspectionModeFast,
+	}, false, false)
+	if err != nil {
+		t.Fatalf("error from Register: %s", err)
+	}
+	assert.Contains(t, result.ErrorMessage, "does not support fast (out-of-band) inspection")
+}
+
 func TestRegisterExistingNode(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.

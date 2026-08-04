@@ -90,6 +90,10 @@ func (a *testAccessDetails) VendorInterface() string {
 	return ""
 }
 
+func (a *testAccessDetails) InspectInterface() string {
+	return ""
+}
+
 func (a *testAccessDetails) SupportsSecureBoot() bool {
 	return false
 }

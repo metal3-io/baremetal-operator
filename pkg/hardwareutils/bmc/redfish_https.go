@@ -99,6 +99,10 @@ func (a *redfishHTTPBootMediaAccessDetails) SupportsSecureBoot() bool {
 	return true
 }
 
+func (a *redfishHTTPBootMediaAccessDetails) InspectInterface() string {
+	return redfish
+}
+
 func (a *redfishHTTPBootMediaAccessDetails) SupportsISOPreprovisioningImage() bool {
 	return true
 }

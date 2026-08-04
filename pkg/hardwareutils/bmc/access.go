@@ -90,6 +90,11 @@ type AccessDetails interface {
 	// Whether the driver supports changing secure boot state.
 	SupportsSecureBoot() bool
 
+	// InspectInterface returns the Ironic inspect interface to use for
+	// out-of-band inspection (e.g. "redfish"). An empty string means
+	// the BMC type does not support out-of-band inspection.
+	InspectInterface() string
+
 	// Whether the driver supports booting a preprovisioning image in ISO format
 	SupportsISOPreprovisioningImage() bool
 

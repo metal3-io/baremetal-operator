@@ -10,8 +10,7 @@ YQ_DOWNLOAD_URL="https://github.com/mikefarah/yq/releases/download"
 VERIFY_ONLY="${VERIFY_ONLY:-false}"
 
 # Check if yq tool is installed and install it if not
-verify_yq()
-{
+verify_yq() {
     YQ="$(command -v yq || true)"
     if ! [[ -x "${YQ}" ]]; then
         if [[ "${VERIFY_ONLY}" != "false" ]]; then

@@ -38,14 +38,14 @@ esac
 
 # create registry container unless it already exists
 running="$(docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true)"
-if [ "${running}" != 'true' ]; then
+if [[ "${running}" != 'true' ]]; then
   docker run \
     -d --restart=always -p "${reg_port}:5000" --name "${reg_name}" \
     registry:2
 fi
 
 reg_host="${reg_name}"
-if [ "${kind_network}" = "bridge" ]; then
+if [[ "${kind_network}" == "bridge" ]]; then
     reg_host="$(docker inspect -f '{{.NetworkSettings.IPAddress}}' "${reg_name}")"
 fi
 echo "Registry Host: ${reg_host}"
@@ -61,18 +61,18 @@ containerdConfigPatches:
 EOF
 
 for node in $(kind get nodes --name "${KIND_CLUSTER_NAME}"); do
-  kubectl annotate node "${node}" tilt.dev/registry=localhost:${reg_port};
+  kubectl annotate node "${node}" "tilt.dev/registry=localhost:${reg_port}";
 done
 
-if [ "${kind_network}" != "bridge" ]; then
-  containers=$(docker network inspect ${kind_network} -f "{{range .Containers}}{{.Name}} {{end}}")
+if [[ "${kind_network}" != "bridge" ]]; then
+  IFS=' ' read -ra containers < <(docker network inspect "${kind_network}" -f "{{range .Containers}}{{.Name}} {{end}}")
   needs_connect="true"
-  for c in $containers; do
-    if [ "$c" = "${reg_name}" ]; then
+  for c in "${containers[@]}"; do
+    if [[ "${c}" == "${reg_name}" ]]; then
       needs_connect="false"
     fi
   done
-  if [ "${needs_connect}" = "true" ]; then
+  if [[ "${needs_connect}" == "true" ]]; then
     docker network connect "${kind_network}" "${reg_name}" || true
   fi
 fi

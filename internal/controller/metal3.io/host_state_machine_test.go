@@ -1107,6 +1107,21 @@ func TestDeleteWaitsForDetach(t *testing.T) {
 			ExpectedState:             metal3api.StateDeprovisioning,
 			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
 		},
+		{
+			// Deletion requested while the detached annotation is set but the
+			// operational status has not been flipped to Detached yet. The host
+			// should go straight to Deleting like an already-detached host, not
+			// down the Deprovisioning path, which pokes the provisioner the
+			// detach was meant to avoid and drags the delete through the
+			// 10-minute detached slow poll (issue #3213).
+			Scenario: "detached-annotation-delete-before-status",
+			Host: host(metal3api.StateProvisioned).
+				setDeletion().
+				setDetached("{\"deleteAction\": \"delete\"}").
+				build(),
+			ExpectedState:             metal3api.StateDeleting,
+			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.Scenario, func(t *testing.T) {

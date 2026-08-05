@@ -97,6 +97,8 @@ fi
 
 MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
+# Split KUBECTL_ARGS into an array for safe expansion
+IFS=' ' read -ra KUBECTL_ARGS_ARRAY <<< "${KUBECTL_ARGS}"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
 export NAMEPREFIX=${NAMEPREFIX:-"baremetal-operator"}
 
@@ -236,8 +238,7 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
     # This is to keep the current behavior of using the ironic.env file for the configmap
     cp "${SCRIPTDIR}/config/default/ironic.env" "${TEMP_BMO_OVERLAY}/ironic.env"
     ${KUSTOMIZE} edit add configmap ironic --behavior=create --from-env-file=ironic.env
-    # shellcheck disable=SC2086
-    ${KUSTOMIZE} build "${TEMP_BMO_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build "${TEMP_BMO_OVERLAY}" | kubectl apply "${KUBECTL_ARGS_ARRAY[@]}" -f -
     popd
 fi
 
@@ -260,8 +261,7 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/tls/certificate.yaml"
     sed -i "s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/mariadb/certificate.yaml"
     ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=create --from-env-file=ironic_bmo_configmap.env
-    # shellcheck disable=SC2086
-    ${KUSTOMIZE} build "${TEMP_IRONIC_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build "${TEMP_IRONIC_OVERLAY}" | kubectl apply "${KUBECTL_ARGS_ARRAY[@]}" -f -
     popd
 fi
 

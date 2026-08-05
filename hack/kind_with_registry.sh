@@ -61,13 +61,13 @@ containerdConfigPatches:
 EOF
 
 for node in $(kind get nodes --name "${KIND_CLUSTER_NAME}"); do
-  kubectl annotate node "${node}" tilt.dev/registry=localhost:${reg_port};
+  kubectl annotate node "${node}" "tilt.dev/registry=localhost:${reg_port}";
 done
 
 if [ "${kind_network}" != "bridge" ]; then
-  containers=$(docker network inspect ${kind_network} -f "{{range .Containers}}{{.Name}} {{end}}")
+  IFS=' ' read -ra containers < <(docker network inspect "${kind_network}" -f "{{range .Containers}}{{.Name}} {{end}}")
   needs_connect="true"
-  for c in $containers; do
+  for c in "${containers[@]}"; do
     if [ "$c" = "${reg_name}" ]; then
       needs_connect="false"
     fi

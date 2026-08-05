@@ -66,6 +66,9 @@ intervals:
   baremetalswitch/wait-secret-updated: [ "30s", "500ms" ]
   hostclaims/wait-associated: [ "10s", "1s" ]
   hostclaims/wait-deleted: [ "5s", "10ms" ]
+  scalability/wait-enrollment: [ "10m", "2s" ]
+  scalability/wait-provisioning: [ "10m", "2s" ]
+  scalability/wait-namespace-deleted: [ "30m", "5s" ]
 
 bmoUpgradeSpecs:
 - deployIronic: false

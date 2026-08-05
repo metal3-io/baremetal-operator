@@ -4,11 +4,11 @@ set -ux
 
 BMH_NAME_REGEX="${1:-^bmh-test-}"
 # Get a list of all virtual machines
-VM_LIST=$(virsh -c qemu:///system list --all --name | grep "${BMH_NAME_REGEX}")
+readarray -t VM_LIST < <(virsh -c qemu:///system list --all --name | grep "${BMH_NAME_REGEX}")
 
-if [[ -n "${VM_LIST}" ]]; then
+if [[ ${#VM_LIST[@]} -gt 0 ]]; then
     # Loop through the list and delete each virtual machine
-    for vm_name in ${VM_LIST}; do
+    for vm_name in "${VM_LIST[@]}"; do
         virsh -c qemu:///system destroy --domain "${vm_name}"
         virsh -c qemu:///system undefine --domain "${vm_name}" --remove-all-storage --nvram
         kubectl delete baremetalhost "${vm_name}"

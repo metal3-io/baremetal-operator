@@ -9,7 +9,7 @@ WORKDIR="${WORKDIR:-/workdir}"
 
 if [ "${IS_CONTAINER}" != "false" ]; then
     TOP_DIR="${1:-.}"
-    find "${TOP_DIR}" -path ./vendor -prune -o -name '*.sh' -type f -exec shellcheck -s bash {} \+
+    find "${TOP_DIR}" -path ./vendor -prune -o -path ./.git -prune -o -name '*.sh' -type f -exec shellcheck -s bash {} \+
 else
     "${CONTAINER_RUNTIME}" run --rm \
         --env IS_CONTAINER=TRUE \

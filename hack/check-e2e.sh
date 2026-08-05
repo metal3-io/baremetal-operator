@@ -23,4 +23,4 @@ for spec in $(grep -E --no-filename ' *specName +:?=' test/e2e/*_test.go | grep 
         EXITCODE=1
     fi
 done
-exit ${EXITCODE}
+exit "${EXITCODE}"

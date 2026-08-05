@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 
-function usage {
+usage() {
     echo "Usage : deploy.sh [-b -i -t -n -k -m]"
     echo ""
     echo "       -b: deploy BMO"
@@ -54,28 +54,28 @@ done
 
 # Backward compatibility
 shift $(( OPTIND - 1 ))
-if [ $# -gt 0 ]; then
+if [[ $# -gt 0 ]]; then
     echo "WARNING: positional arguments are deprecated, run deploy.sh -h for information"
 fi
 
-if [ -n "${1:-}" ]; then
-    DEPLOY_BMO=$1
+if [[ -n "${1:-}" ]]; then
+    DEPLOY_BMO="${1}"
 fi
 
-if [ -n "${2:-}" ]; then
-    DEPLOY_IRONIC=$2
+if [[ -n "${2:-}" ]]; then
+    DEPLOY_IRONIC="${2}"
 fi
 
-if [ -n "${3:-}" ]; then
-    DEPLOY_TLS=$3
+if [[ -n "${3:-}" ]]; then
+    DEPLOY_TLS="${3}"
 fi
 
-if [ -n "${4:-}" ]; then
-    DEPLOY_BASIC_AUTH=$4
+if [[ -n "${4:-}" ]]; then
+    DEPLOY_BASIC_AUTH="${4}"
 fi
 
-if [ -n "${5:-}" ]; then
-    DEPLOY_KEEPALIVED=$5
+if [[ -n "${5:-}" ]]; then
+    DEPLOY_KEEPALIVED="${5}"
 fi
 
 if [[ "${DEPLOY_BMO}" == "false" ]] && [[ "${DEPLOY_IRONIC}" == "false" ]]; then
@@ -85,6 +85,8 @@ if [[ "${DEPLOY_BMO}" == "false" ]] && [[ "${DEPLOY_IRONIC}" == "false" ]]; then
 fi
 
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
+# Split KUBECTL_ARGS into an array for safe expansion
+IFS=' ' read -ra KUBECTL_ARGS_ARRAY <<< "${KUBECTL_ARGS}"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
 export NAMEPREFIX=${NAMEPREFIX:-"baremetal-operator"}
 
@@ -92,9 +94,9 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
 # Determine the BMO image tag to deploy.
 # Priority: BMO_IMAGE_TAG env var > exact git tag of HEAD > "latest"
-if [ -z "${BMO_IMAGE_TAG:-}" ]; then
+if [[ -z "${BMO_IMAGE_TAG:-}" ]]; then
     BMO_IMAGE_TAG="$(git -C "${SCRIPTDIR}" describe --tags --exact-match 2>/dev/null || true)"
-    if [ -z "${BMO_IMAGE_TAG}" ]; then
+    if [[ -z "${BMO_IMAGE_TAG}" ]]; then
         echo "WARNING: HEAD is not on a git tag, defaulting BMO image tag to 'latest'." \
             "Set BMO_IMAGE_TAG to override."
         BMO_IMAGE_TAG="latest"
@@ -125,18 +127,18 @@ mkdir -p "${IRONIC_AUTH_DIR}"
 
 # If usernames and passwords are unset, read them from file or generate them
 if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
-    if [ -z "${IRONIC_USERNAME:-}" ]; then
-        if [ ! -f "${IRONIC_AUTH_DIR}ironic-username" ]; then
+    if [[ -z "${IRONIC_USERNAME:-}" ]]; then
+        if [[ ! -f "${IRONIC_AUTH_DIR}ironic-username" ]]; then
             IRONIC_USERNAME="$(uuidgen)"
-            echo "$IRONIC_USERNAME" > "${IRONIC_AUTH_DIR}ironic-username"
+            echo "${IRONIC_USERNAME}" > "${IRONIC_AUTH_DIR}ironic-username"
         else
             IRONIC_USERNAME="$(cat "${IRONIC_AUTH_DIR}ironic-username")"
         fi
     fi
-    if [ -z "${IRONIC_PASSWORD:-}" ]; then
-        if [ ! -f "${IRONIC_AUTH_DIR}ironic-password" ]; then
+    if [[ -z "${IRONIC_PASSWORD:-}" ]]; then
+        if [[ ! -f "${IRONIC_AUTH_DIR}ironic-password" ]]; then
             IRONIC_PASSWORD="$(uuidgen)"
-            echo "$IRONIC_PASSWORD" > "${IRONIC_AUTH_DIR}ironic-password"
+            echo "${IRONIC_PASSWORD}" > "${IRONIC_AUTH_DIR}ironic-password"
         else
             IRONIC_PASSWORD="$(cat "${IRONIC_AUTH_DIR}ironic-password")"
         fi
@@ -163,7 +165,7 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     ${KUSTOMIZE} create --resources=../../../config/namespace \
     --namespace=baremetal-operator-system --nameprefix=baremetal-operator-
 
-    if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
+    if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
         ${KUSTOMIZE} edit add secret ironic-htpasswd --from-file=htpasswd=ironic-htpasswd
 
         if [[ "${DEPLOY_TLS}" == "true" ]]; then
@@ -196,7 +198,7 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
     ${KUSTOMIZE} create --resources=../../base,../../namespace \
     --namespace=baremetal-operator-system
 
-    if [ "${DEPLOY_BASIC_AUTH}" == "true" ]; then
+    if [[ "${DEPLOY_BASIC_AUTH}" == "true" ]]; then
         ${KUSTOMIZE} edit add component ../../components/basic-auth
         # These files are created below
         ${KUSTOMIZE} edit add secret ironic-credentials \
@@ -220,8 +222,7 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
     # This is to keep the current behavior of using the ironic.env file for the configmap
     cp "${SCRIPTDIR}/config/default/ironic.env" "${TEMP_BMO_OVERLAY}/ironic.env"
     ${KUSTOMIZE} edit add configmap ironic --behavior=create --from-env-file=ironic.env
-    # shellcheck disable=SC2086
-    ${KUSTOMIZE} build "${TEMP_BMO_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build "${TEMP_BMO_OVERLAY}" | kubectl apply "${KUBECTL_ARGS_ARRAY[@]}" -f -
     popd
 fi
 
@@ -243,8 +244,7 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     fi
     sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/tls/certificate.yaml"
     ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=create --from-env-file=ironic_bmo_configmap.env
-    # shellcheck disable=SC2086
-    ${KUSTOMIZE} build "${TEMP_IRONIC_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -
+    ${KUSTOMIZE} build "${TEMP_IRONIC_OVERLAY}" | kubectl apply "${KUBECTL_ARGS_ARRAY[@]}" -f -
     popd
 fi
 

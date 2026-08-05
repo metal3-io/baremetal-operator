@@ -1,6 +1,8 @@
-#!/bin/bash -x
+#!/usr/bin/env bash
 
-num=$1
+set -x
+
+num="${1}"
 
 openstack baremetal node list
 sudo virsh list --all

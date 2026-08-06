@@ -863,6 +863,19 @@ type BareMetalHostStatus struct {
 	// +kubebuilder:default:=0
 	ErrorCount int `json:"errorCount"`
 
+	// ProvisioningFailCount records how many times provisioning has failed
+	// consecutively for the current image. Unlike ErrorCount, it is not reset
+	// on deprovisioning and is only cleared on successful provisioning or when
+	// a new image is specified.
+	// +kubebuilder:default:=0
+	ProvisioningFailCount int `json:"provisioningFailCount"`
+
+	// LastAttemptedImage stores the full image spec of the last provisioning
+	// attempt, used to detect user-initiated image changes (URL, checksum,
+	// format, etc.) that should reset the provisioning retry limit counter.
+	// +optional
+	LastAttemptedImage *Image `json:"lastAttemptedImage,omitempty"`
+
 	// Conditions defines current service state of the BareMetalHost.
 	// +optional
 	// +listType=map

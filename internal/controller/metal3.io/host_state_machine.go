@@ -495,6 +495,14 @@ func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcil
 		return actionComplete{}
 	}
 
+	if info.host.Spec.Image == nil || info.host.Spec.Image.URL == "" {
+		if info.host.Status.ProvisioningFailCount > 0 {
+			info.log.Info("host is available with no image requested, resetting provisioning fail count")
+			info.host.Status.ProvisioningFailCount = 0
+			info.host.Status.LastAttemptedImage = nil
+		}
+	}
+
 	// ErrorCount is cleared when appropriate inside actionManageAvailable
 	actResult := hsm.Reconciler.actionManageAvailable(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
@@ -543,14 +551,27 @@ func (hsm *hostStateMachine) imageProvisioningCancelled() bool {
 
 func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *reconcileInfo) actionResult {
 	if hsm.Host.Status.ErrorType != "" || hsm.provisioningCancelled() {
+		if hsm.Host.Status.ErrorType != "" {
+			hsm.Host.Status.ProvisioningFailCount++
+			info.log.Info("provisioning failed, incrementing fail count",
+				"provisioningFailCount", hsm.Host.Status.ProvisioningFailCount)
+		}
 		hsm.NextState = metal3api.StateDeprovisioning
 		return actionComplete{}
+	}
+
+	// Snapshot the image spec before invoking the provisioner so that
+	// LastAttemptedImage reflects what was actually attempted, not what
+	// the spec contains when a prior error is processed on a later reconcile.
+	if hsm.Host.Spec.Image != nil {
+		hsm.Host.Status.LastAttemptedImage = hsm.Host.Spec.Image.DeepCopy()
 	}
 
 	actResult := hsm.Reconciler.actionProvisioning(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3api.StateProvisioned
 		hsm.Host.Status.ErrorCount = 0
+		hsm.Host.Status.ProvisioningFailCount = 0
 	}
 	return actResult
 }

@@ -175,7 +175,7 @@ var _ = Describe("External Provisioning", Label("required", "provision", "deprov
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 				Client: clusterProxy.GetClient(),
 				Bmh:    bmh,
-				State:  metal3api.StateExternallyProvisioned,
+				State:  metal3api.StateProvisioned,
 				// NOTE(dtantsur): using the smaller externally-provisioned interval on purpose since a real provisioning is not expected
 			}, e2eConfig.GetIntervals(specName, "wait-externally-provisioned")...)
 

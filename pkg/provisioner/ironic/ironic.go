@@ -343,7 +343,9 @@ func (p *ironicProvisioner) createNodePort(ctx context.Context, uuid string, nic
 }
 
 // updateNodePort updates port with local_link_connection and switchport data.
-func (p *ironicProvisioner) updateNodePort(ctx context.Context, existingPort ports.Port, portConfig *provisioner.PortConfig) error {
+// The nic parameter provides LLDP fallback data for local_link_connection
+// when no manual SwitchPortIdentifier is configured.
+func (p *ironicProvisioner) updateNodePort(ctx context.Context, existingPort ports.Port, portConfig *provisioner.PortConfig, nic *metal3api.NIC) error {
 	var updateOpts ports.UpdateOpts
 
 	// Add switch port config if available; otherwise remove
@@ -369,19 +371,22 @@ func (p *ironicProvisioner) updateNodePort(ctx context.Context, existingPort por
 			})
 		}
 
+		var llc map[string]any
 		if portConfig.SwitchPortIdentifier != nil {
-			llc := buildLocalLinkFromConfig(portConfig.SwitchPortIdentifier)
-			if llc != nil && !reflect.DeepEqual(existingPort.LocalLinkConnection, llc) {
-				op := ports.AddOp
-				if len(existingPort.LocalLinkConnection) > 0 {
-					op = ports.ReplaceOp
-				}
-				updateOpts = append(updateOpts, ports.UpdateOperation{
-					Op:    op,
-					Path:  "/local_link_connection",
-					Value: llc,
-				})
+			llc = buildLocalLinkFromConfig(portConfig.SwitchPortIdentifier)
+		} else if nic != nil {
+			llc = buildLocalLinkFromNIC(*nic)
+		}
+		if llc != nil && !reflect.DeepEqual(existingPort.LocalLinkConnection, llc) {
+			op := ports.AddOp
+			if len(existingPort.LocalLinkConnection) > 0 {
+				op = ports.ReplaceOp
 			}
+			updateOpts = append(updateOpts, ports.UpdateOperation{
+				Op:    op,
+				Path:  "/local_link_connection",
+				Value: llc,
+			})
 		}
 	} else if existingPort.Extra["switchport"] != nil {
 		updateOpts = append(updateOpts, ports.UpdateOperation{

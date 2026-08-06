@@ -2134,6 +2134,7 @@ func TestUpdateNodePort(t *testing.T) {
 		name         string
 		existingPort ports.Port
 		portConfig   *provisioner.PortConfig
+		nic          *metal3api.NIC
 		expectOps    int
 		expectError  bool
 	}{
@@ -2252,6 +2253,103 @@ func TestUpdateNodePort(t *testing.T) {
 			},
 			expectOps: 1,
 		},
+		{
+			name: "LLDP fallback sets LLC when no manual SwitchPortIdentifier",
+			existingPort: ports.Port{
+				UUID:    "port-8",
+				Address: "aa:bb:cc:dd:ee:ff",
+				Extra:   map[string]interface{}{},
+			},
+			portConfig: &provisioner.PortConfig{
+				SwitchPortConfig: metal3api.SwitchPortConfig{
+					Mode:       metal3api.SwitchportModeAccess,
+					NativeVLAN: 100,
+				},
+			},
+			nic: &metal3api.NIC{
+				MAC: "aa:bb:cc:dd:ee:ff",
+				LLDP: &metal3api.LLDP{
+					SwitchID: "00:11:22:33:44:55",
+					PortID:   "Eth1/1",
+				},
+			},
+			expectOps: 2,
+		},
+		{
+			name: "LLDP fallback replaces stale manual LLC",
+			existingPort: ports.Port{
+				UUID:    "port-9",
+				Address: "aa:bb:cc:dd:ee:ff",
+				Extra:   map[string]interface{}{},
+				LocalLinkConnection: map[string]interface{}{
+					"switch_id": "old:ma:nu:al:id:00",
+					"port_id":   "OldPort1",
+				},
+			},
+			portConfig: &provisioner.PortConfig{
+				SwitchPortConfig: metal3api.SwitchPortConfig{
+					Mode:       metal3api.SwitchportModeAccess,
+					NativeVLAN: 100,
+				},
+			},
+			nic: &metal3api.NIC{
+				MAC: "aa:bb:cc:dd:ee:ff",
+				LLDP: &metal3api.LLDP{
+					SwitchID: "00:11:22:33:44:55",
+					PortID:   "Eth1/1",
+				},
+			},
+			expectOps: 2,
+		},
+		{
+			name: "no LLC update when NIC has no LLDP data",
+			existingPort: ports.Port{
+				UUID:    "port-10",
+				Address: "aa:bb:cc:dd:ee:ff",
+				Extra:   map[string]interface{}{},
+			},
+			portConfig: &provisioner.PortConfig{
+				SwitchPortConfig: metal3api.SwitchPortConfig{
+					Mode:       metal3api.SwitchportModeAccess,
+					NativeVLAN: 100,
+				},
+			},
+			nic: &metal3api.NIC{
+				MAC: "aa:bb:cc:dd:ee:ff",
+			},
+			expectOps: 1,
+		},
+		{
+			name: "no LLC update when LLDP matches existing",
+			existingPort: ports.Port{
+				UUID:    "port-11",
+				Address: "aa:bb:cc:dd:ee:ff",
+				Extra: map[string]interface{}{
+					"switchport": map[string]interface{}{
+						"mode":        "access",
+						"native_vlan": float64(100),
+					},
+				},
+				LocalLinkConnection: map[string]interface{}{
+					"switch_id": "00:11:22:33:44:55",
+					"port_id":   "Eth1/1",
+				},
+			},
+			portConfig: &provisioner.PortConfig{
+				SwitchPortConfig: metal3api.SwitchPortConfig{
+					Mode:       metal3api.SwitchportModeAccess,
+					NativeVLAN: 100,
+				},
+			},
+			nic: &metal3api.NIC{
+				MAC: "aa:bb:cc:dd:ee:ff",
+				LLDP: &metal3api.LLDP{
+					SwitchID: "00:11:22:33:44:55",
+					PortID:   "Eth1/1",
+				},
+			},
+			expectOps: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -2288,7 +2386,7 @@ func TestUpdateNodePort(t *testing.T) {
 			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
 			require.NoError(t, err)
 
-			err = prov.updateNodePort(t.Context(), tt.existingPort, tt.portConfig)
+			err = prov.updateNodePort(t.Context(), tt.existingPort, tt.portConfig, tt.nic)
 
 			if tt.expectError {
 				assert.Error(t, err)

@@ -16,8 +16,10 @@
 
 set -eu
 
+# shellcheck source=hack/e2e/checksums.sh
+source "$(dirname "${BASH_SOURCE[0]}")/checksums.sh"
+
 USR_LOCAL_BIN="/usr/local/bin"
-MINIMUM_KUBECTL_VERSION=v1.34.1
 KUBECTL_DOWNLOAD_URL="https://dl.k8s.io/release"
 
 # Verify mode turned off by default
@@ -33,13 +35,29 @@ verify_kubectl_version() {
             return 0
         fi
         if [[ "${OSTYPE}" == "linux-gnu" ]]; then
+            if ! command -v sha256sum &>/dev/null; then
+                echo "ERROR: sha256sum not found" >&2
+                return 1
+            fi
+
             echo "kubectl not found, installing"
             set -x
-            curl -LO \
-                --create-dirs \
-                --output-dir "/tmp" \
-                "${KUBECTL_DOWNLOAD_URL}/${MINIMUM_KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-            sudo install "/tmp/kubectl" "${USR_LOCAL_BIN}/kubectl"
+            local tmp_dir
+            tmp_dir="$(mktemp -d)"
+            trap 'rm -rf "${tmp_dir}"; trap - RETURN' RETURN
+
+            # Download binary
+            safe_curl -o "${tmp_dir}/kubectl" "${KUBECTL_DOWNLOAD_URL}/${MINIMUM_KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+
+            # Verify checksum before installation
+            local checksum
+            checksum="$(sha256sum "${tmp_dir}/kubectl" | awk '{print $1;}')"
+            if [[ "${checksum}" != "${KUBECTL_SHA256}" ]]; then
+                echo >&2 "fatal: ${KUBECTL_DOWNLOAD_URL}/${MINIMUM_KUBECTL_VERSION}/bin/linux/amd64/kubectl checksum '${checksum}' differs from expected '${KUBECTL_SHA256}'"
+                return 1
+            fi
+
+            sudo install "${tmp_dir}/kubectl" "${USR_LOCAL_BIN}/kubectl"
             set +x
             KUBECTL="$(command -v kubectl)"
         else

@@ -375,7 +375,7 @@ spec:
                         MAC address of the network interface.  This must match the MAC address
                         of a NIC discovered during inspection (see HardwareData resource).
                         Mutually exclusive with Name.
-                      pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                      pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                       type: string
                     name:
                       description: |-
@@ -403,7 +403,7 @@ spec:
                         switchID:
                           description: SwitchID is expected to be the management MAC
                             address of the switch
-                          pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                          pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                           type: string
                       required:
                       - portID

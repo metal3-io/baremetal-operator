@@ -387,13 +387,21 @@ func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *
 	// and LocalLinkConnection fields needed for comparison.
 	if updateExisting && p.config.enableNetworking && p.portConfigs != nil {
 		p.log.Info("updating ports for node", "nodeUUID", ironicNode.UUID, "MACs", slices.Collect(maps.Keys(ironicNodePortsList)))
+		nicByMAC := make(map[string]metal3api.NIC, len(nics))
+		for _, nic := range nics {
+			nicByMAC[strings.ToLower(nic.MAC)] = nic
+		}
 		for _, port := range ironicNodePorts {
 			mac := strings.ToLower(port.Address)
 			// Absent keys yield nil, which tells updateNodePort to remove
 			// any existing switchport config — this is intentional cleanup
 			// for ports no longer referenced by a NetworkInterface.
 			config := p.portConfigs[mac]
-			if err := p.updateNodePort(ctx, port, config); err != nil {
+			var nic *metal3api.NIC
+			if n, ok := nicByMAC[mac]; ok {
+				nic = &n
+			}
+			if err := p.updateNodePort(ctx, port, config, nic); err != nil {
 				return err
 			}
 		}

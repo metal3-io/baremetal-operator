@@ -67,7 +67,7 @@ if [ "$IRONIC_TLS_SETUP" = "true" ]; then
 
     export IRONIC_BASE_URL="https://${CLUSTER_PROVISIONING_HOST}"
     if [ -z "$IRONIC_CACERT_FILE" ]; then
-        export IRONIC_CACERT_FILE=$IRONIC_CERT_FILE
+        export IRONIC_CACERT_FILE="${IRONIC_CERT_FILE}"
     fi
 else
     export IRONIC_BASE_URL="http://${CLUSTER_PROVISIONING_HOST}"
@@ -128,35 +128,35 @@ fi
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_IMAGE"
 sudo "${CONTAINER_RUNTIME}" pull "$IRONIC_KEEPALIVED_IMAGE"
 
-CERTS_MOUNTS=""
+CERTS_MOUNTS=()
 
 if [ -r "$IRONIC_CACERT_FILE" ]; then
-     CERTS_MOUNTS="-v ${IRONIC_CACERT_FILE}:/certs/ca/ironic/tls.crt "
+     CERTS_MOUNTS+=(-v "${IRONIC_CACERT_FILE}:/certs/ca/ironic/tls.crt")
 fi
 
 if [ -r "$IRONIC_CERT_FILE" ]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_CERT_FILE}:/certs/ironic/tls.crt "
+     CERTS_MOUNTS+=(-v "${IRONIC_CERT_FILE}:/certs/ironic/tls.crt")
 fi
 if [ -r "$IRONIC_KEY_FILE" ]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IRONIC_KEY_FILE}:/certs/ironic/tls.key "
+     CERTS_MOUNTS+=(-v "${IRONIC_KEY_FILE}:/certs/ironic/tls.key")
 fi
 if [[ -r "${IPXE_CACERT_FILE}" ]]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IPXE_CACERT_FILE}:/certs/ca/ipxe/tls.crt "
+     CERTS_MOUNTS+=(-v "${IPXE_CACERT_FILE}:/certs/ca/ipxe/tls.crt")
 fi
 if [[ -r "${IPXE_CERT_FILE}" ]]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IPXE_CERT_FILE}:/certs/ipxe/tls.crt "
+     CERTS_MOUNTS+=(-v "${IPXE_CERT_FILE}:/certs/ipxe/tls.crt")
 fi
 if [[ -r "${IPXE_KEY_FILE}" ]]; then
-     CERTS_MOUNTS="${CERTS_MOUNTS} -v ${IPXE_KEY_FILE}:/certs/ipxe/tls.key "
+     CERTS_MOUNTS+=(-v "${IPXE_KEY_FILE}:/certs/ipxe/tls.key")
 fi
 
-BASIC_AUTH_MOUNTS=""
+BASIC_AUTH_MOUNTS=()
 IRONIC_HTPASSWD_FILE="${IRONIC_DATA_DIR}/auth/ironic-htpasswd"
-IRONIC_HTPASSWD_MOUNT=""
+IRONIC_HTPASSWD_MOUNT=()
 set +x
 if [ -n "$IRONIC_USERNAME" ]; then
      htpasswd -n -b -B "${IRONIC_USERNAME}" "${IRONIC_PASSWORD}" > "${IRONIC_HTPASSWD_FILE}"
-     IRONIC_HTPASSWD_MOUNT="-v ${IRONIC_HTPASSWD_FILE}:/auth/ironic/htpasswd"
+     IRONIC_HTPASSWD_MOUNT=(-v "${IRONIC_HTPASSWD_FILE}:/auth/ironic/htpasswd")
 fi
 set -x
 
@@ -177,9 +177,9 @@ fi
 
 "$SCRIPTDIR/tools/remove_local_ironic.sh"
 
-IRONIC_MARIADB_PASSWORD=
+IRONIC_MARIADB_PASSWORD=()
 
-POD=""
+POD=()
 
 if [[ "${CONTAINER_RUNTIME}" == "podman" ]]; then
   # Remove existing pod
@@ -188,14 +188,13 @@ if [[ "${CONTAINER_RUNTIME}" == "podman" ]]; then
   fi
   # Create pod
   sudo "${CONTAINER_RUNTIME}" pod create -n ironic-pod
-  POD="--pod ironic-pod "
+  POD=(--pod ironic-pod)
 fi
 
 # Start image downloader container
 if ${IPA_DOWNLOAD_ENABLED}; then
-  # shellcheck disable=SC2086
   sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ipa-downloader \
-    ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+    "${POD[@]}" --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
     -v "$IRONIC_DATA_DIR:/shared" "${IPA_DOWNLOADER_IMAGE}" /usr/local/bin/get-resource.sh
 
   sudo "${CONTAINER_RUNTIME}" wait ipa-downloader
@@ -205,16 +204,14 @@ fi
 
 # See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/rundnsmasq
-# shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name dnsmasq \
-     ${POD} ${CERTS_MOUNTS} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     "${POD[@]}" "${CERTS_MOUNTS[@]}" --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "$IRONIC_DATA_DIR:/shared" --entrypoint /bin/rundnsmasq "${IRONIC_IMAGE}"
 
 # See this file for env vars you can set, like IP, DHCP_RANGE, INTERFACE
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/runhttpd
-# shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
-     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD_MOUNT} \
+     "${POD[@]}" "${CERTS_MOUNTS[@]}" "${BASIC_AUTH_MOUNTS[@]}" "${IRONIC_HTPASSWD_MOUNT[@]}" \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
      -v "${IRONIC_DATA_DIR}:/shared" --entrypoint /bin/runhttpd "${IRONIC_IMAGE}"
 
@@ -223,21 +220,18 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
 
 # See this file for additional env vars you may want to pass, like IP and INTERFACE
 # https://github.com/metal3-io/ironic-image/blob/main/scripts/runironic
-# shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
-     ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD_MOUNT} \
+     "${POD[@]}" "${CERTS_MOUNTS[@]}" "${BASIC_AUTH_MOUNTS[@]}" "${IRONIC_HTPASSWD_MOUNT[@]}" \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
-     ${IRONIC_MARIADB_PASSWORD} --entrypoint /bin/runironic \
+     "${IRONIC_MARIADB_PASSWORD[@]}" --entrypoint /bin/runironic \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start ironic-endpoint-keepalived
-# shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-endpoint-keepalived \
-    ${POD} --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+    "${POD[@]}" --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
     -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_KEEPALIVED_IMAGE}"
 
 # Start ironic-log-watch
-# shellcheck disable=SC2086
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic-log-watch \
-    ${POD} --entrypoint /bin/runlogwatch.sh \
+    "${POD[@]}" --entrypoint /bin/runlogwatch.sh \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"

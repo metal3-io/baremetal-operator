@@ -271,7 +271,7 @@ test_status="$?"
 
 LOGS_DIR="${REPO_ROOT}/test/e2e/_artifacts/logs"
 mkdir -p "${LOGS_DIR}/qemu"
-sudo sh -c "cp -r /var/log/libvirt/qemu/* ${LOGS_DIR}/qemu/"
+sudo cp -r /var/log/libvirt/qemu/* "${LOGS_DIR}/qemu/"
 sudo chown -R "${USER}:${USER}" "${LOGS_DIR}/qemu"
 
 # Collect all artifacts

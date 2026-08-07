@@ -14,10 +14,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const (
-	// Version is set at build time.
-	Version = "dev"
+// Version is set at build time via -ldflags -X.
+var Version = "dev"
 
+const (
 	// DefaultConfigFileName is the default name for the config file.
 	DefaultConfigFileName = "vbmctl.yaml"
 

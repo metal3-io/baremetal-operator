@@ -450,6 +450,7 @@ ifneq (,$(findstring -,$(RELEASE_TAG)))
 endif
 # the previous release tag, e.g., v1.7.0, excluding pre-release tags
 PREVIOUS_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+" | sort -V | grep -B1 $(RELEASE_TAG) | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$$" | head -n 1 2>/dev/null)
+VBMCTL_LDFLAGS = "-X github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config.Version=${BUILD_VERSION}"
 RELEASE_DIR := out
 RELEASE_NOTES_DIR := releasenotes
 
@@ -467,6 +468,12 @@ release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
 release-manifests: $(KUSTOMIZE) $(RELEASE_DIR) ## Builds the manifests to publish with a release
 	$(KUSTOMIZE) build config > $(RELEASE_DIR)/baremetal-operator.yaml
 
+.PHONY: release-vbmctl
+release-vbmctl: $(RELEASE_DIR) ## Build vbmctl fort the release into out/
+	cd test; CGO_ENABLED=1 go build --tags=e2e,vbmctl -ldflags $(VBMCTL_LDFLAGS) \
+	-o $(abspath $(RELEASE_DIR))/vbmctl-$(shell go env GOOS)-$(shell go env GOARCH) \
+	./vbmctl/cmd/vbmctl
+
 .PHONY: release
 release:
 	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
@@ -475,6 +482,7 @@ release:
 	MANIFEST_IMG=$(IMG) MANIFEST_TAG=$(RELEASE_TAG) $(MAKE) set-manifest-image-bmo
 	PULL_POLICY=IfNotPresent $(MAKE) set-manifest-pull-policy
 	$(MAKE) release-manifests
+	$(MAKE) release-vbmctl
 	$(MAKE) release-notes
 
 go-version: ## Print the go version we use to compile our binaries and images

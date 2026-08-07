@@ -296,3 +296,182 @@ func TestGetFirmwareDetails(t *testing.T) {
 
 	assert.Equal(t, "foobar", firmware.BIOS.Vendor)
 }
+
+func TestGetDiskType(t *testing.T) {
+	tests := []struct {
+		name string
+		disk inventory.RootDiskType
+		want metal3api.DiskType
+	}{
+		{
+			name: "rotational disk is HDD",
+			disk: inventory.RootDiskType{Rotational: true},
+			want: metal3api.HDD,
+		},
+		{
+			name: "nvme device is NVME",
+			disk: inventory.RootDiskType{Name: "/dev/nvme0n1"},
+			want: metal3api.NVME,
+		},
+		{
+			name: "nvme partition is NVME",
+			disk: inventory.RootDiskType{Name: "/dev/nvme0n1p1"},
+			want: metal3api.NVME,
+		},
+		{
+			name: "non-rotational device without nvme name prefix is SSD",
+			disk: inventory.RootDiskType{Name: "/dev/sda"},
+			want: metal3api.SSD,
+		},
+		{
+			name: "rotational takes precedence over nvme name",
+			disk: inventory.RootDiskType{Rotational: true, Name: "/dev/nvme0n1"},
+			want: metal3api.HDD,
+		},
+		{
+			name: "empty disk defaults to SSD",
+			disk: inventory.RootDiskType{},
+			want: metal3api.SSD,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, getDiskType(tt.disk))
+		})
+	}
+}
+
+func TestGetStorageDetails(t *testing.T) {
+	disks := []inventory.RootDiskType{
+		{
+			Name:               "/dev/sda",
+			Rotational:         true,
+			Size:               500000000000,
+			Vendor:             "ATA",
+			Model:              "VBOX HARDDISK",
+			Serial:             "VB12345678",
+			Wwn:                "0x5000c123",
+			WwnVendorExtension: "0x1234",
+			WwnWithExtension:   "0x5000c1231234",
+			Hctl:               "0:0:0:0",
+		},
+		{
+			Name:   "/dev/nvme0n1",
+			ByPath: "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1",
+			Size:   256000000000,
+			Vendor: "Samsung",
+			Model:  "SSD 970 EVO",
+		},
+	}
+
+	storage := getStorageDetails(disks)
+	assert.Len(t, storage, 2)
+
+	assert.Equal(t, "/dev/sda", storage[0].Name)
+	assert.Equal(t, []string{"/dev/sda"}, storage[0].AlternateNames)
+	assert.True(t, storage[0].Rotational)
+	assert.Equal(t, metal3api.HDD, storage[0].Type)
+	assert.Equal(t, metal3api.Capacity(500000000000), storage[0].SizeBytes)
+	assert.Equal(t, "ATA", storage[0].Vendor)
+	assert.Equal(t, "VBOX HARDDISK", storage[0].Model)
+	assert.Equal(t, "VB12345678", storage[0].SerialNumber)
+	assert.Equal(t, "0x5000c123", storage[0].WWN)
+	assert.Equal(t, "0x1234", storage[0].WWNVendorExtension)
+	assert.Equal(t, "0x5000c1231234", storage[0].WWNWithExtension)
+	assert.Equal(t, "0:0:0:0", storage[0].HCTL)
+
+	assert.Equal(t, "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1", storage[1].Name)
+	assert.Equal(t, []string{"/dev/nvme0n1", "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1"}, storage[1].AlternateNames)
+	assert.False(t, storage[1].Rotational)
+	assert.Equal(t, metal3api.NVME, storage[1].Type)
+	assert.Equal(t, metal3api.Capacity(256000000000), storage[1].SizeBytes)
+}
+
+func TestGetStorageDetailsByPathWithoutName(t *testing.T) {
+	storage := getStorageDetails([]inventory.RootDiskType{
+		{
+			Name:   "",
+			ByPath: "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1",
+			Size:   256000000000,
+		},
+	})
+	assert.Len(t, storage, 1)
+	assert.Equal(t, "/dev/disk/by-path/pci-0000:00:1f.0-nvme-1", storage[0].Name)
+	assert.Equal(t, []string{"/dev/disk/by-path/pci-0000:00:1f.0-nvme-1"}, storage[0].AlternateNames)
+}
+
+func TestGetStorageDetailsWithoutNameOrByPath(t *testing.T) {
+	storage := getStorageDetails([]inventory.RootDiskType{
+		{
+			Size: 256000000000,
+		},
+	})
+	assert.Len(t, storage, 1)
+	assert.Empty(t, storage[0].Name)
+	assert.Empty(t, storage[0].AlternateNames)
+}
+
+func TestGetStorageDetailsEmpty(t *testing.T) {
+	assert.Empty(t, getStorageDetails([]inventory.RootDiskType{}))
+	assert.Empty(t, getStorageDetails(nil))
+}
+
+func TestGetCPUDetails(t *testing.T) {
+	cpu := getCPUDetails(&inventory.CPUType{
+		Architecture: "x86_64",
+		ModelName:    "Intel(R) Core(TM) i7-8650U",
+		Frequency:    "1900.0000",
+		Count:        8,
+		Flags:        []string{"vmx", "avx", "aes"},
+	})
+	assert.Equal(t, "x86_64", cpu.Arch)
+	assert.Equal(t, "Intel(R) Core(TM) i7-8650U", cpu.Model)
+	assert.InDelta(t, float64(metal3api.ClockSpeed(1900)*metal3api.MegaHertz), float64(cpu.ClockMegahertz), 0.001)
+	assert.Equal(t, 8, cpu.Count)
+	assert.Equal(t, []string{"aes", "avx", "vmx"}, cpu.Flags)
+}
+
+func TestGetCPUDetailsRounding(t *testing.T) {
+	cpu := getCPUDetails(&inventory.CPUType{
+		Frequency: "2499.998",
+	})
+	assert.InDelta(t, float64(metal3api.ClockSpeed(2500)*metal3api.MegaHertz), float64(cpu.ClockMegahertz), 0.001)
+}
+
+func TestGetCPUDetailsInvalidFrequency(t *testing.T) {
+	tests := []struct {
+		name      string
+		frequency string
+	}{
+		{name: "empty frequency", frequency: ""},
+		{name: "non-numeric frequency", frequency: "not-a-number"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cpu := getCPUDetails(&inventory.CPUType{Frequency: tt.frequency})
+			assert.InDelta(t, 0.0, float64(cpu.ClockMegahertz), 0.001)
+		})
+	}
+}
+
+func TestGetCPUDetailsNil(t *testing.T) {
+	assert.Equal(t, metal3api.CPU{}, getCPUDetails(nil))
+}
+
+func TestGetSystemVendorDetails(t *testing.T) {
+	vendor := getSystemVendorDetails(inventory.SystemVendorType{
+		Manufacturer: "Dell Inc.",
+		ProductName:  "PowerEdge R640",
+		SerialNumber: "ABC1234",
+	})
+	assert.Equal(t, "Dell Inc.", vendor.Manufacturer)
+	assert.Equal(t, "PowerEdge R640", vendor.ProductName)
+	assert.Equal(t, "ABC1234", vendor.SerialNumber)
+}
+
+func TestGetSystemVendorDetailsEmpty(t *testing.T) {
+	vendor := getSystemVendorDetails(inventory.SystemVendorType{})
+	assert.Empty(t, vendor.Manufacturer)
+	assert.Empty(t, vendor.ProductName)
+	assert.Empty(t, vendor.SerialNumber)
+}

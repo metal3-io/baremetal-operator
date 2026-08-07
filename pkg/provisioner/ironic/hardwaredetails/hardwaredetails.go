@@ -140,14 +140,17 @@ func getDiskType(diskdata inventory.RootDiskType) metal3api.DiskType {
 func getStorageDetails(diskdata []inventory.RootDiskType) []metal3api.Storage {
 	storage := make([]metal3api.Storage, len(diskdata))
 	for i, disk := range diskdata {
-		device := disk.Name
-		allNames := []string{device}
+		deviceName := disk.Name
+		var allNames []string
+		if deviceName != "" {
+			allNames = append(allNames, deviceName)
+		}
 		if disk.ByPath != "" {
-			device = disk.ByPath
-			allNames = append(allNames, device)
+			deviceName = disk.ByPath
+			allNames = append(allNames, deviceName)
 		}
 		storage[i] = metal3api.Storage{
-			Name:               device,
+			Name:               deviceName,
 			AlternateNames:     allNames,
 			Rotational:         disk.Rotational,
 			Type:               getDiskType(disk),
@@ -173,6 +176,10 @@ func getSystemVendorDetails(vendor inventory.SystemVendorType) metal3api.Hardwar
 }
 
 func getCPUDetails(cpudata *inventory.CPUType) metal3api.CPU {
+	if cpudata == nil {
+		return metal3api.CPU{}
+	}
+
 	var freq float64
 	fmt.Sscanf(cpudata.Frequency, "%f", &freq) //nolint:errcheck
 	freq = math.Round(freq)                    // Ensure freq has no fractional part

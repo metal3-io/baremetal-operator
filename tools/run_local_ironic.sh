@@ -45,11 +45,13 @@ IPXE_KEY_FILE="${IPXE_KEY_FILE:-}"
 # Variables used to configure IPA handling
 IPA_DOWNLOAD_ENABLED="${IPA_DOWNLOAD_ENABLED:-true}"
 USE_LOCAL_IPA="${USE_LOCAL_IPA:-false}"
-LOCAL_IPA_PATH="${LOCAL_IPA_PATH:-/tmp/dib}"
+LOCAL_IPA_PATH="${LOCAL_IPA_PATH:-/opt/metal3-dev-env/dib}"
 
 HTTP_PROXY="${HTTP_PROXY:-}"
 HTTPS_PROXY="${HTTPS_PROXY:-}"
 NO_PROXY="${NO_PROXY:-}"
+
+NO_SHA256_CHECKSUM="${NO_SHA256_CHECKSUM:-false}"
 
 sudo mkdir -p "${IRONIC_DATA_DIR}/auth"
 
@@ -164,8 +166,26 @@ sudo mkdir -p "$IRONIC_DATA_DIR/html/images"
 # Locally supplied IPA images are imported here when the environment variables are set accordingly.
 # Name of the IPA archive is expected to be "ironic-python-agent.tar" at all times.
 if ${USE_LOCAL_IPA} && ! ${IPA_DOWNLOAD_ENABLED}; then
-    sudo cp "${LOCAL_IPA_PATH}/ironic-python-agent.tar" "$IRONIC_DATA_DIR/html/images"
-    sudo tar --extract --file "$IRONIC_DATA_DIR/html/images/ironic-python-agent.tar" \
+    local_ipa_archive="${LOCAL_IPA_PATH}/ironic-python-agent.tar"
+
+    # Verify checksum if a .sha256sum file is provided alongside the archive.
+    if [ -f "${local_ipa_archive}.sha256sum" ]; then
+        echo "Verifying integrity of ${local_ipa_archive}..."
+        (cd "$(dirname "${local_ipa_archive}")" && sha256sum --check "$(basename "${local_ipa_archive}").sha256sum")
+    else
+        if [ "$NO_SHA256_CHECKSUM" = "true" ]; then
+            echo "WARNING: No checksum file found at ${local_ipa_archive}.sha256sum" >&2
+            echo "Skipping integrity verification as NO_SHA256_CHECKSUM is set to true." >&2
+        else
+            echo "ERROR: No checksum file found at ${local_ipa_archive}.sha256sum" >&2
+            echo "Cannot verify archive integrity. Provide a .sha256sum file for secure operation or set NO_SHA256_CHECKSUM to true to skip verification." >&2
+            exit 1
+        fi
+    fi
+
+    sudo cp "${local_ipa_archive}" "$IRONIC_DATA_DIR/html/images"
+    sudo tar --extract --no-absolute-names \
+        --file "$IRONIC_DATA_DIR/html/images/ironic-python-agent.tar" \
         --directory "$IRONIC_DATA_DIR/html/images"
 fi
 

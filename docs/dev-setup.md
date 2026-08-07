@@ -134,6 +134,9 @@ The following environment variables can be passed to configure the ironic:
   the IPA archive is located. This variable is handled by BMO. The variable
   should contain an arbitrary path pointing to the
   directory that contains the `ironic-python-agent.tar`.
+  (default `/opt/metal3-dev-env/dib`). The path must not be world-writable.
+  If a `ironic-python-agent.tar.sha256sum` file exists alongside the archive,
+  its integrity will be verified before extraction.
 
 **NOTES**
 In case both `IPA_DOWNLOAD_ENABLED` and `USE_LOCAL_IPA` are set to true then

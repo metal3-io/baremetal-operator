@@ -561,7 +561,8 @@ func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(ctx context.Conte
 
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		changed := updateBMHSteps(info.host, provResult, info.log)
+		if clearError(info.host) || changed {
 			return actionUpdate{result}
 		}
 		return result
@@ -1448,7 +1449,8 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		// to return false, indicating that it has no more work to
 		// do.
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		changed := updateBMHSteps(info.host, provResult, info.log)
+		if clearError(info.host) || changed {
 			return actionUpdate{result}
 		}
 		return result
@@ -1464,6 +1466,9 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		info.log.V(VerbosityLevelDebug).Info("updating custom deploy in status")
 		info.host.Status.Provisioning.CustomDeploy = info.host.Spec.CustomDeploy.DeepCopy()
 	}
+
+	// Sync one more time on completion to clear any stale step/activity fields.
+	updateBMHSteps(info.host, provResult, info.log)
 
 	// After provisioning we always requeue to ensure we enter the
 	// "provisioned" state and start monitoring power status.
@@ -1499,7 +1504,8 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 		}
 		if provResult.Dirty {
 			result := actionContinue{provResult.RequeueAfter}
-			if clearError(info.host) {
+			changed := updateBMHSteps(info.host, provResult, info.log)
+			if clearError(info.host) || changed {
 				return actionUpdate{result}
 			}
 			return result
@@ -1522,7 +1528,8 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		changed := updateBMHSteps(info.host, provResult, info.log)
+		if clearError(info.host) || changed {
 			return actionUpdate{result}
 		}
 		return result
@@ -1534,6 +1541,9 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 		}
 		return actionContinue{}
 	}
+
+	// Sync one more time on completion to clear any stale step/activity fields.
+	updateBMHSteps(info.host, provResult, info.log)
 
 	// After the provisioner is done, clear the provisioning settings
 	// so we transition to the next state.
@@ -2029,7 +2039,8 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(ctx context.Context, p
 	}
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		changed := updateBMHSteps(info.host, provResult, info.log)
+		if clearError(info.host) || changed {
 			return actionUpdate{result}
 		}
 		return result
@@ -2777,4 +2788,57 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 		return ctrl.Result{Requeue: true}, hardwareData, nil
 	}
 	return ctrl.Result{}, hardwareData, nil
+}
+
+func updateBMHSteps(host *metal3api.BareMetalHost, provResult provisioner.Result, log logr.Logger) bool {
+	changed := false
+
+	// Capture previous values before mutating so the log below reflects the
+	// actual prior step/activity data rather than the freshly assigned values.
+	previousProgress := host.Status.Provisioning.Progress
+	previousCurrentActivity := host.Status.Provisioning.CurrentActivity
+
+	if host.Status.Provisioning.CurrentActivity != provResult.CurrentActivity {
+		host.Status.Provisioning.CurrentActivity = provResult.CurrentActivity
+		changed = true
+	}
+	if host.Status.Provisioning.Progress != provResult.Progress {
+		host.Status.Provisioning.Progress = provResult.Progress
+		changed = true
+	}
+
+	if len(provResult.AllSteps) == 0 {
+		// When ironic reports no steps, clear step status,
+		// log before clearing to preserve previous step information for debugging.
+		if len(host.Status.Provisioning.Steps) > 0 {
+			log.Info("Clearing provisioning steps",
+				"previousProgress", previousProgress,
+				"previousCurrentActivity", previousCurrentActivity,
+				"previousSteps", host.Status.Provisioning.Steps,
+			)
+			host.Status.Provisioning.Steps = nil
+			changed = true
+		}
+		return changed
+	}
+
+	stepsChanged := false
+	if len(host.Status.Provisioning.Steps) != len(provResult.AllSteps) {
+		stepsChanged = true
+	} else {
+		for i, step := range host.Status.Provisioning.Steps {
+			incoming := provResult.AllSteps[i]
+			if step.Name != incoming.Name || step.State != incoming.State {
+				stepsChanged = true
+				break
+			}
+		}
+	}
+
+	if stepsChanged {
+		host.Status.Provisioning.Steps = provResult.AllSteps
+		changed = true
+	}
+
+	return changed
 }

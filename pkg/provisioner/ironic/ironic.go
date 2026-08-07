@@ -149,6 +149,122 @@ func (p *ironicProvisioner) validateNode(ctx context.Context, ironicNode *nodes.
 	return "", nil
 }
 
+func parseSubStates(node *nodes.Node) (activity string, progress string, currentIndex int, allSteps []metal3api.ProvisioningStep) {
+	if node == nil {
+		return "", "", 0, nil
+	}
+
+	if node.ProvisionState == string(nodes.Deploying) || node.ProvisionState == string(nodes.DeployWait) || node.ProvisionState == string(nodes.DeployFail) {
+		if indexF, ok := node.DriverInternalInfo["deploy_step_index"].(float64); ok {
+			currentIndex = int(indexF)
+		}
+
+		if stepsList, ok := node.DriverInternalInfo["deploy_steps"].([]interface{}); ok {
+			for i, s := range stepsList {
+				if stepMap, ok := s.(map[string]interface{}); ok {
+					if stepName, ok := stepMap["step"].(string); ok {
+						stepInterface, _ := stepMap["interface"].(string)
+						stepState := metal3api.StepState("")
+
+						if i < currentIndex {
+							stepState = metal3api.StepStateCompleted
+						} else if i == currentIndex {
+							if node.ProvisionState == string(nodes.DeployFail) {
+								stepState = metal3api.StepStateFailed
+							} else {
+								stepState = metal3api.StepStateInProgress
+							}
+						}
+
+						name := fmt.Sprintf("%s.%s", stepInterface, stepName)
+						allSteps = append(allSteps, metal3api.ProvisioningStep{
+							Name:        name,
+							State:       stepState,
+							Description: describeStep(name),
+						})
+					}
+				}
+			}
+		}
+
+		// Default to the provision state so that callers see a useful value
+		// even when DeployStep is nil or doesn't contain a parseable step key.
+		activity = node.ProvisionState
+		if node.DeployStep != nil {
+			if name, ok := node.DeployStep["step"].(string); ok {
+				interfaceName, _ := node.DeployStep["interface"].(string)
+				activity = fmt.Sprintf("%s.%s", interfaceName, name)
+			}
+		}
+
+		if len(allSteps) > 0 {
+			progress = fmt.Sprintf("%d/%d Steps Completed", currentIndex, len(allSteps))
+		}
+		return activity, progress, currentIndex, allSteps
+	}
+
+	if node.ProvisionState == string(nodes.Cleaning) || node.ProvisionState == string(nodes.CleanWait) || node.ProvisionState == string(nodes.CleanFail) {
+		if indexF, ok := node.DriverInternalInfo["clean_step_index"].(float64); ok {
+			currentIndex = int(indexF)
+		}
+
+		if stepsList, ok := node.DriverInternalInfo["clean_steps"].([]interface{}); ok {
+			for i, s := range stepsList {
+				if stepMap, ok := s.(map[string]interface{}); ok {
+					if stepName, ok := stepMap["step"].(string); ok {
+						stepInterface, _ := stepMap["interface"].(string)
+						stepState := metal3api.StepState("")
+						if i < currentIndex {
+							stepState = metal3api.StepStateCompleted
+						} else if i == currentIndex {
+							if node.ProvisionState == string(nodes.CleanFail) {
+								stepState = metal3api.StepStateFailed
+							} else {
+								stepState = metal3api.StepStateInProgress
+							}
+						}
+
+						name := fmt.Sprintf("%s.%s", stepInterface, stepName)
+						allSteps = append(allSteps, metal3api.ProvisioningStep{
+							Name:        name,
+							State:       stepState,
+							Description: describeStep(name),
+						})
+					}
+				}
+			}
+		}
+
+		// Default to the provision state so that callers see a useful value
+		// even when CleanStep is nil or doesn't contain parseable fields.
+		activity = node.ProvisionState
+		if node.CleanStep != nil {
+			interfaceName, _ := node.CleanStep["interface"].(string)
+			stepName, _ := node.CleanStep["step"].(string)
+
+			if stepName != "" && interfaceName != "" {
+				activity = fmt.Sprintf("%s.%s", interfaceName, stepName)
+			} else if stepName != "" {
+				activity = stepName
+			} else if interfaceName != "" {
+				activity = interfaceName
+			}
+		}
+
+		if len(allSteps) > 0 {
+			progress = fmt.Sprintf("%d/%d Steps Completed", currentIndex, len(allSteps))
+		}
+		return activity, progress, currentIndex, allSteps
+	}
+	if node.ProvisionState != "" {
+		activity = node.ProvisionState
+	} else {
+		activity = ""
+	}
+
+	return activity, "", 0, nil
+}
+
 func (p *ironicProvisioner) getNode(ctx context.Context) (*nodes.Node, error) {
 	if p.nodeID == "" {
 		return nil, provisioner.ErrNeedsRegistration
@@ -1151,8 +1267,7 @@ func (p *ironicProvisioner) Prepare(ctx context.Context, data provisioner.Prepar
 		p.log.Info("waiting for host to become manageable",
 			"state", ironicNode.ProvisionState,
 			"deploy step", ironicNode.DeployStep)
-		result, err = operationContinuing(longRetryDelay)
-
+		result, err = operationContinuingWithState(longRetryDelay, ironicNode)
 	default:
 		result, err = transientError(fmt.Errorf("have unexpected ironic node state %s", ironicNode.ProvisionState))
 	}
@@ -1347,7 +1462,7 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 		p.log.Info("waiting for host to become active or available",
 			"state", ironicNode.ProvisionState,
 			"deploy step", ironicNode.DeployStep, "clean step", ironicNode.CleanStep)
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 	}
 }
 
@@ -1468,21 +1583,21 @@ func (p *ironicProvisioner) Deprovision(ctx context.Context, restartOnFailure bo
 	case nodes.Deleting:
 		p.log.Info("deleting")
 		// Transitions to Cleaning upon completion
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 
 	case nodes.Cleaning:
 		p.log.Info("cleaning")
 		// Transitions to Available upon completion
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 
 	case nodes.CleanWait:
 		p.log.Info("cleaning")
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 
 	case nodes.Deploying:
 		p.log.Info("previous deploy running")
 		// Deploying cannot be stopped, wait for DeployWait or Active
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 
 	case nodes.Active, nodes.DeployFail, nodes.DeployWait:
 		// Before starting deprovisioning, ensure Ironic's automated_clean matches the BMH spec.

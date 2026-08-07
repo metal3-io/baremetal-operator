@@ -788,6 +788,7 @@ spec:
                 - preparation error
                 - provisioning error
                 - power management error
+                - detach error
                 - servicing error
                 type: string
               goodCredentials:

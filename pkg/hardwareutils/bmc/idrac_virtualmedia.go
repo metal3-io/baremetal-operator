@@ -74,6 +74,11 @@ func (a *redfishiDracVirtualMediaAccessDetails) FirmwareInterface() string {
 	return redfish
 }
 
+func (a *redfishiDracVirtualMediaAccessDetails) InspectInterface() string {
+	// FIXME(dtantsur): this should be using idracRedfish, but it's not currently enabled in ironic-image.
+	return redfish
+}
+
 func (a *redfishiDracVirtualMediaAccessDetails) ManagementInterface() string {
 	return idracRedfish
 }

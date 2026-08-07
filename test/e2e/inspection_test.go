@@ -104,6 +104,86 @@ var _ = Describe("Inspection", Label("required", "inspection", "ironic"), func()
 		}, e2eConfig.GetIntervals(specName, "wait-registration-error")...).Should(Succeed())
 	})
 
+	It("should inspect a BMH using fast (out-of-band) inspection", func() {
+		if bmc.AccessDetails.InspectInterface() == "" {
+			Skip("BMC driver does not support out-of-band inspection")
+		}
+
+		bmhName := specName + "-fast"
+		secretName := bmhName + "-bmc"
+
+		By("Creating a secret with BMH credentials")
+		bmcCredentialsData := map[string]string{
+			"username": bmc.User,
+			"password": bmc.Password,
+		}
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
+
+		By("creating a BMH with inspectionMode fast")
+		bmh := metal3api.BareMetalHost{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			},
+			Spec: metal3api.BareMetalHostSpec{
+				BMC: metal3api.BMCDetails{
+					Address:                        bmc.Address,
+					CredentialsName:                secretName,
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
+				},
+				BootMode:       metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
+				InspectionMode: metal3api.InspectionModeFast,
+			},
+		}
+		if bmc.AccessDetails.NeedsMAC() {
+			bmh.Spec.BootMACAddress = bmc.BootMacAddress
+		}
+		err := clusterProxy.GetClient().Create(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+		toCleanup = append(toCleanup, &bmh)
+
+		By("waiting for the BMH to be in inspecting state")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateInspecting,
+		}, e2eConfig.GetIntervals(specName, "wait-inspecting")...)
+
+		By("waiting for the BMH to become available")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateAvailable,
+		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+		By("checking the hardware details were populated")
+		key := types.NamespacedName{Namespace: bmh.Namespace, Name: bmh.Name}
+		Expect(clusterProxy.GetClient().Get(ctx, key, &bmh)).To(Succeed())
+
+		Expect(bmh.Status.HardwareDetails).NotTo(BeNil())
+		Expect(bmh.Status.HardwareDetails.RAMMebibytes).To(BeNumerically(">", 0))
+		Expect(bmh.Status.HardwareDetails.CPU.Count).To(BeNumerically(">", 0))
+		Expect(bmh.Status.HardwareDetails.NIC).NotTo(BeEmpty())
+
+		By("checking that HardwareData resource was created")
+		hwData := &metal3api.HardwareData{}
+		Expect(clusterProxy.GetClient().Get(ctx, key, hwData)).To(Succeed())
+
+		Expect(hwData.Spec.HardwareDetails).NotTo(BeNil())
+		Expect(hwData.Spec.HardwareDetails.RAMMebibytes).To(BeNumerically(">", 0))
+		Expect(hwData.Spec.HardwareDetails.CPU.Count).To(BeNumerically(">", 0))
+		Expect(hwData.Spec.HardwareDetails.NIC).NotTo(BeEmpty())
+
+		if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+			By("checking that fast inspection did not populate a hostname or IP (no ramdisk was booted)")
+			Expect(bmh.Status.HardwareDetails.Hostname).To(BeEmpty())
+			Expect(bmh.Status.HardwareDetails.NIC[0].IP).To(BeEmpty())
+			Expect(hwData.Spec.HardwareDetails.Hostname).To(BeEmpty())
+			Expect(hwData.Spec.HardwareDetails.NIC[0].IP).To(BeEmpty())
+		}
+	})
+
 	It("should inspect a newly created BMH", func() {
 		By("Creating a secret with BMH credentials")
 

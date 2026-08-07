@@ -81,6 +81,11 @@ const (
 
 	// InspectionModeAgent runs standard agent-based inspection.
 	InspectionModeAgent InspectionMode = "agent"
+
+	// InspectionModeFast runs out-of-band inspection via the BMC (e.g.
+	// Redfish) without booting a ramdisk. It completes in seconds but
+	// may return fewer details than agent-based inspection.
+	InspectionModeFast InspectionMode = "fast"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
@@ -640,8 +645,9 @@ type BareMetalHostSpec struct {
 	// Specifies the mode for host inspection.
 	// "disabled" - no inspection will be performed
 	// "agent" - normal agent-based inspection will run
+	// "fast" - out-of-band inspection via BMC (Redfish), no ramdisk boot
 	// +optional
-	// +kubebuilder:validation:Enum=disabled;agent
+	// +kubebuilder:validation:Enum=disabled;agent;fast
 	InspectionMode InspectionMode `json:"inspectionMode,omitempty"`
 
 	// NetworkInterfaces defines the network configuration for each interface.

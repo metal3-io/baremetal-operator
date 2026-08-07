@@ -1428,6 +1428,10 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		ImagePullSecret: authSecret,
 	}, forceReboot)
 	if err != nil {
+		var secretErr SecretAccessError
+		if errors.As(err, &secretErr) {
+			return recordActionFailure(info, metal3api.ProvisioningError, secretErr.Error())
+		}
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
 	}
 

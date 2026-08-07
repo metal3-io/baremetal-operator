@@ -38,8 +38,6 @@ type DeployContext struct {
 	DeployTLS bool
 	// Whether to deploy KeepAlived
 	DeployKeepAlived bool
-	// Whether to deploy Mariadb
-	DeployMariadb bool
 	// string represents whether to deploy Ironic with RestartContainerCertificateUpdated
 	RestartContainerCertificateUpdated string
 	// kustomization overlays
@@ -54,8 +52,6 @@ type DeployContext struct {
 	// Username and Password for Ironic authentication
 	IronicUsername string
 	IronicPassword string
-	// Endpoint for Mariadb
-	MariaDBHostIP string
 	// Templates to render files using in deployments
 	TemplateFiles embed.FS
 	// Default environment variables map

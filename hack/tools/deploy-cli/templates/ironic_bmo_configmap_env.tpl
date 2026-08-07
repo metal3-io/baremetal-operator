@@ -12,11 +12,6 @@ DEPLOY_RAMDISK_URL=http://172.22.0.2:6180/images/ironic-python-agent.initramfs
 CACHEURL=http://172.22.0.1/images
 IRONIC_KERNEL_PARAMS=console=ttyS0
 USE_IRONIC_INSPECTOR=false
-{{- if .DeployMariadb }}
-IRONIC_USE_MARIADB=true
-{{- else }}
-IRONIC_USE_MARIADB=false
-{{ end }}
 {{- if eq .RestartContainerCertificateUpdated "true" }}
 RESTART_CONTAINER_CERTIFICATE_UPDATED="true"
 {{- else }}

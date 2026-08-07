@@ -18,7 +18,6 @@ var (
 	deployWithoutAuthFlag bool
 	deployBasicAuthFlag   bool
 	deployKeepalivedFlag  bool
-	deployMariadbFlag     bool
 	showHelpFlag          bool
 	err                   error
 	defaultMap            map[string]string
@@ -39,14 +38,12 @@ func init() {
 	flag.BoolVar(&deployTLSFlag, "t", false, "Deploy with TLS enabled")
 	flag.BoolVar(&deployWithoutAuthFlag, "n", false, "Deploy with authentication disabled")
 	flag.BoolVar(&deployKeepalivedFlag, "k", false, "Deploy with keepalived")
-	flag.BoolVar(&deployMariadbFlag, "m", false, "Deploy with mariadb (requires TLS enabled)")
 	flag.BoolVar(&showHelpFlag, "h", false, "Show help message")
 
 	deployBasicAuthFlag = !deployWithoutAuthFlag
 	defaultMap = map[string]string{
 		"IRONIC_HOST_IP":                        "",
 		"IRONIC_DATA_DIR":                       "/tmp/metal3/ironic/",
-		"MARIADB_HOST_IP":                       "127.0.0.1",
 		"RESTART_CONTAINER_CERTIFICATE_UPDATED": "false",
 	}
 
@@ -78,7 +75,6 @@ func main() {
 		DeployBasicAuth:           deployBasicAuthFlag,
 		DeployTLS:                 deployTLSFlag,
 		DeployKeepAlived:          deployKeepalivedFlag,
-		DeployMariadb:             deployMariadbFlag,
 		BMOOverlay:                bmoOverlay,
 		IronicOverlay:             ironicOverlay,
 		IronicEnvFile:             ironicEnvFile,
@@ -95,20 +91,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	dc.MariaDBHostIP, err = dc.GetEnvOrDefault("MARIADB_HOST_IP")
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	if showHelpFlag {
 		flag.Usage()
 		return
-	}
-
-	if deployMariadbFlag && !deployTLSFlag {
-		log.Println("ERROR: Deploying Ironic with MariaDB without TLS is not supported.")
-		flag.Usage()
-		os.Exit(1)
 	}
 
 	if !deployBMOFlag && !deployIronicFlag {

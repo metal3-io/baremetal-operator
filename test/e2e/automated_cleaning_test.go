@@ -78,7 +78,8 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning", "
 		By("Patching the BMH to trigger provisioning")
 		userDataSecretName := "user-data-disk-test"
 		sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
-		createDiskTestUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+		obj := createDiskTestUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+		toCleanup = append(toCleanup, obj)
 		userDataSecret := &corev1.SecretReference{
 			Name:      userDataSecretName,
 			Namespace: namespace.Name,
@@ -148,7 +149,8 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning", "
 
 		By("Patching the BMH again to trigger re-provisioning")
 		userDataSecretName = "user-data-ssh-setup"
-		createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+		obj = createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+		toCleanup = append(toCleanup, obj)
 		userDataSecret = &corev1.SecretReference{
 			Name:      userDataSecretName,
 			Namespace: namespace.Name,

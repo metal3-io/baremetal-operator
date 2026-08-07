@@ -170,7 +170,8 @@ var _ = Describe("Network Data", Label("required", "network-data", "ironic"), fu
 		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 			userDataSecretName := bmhName + "-user-data"
 			sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
-			createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+			obj := createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+			toCleanup = append(toCleanup, obj)
 			userDataSecret = &corev1.SecretReference{
 				Name:      userDataSecretName,
 				Namespace: namespace.Name,
@@ -266,7 +267,8 @@ var _ = Describe("Network Data", Label("required", "network-data", "ironic"), fu
 		if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {
 			userDataSecretName := bmhName + "-user-data"
 			sshPubKeyPath := e2eConfig.GetVariable("SSH_PUB_KEY")
-			createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+			obj := createSSHSetupUserdata(ctx, clusterProxy.GetClient(), namespace.Name, userDataSecretName, sshPubKeyPath, bmc.IPAddress)
+			toCleanup = append(toCleanup, obj)
 			userDataSecret = &corev1.SecretReference{
 				Name:      userDataSecretName,
 				Namespace: namespace.Name,

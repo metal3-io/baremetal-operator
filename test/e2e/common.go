@@ -550,7 +550,7 @@ func EstablishSSHConnection(e2eConfig *Config, ipAddress string) *ssh.Client {
 
 // createSSHSetupUserdata creates a Kubernetes secret intended for cloud-init usage.
 // This userdata sets up SSH authorized keys during BMH's initialization.
-func createSSHSetupUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string, staticIP string) {
+func createSSHSetupUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string, staticIP string) *corev1.Secret {
 	sshPubKeyData, err := os.ReadFile(sshPubKeyPath) // #nosec G304
 	Expect(err).NotTo(HaveOccurred(), "Failed to read SSH public key file")
 
@@ -560,13 +560,13 @@ mkdir /root/.ssh
 chmod 700 /root/.ssh
 echo "%s" >> /root/.ssh/authorized_keys`, staticIP, sshPubKeyData)
 
-	CreateSecret(ctx, client, namespace, secretName, map[string]string{"userData": userDataContent})
+	return CreateSecret(ctx, client, namespace, secretName, map[string]string{"userData": userDataContent})
 }
 
 // createDiskTestUserdata creates a Kubernetes secret with cloud-init userdata for disk operations.
 // This userdata configures a static IP, sets up SSH authorized keys, formats /dev/vdb, mounts it,
 // and creates test files on both disks. Intended for testing automated cleaning of disks.
-func createDiskTestUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string, staticIP string) {
+func createDiskTestUserdata(ctx context.Context, client client.Client, namespace string, secretName string, sshPubKeyPath string, staticIP string) *corev1.Secret {
 	sshPubKeyData, err := os.ReadFile(sshPubKeyPath) // #nosec G304
 	Expect(err).NotTo(HaveOccurred(), "Failed to read SSH public key file")
 	userDataContent := fmt.Sprintf(`#!/bin/sh
@@ -584,7 +584,7 @@ mount /dev/vdb /mnt/data
 touch /mnt/data/test_file_vdb.txt
 touch /test_file_vda.txt`, staticIP, sshPubKeyData)
 
-	CreateSecret(ctx, client, namespace, secretName, map[string]string{"userData": userDataContent})
+	return CreateSecret(ctx, client, namespace, secretName, map[string]string{"userData": userDataContent})
 }
 
 // PerformSSHBootCheck performs an SSH check to verify the node's boot source.

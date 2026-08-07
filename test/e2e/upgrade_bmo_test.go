@@ -6,6 +6,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"net"
 	"path/filepath"
 	"strings"
 
@@ -57,11 +58,21 @@ func RunBMOUpgradeTest(ctx context.Context, input *BMOUpgradeSpec, upgradeCluste
 			LogPath:             filepath.Join(testCaseArtifactFolder, "logs"),
 		})
 		Expect(err).NotTo(HaveOccurred())
+		upgradeIronicIP := e2eConfig.GetVariable("IRONIC_PROVISIONING_IP")
+		if e2eConfig.HasVariable("UPGRADE_IRONIC_PROVISIONING_IP") {
+			upgradeIronicIP = e2eConfig.GetVariable("UPGRADE_IRONIC_PROVISIONING_IP")
+		}
 		WaitForIronicReady(ctx, WaitForIronicInput{
 			Client:    upgradeClusterProxy.GetClient(),
 			Name:      "ironic",
 			Namespace: bmoIronicNamespace,
 			Intervals: e2eConfig.GetIntervals("ironic", "wait-deployment"),
+			SecurityConfig: &IronicSecurityConfig{
+				Host:          net.JoinHostPort(upgradeIronicIP, e2eConfig.GetVariable("IRONIC_PROVISIONING_PORT")),
+				Username:      e2eConfig.GetVariable("IRONIC_USERNAME"),
+				Password:      e2eConfig.GetVariable("IRONIC_PASSWORD"),
+				ClientTimeout: e2eConfig.GetDurationVariable("IRONIC_CLIENT_TIMEOUT"),
+			},
 		})
 	}
 

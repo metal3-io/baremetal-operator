@@ -3637,12 +3637,15 @@ spec:
             drop:
             - ALL
           privileged: false
+          readOnlyRootFilesystem: true
           runAsGroup: 65532
           runAsUser: 65532
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+        - mountPath: /tmp
+          name: tmp
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -3654,6 +3657,8 @@ spec:
         secret:
           defaultMode: 420
           secretName: bmo-webhook-server-cert
+      - emptyDir: {}
+        name: tmp
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

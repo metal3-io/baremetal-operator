@@ -1046,6 +1046,21 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "",
 		},
 		{
+			name: "validInspectionModeFastIDracRedfish",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "idrac-redfish://192.168.122.1",
+						CredentialsName: "secretRefName",
+					},
+					InspectionMode: metal3api.InspectionModeFast,
+				},
+			},
+			wantedErr: "",
+		},
+		{
 			name: "validInspectionModeFastRedfishVirtualMedia",
 			newBMH: &metal3api.BareMetalHost{
 				TypeMeta:   tm,
@@ -1053,6 +1068,21 @@ func TestValidateCreate(t *testing.T) {
 				Spec: metal3api.BareMetalHostSpec{
 					BMC: metal3api.BMCDetails{
 						Address:         "redfish-virtualmedia://192.168.122.1",
+						CredentialsName: "secretRefName",
+					},
+					InspectionMode: metal3api.InspectionModeFast,
+				},
+			},
+			wantedErr: "",
+		},
+		{
+			name: "validInspectionModeFastIDracVirtualMedia",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					BMC: metal3api.BMCDetails{
+						Address:         "idrac-virtualmedia://192.168.122.1",
 						CredentialsName: "secretRefName",
 					},
 					InspectionMode: metal3api.InspectionModeFast,

@@ -105,7 +105,11 @@ func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisione
 		fallthrough
 	case nodes.Inspecting:
 		p.log.Info("inspection in progress")
-		result, err = operationContinuing(longRetryDelay)
+		delay := longRetryDelay
+		if data.InspectionMode == metal3api.InspectionModeFast {
+			delay = shortRetryDelay
+		}
+		result, err = operationContinuing(delay)
 		return result, started, details, err
 	case nodes.InspectFail:
 		if !restartOnFailure {

@@ -194,7 +194,20 @@ func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(ctx context.
 		return fmt.Errorf("could not get/create firmware schema: %w", err)
 	}
 
-	if err = r.updateStatus(ctx, info, currentSettings, firmwareSchema); err != nil {
+	// Filter out password-type settings before storing in Status.
+	// The schema has AttributeType metadata that the raw SettingsMap lacks.
+	filteredSettings := make(metal3api.SettingsMap, len(currentSettings))
+	for k, v := range currentSettings {
+		if strings.Contains(k, "Password") {
+			continue
+		}
+		if s, ok := schema[k]; ok && s.AttributeType == "Password" {
+			continue
+		}
+		filteredSettings[k] = v
+	}
+
+	if err = r.updateStatus(ctx, info, filteredSettings, firmwareSchema); err != nil {
 		return fmt.Errorf("could not update hostFirmwareSettings: %w", err)
 	}
 
@@ -421,6 +434,13 @@ func (r *HostFirmwareSettingsReconciler) validateHostFirmwareSettings(info *rInf
 		if strings.Contains(name, "Password") {
 			errs = append(errs, errors.New("cannot set Password field"))
 			continue
+		}
+		// Prohibit any settings whose schema AttributeType is Password
+		if schema != nil {
+			if s, ok := schema.Spec.Schema[name]; ok && s.AttributeType == "Password" {
+				errs = append(errs, errors.New("cannot set Password field"))
+				continue
+			}
 		}
 
 		// The setting must be in the Status

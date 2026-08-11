@@ -1359,28 +1359,14 @@ func (r *BareMetalHostReconciler) actionPreparing(ctx context.Context, prov prov
 			info.log.V(VerbosityLevelDebug).Info("handling cleaning error in controller")
 			clearHostProvisioningSettings(info.host)
 		}
-		if hfcDirty && hfc.Status.Updates != nil {
-			info.log.Info("handling cleaning error during firmware update")
-			hfc.Status.Updates = nil
-			if err := r.Status().Update(ctx, hfc); err != nil {
-				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
-			}
+		if err := applyHFCServicingError(ctx, r.Client, hfc, hfcDirty); err != nil {
+			return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 		}
 		return recordActionFailure(info, metal3api.PreparationError, provResult.ErrorMessage)
 	}
 
-	if hfcDirty && started {
-		hfcStillDirty, err := r.saveHostFirmwareComponents(ctx, prov, info, hfc)
-		if err != nil {
-			return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
-		}
-
-		if hfcStillDirty {
-			info.log.V(VerbosityLevelDebug).Info("going to update the host firmware components")
-			if err := r.Status().Update(ctx, hfc); err != nil {
-				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
-			}
-		}
+	if err := applyHFCServicingResult(ctx, r.Client, prov, hfc, hfcDirty, started); err != nil {
+		return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
 	}
 
 	if bmhDirty && started {
@@ -1559,61 +1545,19 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 	return actionComplete{}
 }
 
-func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy) (result actionResult) {
+// doServiceIfNeeded checks whether servicing (firmware/BIOS updates) is required
+// and, if so, drives it to completion via the provisioner.
+// Returns nil when there is nothing to service or when servicing has finished.
+func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy) actionResult {
 	info.log.V(VerbosityLevelTrace).Info("doServiceIfNeeded started")
-	servicingData := provisioner.ServicingData{}
 
-	// (NOTE)janders: since Servicing is an opt-in feature that requires HostUpdatePolicy to be created and set to onReboot
-	// set below booleans to false by default and change to true based on policy settings
-
-	var hfsDirty bool
-	var hfcDirty bool
-	var hfc *metal3api.HostFirmwareComponents
-	var liveFirmwareSettingsAllowed, liveFirmwareUpdatesAllowed bool
-
-	if hup != nil {
-		liveFirmwareSettingsAllowed = (hup.Spec.FirmwareSettings == metal3api.HostUpdatePolicyOnReboot)
-		liveFirmwareUpdatesAllowed = (hup.Spec.FirmwareUpdates == metal3api.HostUpdatePolicyOnReboot)
+	state, err := collectServicingState(ctx, r.Client, info.host, hup)
+	if err != nil {
+		return actionError{fmt.Errorf("could not determine servicing state: %w", err)}
 	}
-
-	if liveFirmwareSettingsAllowed {
-		// handling HFS based FirmwareSettings here
-		var hfs *metal3api.HostFirmwareSettings
-		var err error
-		hfsDirty, hfs, err = r.getHostFirmwareSettings(ctx, info)
-		if err != nil {
-			return actionError{fmt.Errorf("could not determine updated settings: %w", err)}
-		}
-		if hfsDirty {
-			servicingData.ActualFirmwareSettings = hfs.Status.Settings
-			servicingData.TargetFirmwareSettings = hfs.Spec.Settings
-		}
-
-		servicingData.HasFirmwareSpec = hfs != nil && len(hfs.Spec.Settings) > 0
-	}
-
-	if liveFirmwareUpdatesAllowed {
-		var err error
-		hfcDirty, hfc, err = r.getHostFirmwareComponents(ctx, info)
-		if err != nil {
-			return actionError{fmt.Errorf("could not determine firmware components: %w", err)}
-		}
-		if hfcDirty {
-			// Handle only Firmware Component that it is in hfc.Spec.Updates but not in hfc.Status.Updates.
-			if hfc.Status.Updates != nil {
-				servicingData.TargetFirmwareComponents = getUpdatesDifference(hfc.Spec.Updates, hfc.Status.Updates)
-			} else {
-				servicingData.TargetFirmwareComponents = hfc.Spec.Updates
-			}
-		}
-
-		servicingData.HasFirmwareSpec = servicingData.HasFirmwareSpec || (hfc != nil && len(hfc.Spec.Updates) > 0)
-	}
-
-	hasChanges := hfsDirty || hfcDirty
 
 	// Even if settings are clean, we need to check the result of the current servicing.
-	if !hasChanges && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
+	if !state.hasChanges && info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing && info.host.Status.ErrorType != metal3api.ServicingError {
 		// If nothing is going on, return control to the power management.
 		return nil
 	}
@@ -1629,36 +1573,22 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 		return actionUpdate{}
 	}
 
-	provResult, started, err := prov.Service(ctx, servicingData, hasChanges,
-		info.host.Status.ErrorType == metal3api.ServicingError)
+	provResult, started, err := performService(ctx, prov, info.host, state)
 	if err != nil {
 		return actionError{fmt.Errorf("error servicing host: %w", err)}
 	}
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.Firmware = nil
-		if hfcDirty && hfc.Status.Updates != nil {
-			hfc.Status.Updates = nil
-			if err = r.Status().Update(ctx, hfc); err != nil {
-				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
-			}
+		if err := applyHFCServicingError(ctx, r.Client, state.hfc, state.hfcDirty); err != nil {
+			return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 		}
-		result = recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
-		return result
+		return recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
 	}
 
 	dirty := clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing)
 
-	if hfcDirty && started {
-		hfcDirty, err = r.saveHostFirmwareComponents(ctx, prov, info, hfc)
-		if err != nil {
-			return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
-		}
-
-		if hfcDirty {
-			if err := r.Status().Update(ctx, hfc); err != nil {
-				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
-			}
-		}
+	if err := applyHFCServicingResult(ctx, r.Client, prov, state.hfc, state.hfcDirty, started); err != nil {
+		return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
 	}
 
 	resultAction := actionContinue{delay: provResult.RequeueAfter}
@@ -1668,7 +1598,7 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 		return resultAction
 	}
 
-	// Servicing is finished at this point, clean up operational status
+	// Servicing is finished at this point, clean up operational status.
 	if clearErrorWithStatus(info.host, metal3api.OperationalStatusOK) {
 		// FIXME(janders/dtantsur): this can be racy. We should consider
 		// using a generation number to decide if we start servicing or not.
@@ -1680,7 +1610,6 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 // Check the current power status against the desired power status.
 func (r *BareMetalHostReconciler) manageHostPower(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.V(VerbosityLevelTrace).Info("manageHostPower started", LogFieldPoweredOn, info.host.Status.PoweredOn)
-	var provResult provisioner.Result
 
 	// Check the current status and save it before trying to update it.
 	hwState, err := prov.UpdateHardwareState(ctx)
@@ -1765,53 +1694,68 @@ func (r *BareMetalHostReconciler) manageHostPower(ctx context.Context, prov prov
 		"rebootMode", desiredRebootMode,
 		"rebootProcess", desiredPowerOnState != info.host.Spec.Online)
 
+	var provResult provisioner.Result
 	if desiredPowerOnState {
-		provResult, err = prov.PowerOn(ctx, info.host.Status.ErrorType == metal3api.PowerManagementError)
-	} else {
-		if info.host.Status.ErrorCount > 0 {
-			desiredRebootMode = metal3api.RebootModeHard
+		var err error
+		provResult, err = performPowerOn(ctx, prov, info.host)
+		if err != nil {
+			return actionError{fmt.Errorf("failed to power on host: %w", err)}
 		}
-		provResult, err = prov.PowerOff(ctx, desiredRebootMode, info.host.Status.ErrorType == metal3api.PowerManagementError, info.host.Spec.AutomatedCleaningMode)
-	}
-	if err != nil {
-		return actionError{fmt.Errorf("failed to change power state: %w", err)}
-	}
-
-	// If DisablePowerOff was enabled then prov.PowerOff above will have rebooted instead of powering off, in this case
-	// the operation is complete (no need to power on) and any reboot annotation can be removed
-	if info.host.Spec.DisablePowerOff {
-		if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
-			delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
-			if err = r.Update(ctx, info.host); err != nil {
-				return actionError{fmt.Errorf("failed to remove reboot annotation from host: %w", err)}
-			}
-			return actionContinue{}
+		if provResult.ErrorMessage != "" {
+			return recordActionFailure(info, metal3api.PowerManagementError, provResult.ErrorMessage)
 		}
-	}
-
-	if provResult.ErrorMessage != "" {
-		if !desiredPowerOnState && desiredRebootMode == metal3api.RebootModeSoft &&
-			info.host.Status.ErrorType != metal3api.PowerManagementError {
-			provResult.ErrorMessage = clarifySoftPoweroffFailure + provResult.ErrorMessage
-		}
-		return recordActionFailure(info, metal3api.PowerManagementError, provResult.ErrorMessage)
-	}
-
-	if provResult.Dirty {
-		info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
-			metricLabels := hostMetricLabels(info.request)
-			if desiredPowerOnState {
+		if provResult.Dirty {
+			info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+				metricLabels := hostMetricLabels(info.request)
 				metricLabels[labelPowerOnOff] = "on"
-			} else {
-				metricLabels[labelPowerOnOff] = "off"
+				powerChangeAttempts.With(metricLabels).Inc()
+			})
+			result := actionContinue{provResult.RequeueAfter}
+			if clearError(info.host) {
+				return actionUpdate{result}
 			}
-			powerChangeAttempts.With(metricLabels).Inc()
-		})
-		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
-			return actionUpdate{result}
+			return result
 		}
-		return result
+	} else {
+		// When DisablePowerOff is set, the provisioner reboots instead of powering off.
+		// For the annotation-based reboot flow, initiate the reboot and clear the annotation.
+		if info.host.Spec.DisablePowerOff {
+			if _, suffixlessAnnotationExists := info.host.Annotations[metal3api.RebootAnnotationPrefix]; suffixlessAnnotationExists {
+				if _, err := prov.PowerOff(ctx, desiredRebootMode,
+					info.host.Status.ErrorType == metal3api.PowerManagementError,
+					info.host.Spec.AutomatedCleaningMode); err != nil {
+					return actionError{fmt.Errorf("failed to change power state: %w", err)}
+				}
+				delete(info.host.Annotations, metal3api.RebootAnnotationPrefix)
+				if err := r.Update(ctx, info.host); err != nil {
+					return actionError{fmt.Errorf("failed to remove reboot annotation from host: %w", err)}
+				}
+				return actionContinue{}
+			}
+		}
+		var err error
+		provResult, err = performPowerOff(ctx, prov, info.host, desiredRebootMode)
+		if err != nil {
+			return actionError{fmt.Errorf("failed to power off host: %w", err)}
+		}
+		if provResult.ErrorMessage != "" {
+			if desiredRebootMode == metal3api.RebootModeSoft && info.host.Status.ErrorType != metal3api.PowerManagementError {
+				provResult.ErrorMessage = clarifySoftPoweroffFailure + provResult.ErrorMessage
+			}
+			return recordActionFailure(info, metal3api.PowerManagementError, provResult.ErrorMessage)
+		}
+		if provResult.Dirty {
+			info.postSaveCallbacks = append(info.postSaveCallbacks, func() {
+				metricLabels := hostMetricLabels(info.request)
+				metricLabels[labelPowerOnOff] = "off"
+				powerChangeAttempts.With(metricLabels).Inc()
+			})
+			result := actionContinue{provResult.RequeueAfter}
+			if clearError(info.host) {
+				return actionUpdate{result}
+			}
+			return result
+		}
 	}
 
 	// The provisioner did not have to do anything to change the power
@@ -2120,38 +2064,6 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 	return dirty, nil
 }
 
-func (r *BareMetalHostReconciler) saveHostFirmwareComponents(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, hfc *metal3api.HostFirmwareComponents) (dirty bool, err error) {
-	dirty = false
-	if reflect.DeepEqual(hfc.Status.Updates, hfc.Spec.Updates) {
-		info.log.V(VerbosityLevelDebug).Info("not saving hostFirmwareComponents information since it is not necessary")
-		return dirty, nil
-	}
-
-	info.log.V(VerbosityLevelDebug).Info("saving hostFirmwareComponents information",
-		"specUpdates", hfc.Spec.Updates,
-		"statusUpdates", hfc.Status.Updates)
-
-	hfc.Status.Updates = make([]metal3api.FirmwareUpdate, len(hfc.Spec.Updates))
-	hfc.Status.Updates = hfc.Spec.Updates
-
-	// Retrieve new information about the firmware components stored in ironic
-	components, err := prov.GetFirmwareComponents(ctx)
-	if err != nil {
-		info.log.Error(err, "failed to get new information for firmware components in ironic")
-		return dirty, err
-	}
-	dirty = true
-
-	if !reflect.DeepEqual(hfc.Status.Components, components) {
-		hfc.Status.Components = components
-		for _, fwc := range components {
-			r.Log.Info("firmware component added for host", "component", fwc.Component)
-		}
-	}
-
-	return dirty, nil
-}
-
 func (r *BareMetalHostReconciler) createHostFirmwareComponents(ctx context.Context, info *reconcileInfo) error {
 	// Check if HostFirmwareComponents already exists
 	hfc := &metal3api.HostFirmwareComponents{}
@@ -2263,9 +2175,10 @@ func (r *BareMetalHostReconciler) acquireHostUpdatePolicy(ctx context.Context, i
 	return hup, nil
 }
 
-// Check if an HFS/HFC has changes and is valid.
-func hostObjectHasChanges(conditions []metav1.Condition, changedCondition, validCondition string, expectedGeneration int64) (changed bool, valid bool, err error) {
-	readyCond := meta.FindStatusCondition(conditions, changedCondition)
+// hostObjectHasChanges checks if an HFS/HFC object has valid pending changes.
+// Both HFS and HFC use "ChangeDetected" and "Valid" as their condition type strings.
+func hostObjectHasChanges(conditions []metav1.Condition, expectedGeneration int64) (changed bool, valid bool, err error) {
+	readyCond := meta.FindStatusCondition(conditions, "ChangeDetected")
 	if readyCond == nil {
 		return false, false, nil
 	}
@@ -2277,7 +2190,7 @@ func hostObjectHasChanges(conditions []metav1.Condition, changedCondition, valid
 	}
 
 	// Valid condition must be present and set to true.
-	if !meta.IsStatusConditionTrue(conditions, validCondition) {
+	if !meta.IsStatusConditionTrue(conditions, "Valid") {
 		return false, false, nil
 	}
 
@@ -2304,7 +2217,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareSettings(ctx context.Context, i
 		return false, nil, nil
 	}
 
-	changed, valid, err := hostObjectHasChanges(hfs.Status.Conditions, string(metal3api.FirmwareSettingsChangeDetected), string(metal3api.FirmwareSettingsValid), hfs.GetGeneration())
+	changed, valid, err := hostObjectHasChanges(hfs.Status.Conditions, hfs.GetGeneration())
 	if err != nil {
 		return false, nil, fmt.Errorf("hostFirmwareSettings not ready yet: %w", err)
 	}
@@ -2346,7 +2259,7 @@ func (r *BareMetalHostReconciler) getHostFirmwareComponents(ctx context.Context,
 		return false, nil, nil
 	}
 
-	changed, valid, err := hostObjectHasChanges(hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsChangeDetected), string(metal3api.HostFirmwareComponentsValid), hfc.GetGeneration())
+	changed, valid, err := hostObjectHasChanges(hfc.Status.Conditions, hfc.GetGeneration())
 	if err != nil {
 		return false, nil, fmt.Errorf("hostFirmwareComponents not ready yet: %w", err)
 	}

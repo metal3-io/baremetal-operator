@@ -111,6 +111,10 @@ jobs:
       with:
         go-version: ${{ env.go_version }}
         cache: false
+    - name: Install libvirt build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libvirt-dev
     - name: generate release artifacts
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

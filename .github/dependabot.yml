@@ -42,7 +42,7 @@ updates:
     kubernetes:
       patterns: [ "k8s.io/*" ]
     capi:
-      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test" ]
+      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/api", "sigs.k8s.io/cluster-api/test" ]
   ignore:
   # Ignore controller-runtime major and minor bumps as its upgraded manually.
   - dependency-name: "sigs.k8s.io/controller-runtime"

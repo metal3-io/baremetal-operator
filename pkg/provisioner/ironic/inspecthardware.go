@@ -32,14 +32,30 @@ func (p *ironicProvisioner) startInspection(ctx context.Context, data provisione
 	if data.CPUArchitecture != "" {
 		opts["cpu_arch"] = data.CPUArchitecture
 	}
+
+	updater := clients.UpdateOptsBuilder(p.log).
+		SetPropertiesOpts(opts, ironicNode)
+
+	bmcAccess, bmcErr := p.bmcAccess()
+	if bmcErr != nil {
+		result, err = operationFailed(bmcErr.Error())
+		return result, started, err
+	}
+	if data.InspectionMode == metal3api.InspectionModeFast && bmcAccess.InspectInterface() == "" {
+		result, err = operationFailed(fmt.Sprintf("BMC driver %s does not support fast (out-of-band) inspection", bmcAccess.Type()))
+		return result, started, err
+	}
+	updater.SetTopLevelOpt("inspect_interface",
+		inspectInterfaceForMode(data.InspectionMode, bmcAccess),
+		ironicNode.InspectInterface)
+
 	_, started, result, err = p.tryUpdateNode(
 		ctx,
 		ironicNode,
-		clients.UpdateOptsBuilder(p.log).
-			SetPropertiesOpts(opts, ironicNode),
+		updater,
 	)
 	if !started {
-		return
+		return result, started, err
 	}
 
 	p.log.Info("starting new hardware inspection")
@@ -51,7 +67,7 @@ func (p *ironicProvisioner) startInspection(ctx context.Context, data provisione
 	if started {
 		p.publisher("InspectionStarted", "Hardware inspection started")
 	}
-	return
+	return result, started, err
 }
 
 // InspectHardware updates the HardwareDetails field of the host with
@@ -89,7 +105,11 @@ func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisione
 		fallthrough
 	case nodes.Inspecting:
 		p.log.Info("inspection in progress")
-		result, err = operationContinuing(longRetryDelay)
+		delay := longRetryDelay
+		if data.InspectionMode == metal3api.InspectionModeFast {
+			delay = shortRetryDelay
+		}
+		result, err = operationContinuing(delay)
 		return result, started, details, err
 	case nodes.InspectFail:
 		if !restartOnFailure {

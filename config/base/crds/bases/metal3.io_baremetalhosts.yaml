@@ -309,9 +309,11 @@ spec:
                   Specifies the mode for host inspection.
                   "disabled" - no inspection will be performed
                   "agent" - normal agent-based inspection will run
+                  "fast" - out-of-band inspection via BMC (Redfish), no ramdisk boot
                 enum:
                 - disabled
                 - agent
+                - fast
                 type: string
               metaData:
                 description: |-

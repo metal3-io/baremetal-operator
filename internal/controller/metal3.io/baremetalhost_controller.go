@@ -923,6 +923,11 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		if info.host.Spec.AutomatedCleaningMode == metal3api.CleaningModeDisabled {
 			preprovImgFormats = nil
 		}
+	case metal3api.StateInspecting:
+		// Fast inspection uses the BMC directly, no ramdisk needed
+		if info.host.Spec.InspectionMode == metal3api.InspectionModeFast {
+			preprovImgFormats = nil
+		}
 	default:
 	}
 
@@ -959,6 +964,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 			CPUArchitecture:            getHostArchitecture(info.host),
 			HardwareData:               info.hardwareData,
 			DisableInspection:          info.host.InspectionDisabled(),
+			InspectionMode:             info.host.Spec.InspectionMode,
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)
@@ -1116,6 +1122,7 @@ func (r *BareMetalHostReconciler) actionInspecting(ctx context.Context, prov pro
 		provisioner.InspectData{
 			BootMode:        info.host.Status.Provisioning.BootMode,
 			CPUArchitecture: getHostArchitecture(info.host),
+			InspectionMode:  info.host.Spec.InspectionMode,
 		},
 		info.host.Status.ErrorType == metal3api.InspectionError,
 		refresh,

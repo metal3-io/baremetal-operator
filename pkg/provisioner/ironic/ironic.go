@@ -342,6 +342,11 @@ func (p *ironicProvisioner) configureNode(ctx context.Context, data provisioner.
 		return result, nil
 	}
 
+	if data.State == metal3api.StateInspecting && data.InspectionMode == metal3api.InspectionModeFast {
+		// Fast inspection uses the BMC directly, no ramdisk needed
+		return result, nil
+	}
+
 	switch data.State {
 	case metal3api.StateDeprovisioning,
 		metal3api.StateInspecting,

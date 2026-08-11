@@ -138,6 +138,10 @@ func (a *redfishAccessDetails) SupportsSecureBoot() bool {
 	return true
 }
 
+func (a *redfishAccessDetails) InspectInterface() string {
+	return redfish
+}
+
 func (a *redfishAccessDetails) SupportsISOPreprovisioningImage() bool {
 	return false
 }
@@ -167,6 +171,11 @@ func (a *redfishiDracAccessDetails) BootInterface() string {
 }
 
 func (a *redfishiDracAccessDetails) FirmwareInterface() string {
+	return redfish
+}
+
+func (a *redfishiDracAccessDetails) InspectInterface() string {
+	// FIXME(dtantsur): this should be using idracRedfish, but it's not currently enabled in ironic-image.
 	return redfish
 }
 

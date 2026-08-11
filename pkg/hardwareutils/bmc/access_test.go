@@ -252,6 +252,7 @@ func TestStaticDriverInfo(t *testing.T) {
 		driver     string
 		bios       string
 		boot       string
+		inspect    string
 		firmware   string
 		management string
 		power      string
@@ -264,6 +265,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "ipmi",
 			bios:       "",
 			boot:       "ipxe",
+			inspect:    "",
 			firmware:   "",
 			management: "",
 			power:      "",
@@ -276,6 +278,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "ipmi",
 			bios:       "",
 			boot:       "ipxe",
+			inspect:    "",
 			firmware:   "",
 			management: "",
 			power:      "",
@@ -288,6 +291,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "ipxe",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "",
 			power:      "",
@@ -300,6 +304,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "redfish-virtual-media",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "",
 			power:      "",
@@ -312,6 +317,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "redfish-virtual-media",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "",
 			power:      "",
@@ -324,6 +330,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "redfish-virtual-media",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "",
 			power:      "",
@@ -336,6 +343,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "redfish",
 			bios:       "",
 			boot:       "redfish-https",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "",
 			power:      "",
@@ -348,6 +356,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "ipxe",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
@@ -361,6 +370,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "redfish",
 			bios:     "",
 			boot:     "redfish-virtual-media",
+			inspect:  "redfish",
 			firmware: "redfish",
 		},
 
@@ -371,6 +381,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "redfish",
 			bios:     "",
 			boot:     "redfish-virtual-media",
+			inspect:  "redfish",
 			firmware: "redfish",
 		},
 
@@ -381,6 +392,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:   "redfish",
 			bios:     "",
 			boot:     "redfish-virtual-media",
+			inspect:  "redfish",
 			firmware: "redfish",
 		},
 
@@ -391,6 +403,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
@@ -404,6 +417,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
@@ -417,6 +431,7 @@ func TestStaticDriverInfo(t *testing.T) {
 			driver:     "idrac",
 			bios:       "idrac-redfish",
 			boot:       "idrac-redfish-virtual-media",
+			inspect:    "redfish",
 			firmware:   "redfish",
 			management: "idrac-redfish",
 			power:      "idrac-redfish",
@@ -441,6 +456,10 @@ func TestStaticDriverInfo(t *testing.T) {
 			if acc.BIOSInterface() != tc.bios {
 				t.Fatalf("Unexpected bios interface %q, expected %q",
 					acc.BIOSInterface(), tc.bios)
+			}
+			if acc.InspectInterface() != tc.inspect {
+				t.Fatalf("Unexpected inspect interface %q, expected %q",
+					acc.InspectInterface(), tc.inspect)
 			}
 			if acc.FirmwareInterface() != tc.firmware {
 				t.Fatalf("Unexpected firmware interface %q, expected %q",

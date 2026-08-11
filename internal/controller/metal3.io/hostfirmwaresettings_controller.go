@@ -52,6 +52,9 @@ const (
 	resourceNotAvailableRetryDelay       = time.Second * 30
 	reconcilerRequeueDelay               = time.Minute * 5
 	reconcilerRequeueDelayChangeDetected = time.Minute * 1
+
+	// attributeTypePassword is the Redfish BIOS attribute type for password fields.
+	attributeTypePassword = "Password"
 )
 
 // HostFirmwareSettingsReconciler reconciles a HostFirmwareSettings object.
@@ -198,10 +201,10 @@ func (r *HostFirmwareSettingsReconciler) updateHostFirmwareSettings(ctx context.
 	// The schema has AttributeType metadata that the raw SettingsMap lacks.
 	filteredSettings := make(metal3api.SettingsMap, len(currentSettings))
 	for k, v := range currentSettings {
-		if strings.Contains(k, "Password") {
+		if strings.Contains(k, attributeTypePassword) {
 			continue
 		}
-		if s, ok := schema[k]; ok && s.AttributeType == "Password" {
+		if s, ok := schema[k]; ok && s.AttributeType == attributeTypePassword {
 			continue
 		}
 		filteredSettings[k] = v
@@ -234,7 +237,7 @@ func (r *HostFirmwareSettingsReconciler) updateStatus(ctx context.Context, info 
 	// Update Status on changes
 	for k, v := range settings {
 		// Some vendors include encrypted password fields, don't add these
-		if strings.Contains(k, "Password") {
+		if strings.Contains(k, attributeTypePassword) {
 			continue
 		}
 
@@ -368,10 +371,10 @@ func (r *HostFirmwareSettingsReconciler) getOrCreateFirmwareSchema(ctx context.C
 	firmwareSchema.Spec.Schema = make(map[string]metal3api.SettingSchema)
 	for k, v := range schema {
 		// Don't store Password settings in Schema as these aren't stored in HostFirmwareSettings
-		if strings.Contains(k, "Password") {
+		if strings.Contains(k, attributeTypePassword) {
 			continue
 		}
-		if v.AttributeType == "Password" {
+		if v.AttributeType == attributeTypePassword {
 			continue
 		}
 
@@ -431,13 +434,13 @@ func (r *HostFirmwareSettingsReconciler) validateHostFirmwareSettings(info *rInf
 
 	for name, val := range info.hfs.Spec.Settings {
 		// Prohibit any Spec settings with "Password"
-		if strings.Contains(name, "Password") {
+		if strings.Contains(name, attributeTypePassword) {
 			errs = append(errs, errors.New("cannot set Password field"))
 			continue
 		}
 		// Prohibit any settings whose schema AttributeType is Password
 		if schema != nil {
-			if s, ok := schema.Spec.Schema[name]; ok && s.AttributeType == "Password" {
+			if s, ok := schema.Spec.Schema[name]; ok && s.AttributeType == attributeTypePassword {
 				errs = append(errs, errors.New("cannot set Password field"))
 				continue
 			}

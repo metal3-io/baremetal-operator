@@ -76,6 +76,24 @@ type HostFirmwareComponentsMock struct {
 	Error      error
 }
 
+type PowerOnMock struct {
+	CapturedForce bool
+	Error         error
+}
+
+type PowerOffMock struct {
+	CapturedMode  metal3api.RebootMode
+	CapturedForce bool
+	Error         error
+}
+
+type ServiceMock struct {
+	CapturedForce bool
+	Result        provisioner.Result
+	Started       bool
+	Error         error
+}
+
 // Fixture contains persistent state for a particular host.
 type Fixture struct {
 	// counter to set the provisioner as ready
@@ -102,6 +120,10 @@ type Fixture struct {
 	HostFirmwareSettings HostFirmwareSettingsMock
 
 	HostFirmwareComponents HostFirmwareComponentsMock
+
+	PowerOn  PowerOnMock
+	PowerOff PowerOffMock
+	Service  ServiceMock
 
 	PowerFailed bool
 
@@ -259,8 +281,15 @@ func (p *fixtureProvisioner) Prepare(_ context.Context, _ provisioner.PrepareDat
 }
 
 // Service remove existing configuration and set new configuration.
-func (p *fixtureProvisioner) Service(_ context.Context, _ provisioner.ServicingData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
+func (p *fixtureProvisioner) Service(_ context.Context, _ provisioner.ServicingData, unprepared bool, force bool) (result provisioner.Result, started bool, err error) {
 	p.log.Info("servicing host", "unprepared", unprepared)
+	p.state.Service.CapturedForce = force
+	if p.state.Service.Error != nil {
+		return provisioner.Result{}, false, p.state.Service.Error
+	}
+	if p.state.Service.Started || p.state.Service.Result.Dirty {
+		return p.state.Service.Result, p.state.Service.Started, nil
+	}
 	started = unprepared
 	if started {
 		result.Dirty = true
@@ -366,8 +395,12 @@ func (p *fixtureProvisioner) Detach(ctx context.Context, _ bool) (result provisi
 
 // PowerOn ensures the server is powered on independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOn(_ context.Context, _ bool) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOn(_ context.Context, force bool) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered on")
+	p.state.PowerOn.CapturedForce = force
+	if p.state.PowerOn.Error != nil {
+		return provisioner.Result{}, p.state.PowerOn.Error
+	}
 
 	if !p.state.PoweredOn {
 		p.publisher("PowerOn", "Host powered on")
@@ -382,8 +415,13 @@ func (p *fixtureProvisioner) PowerOn(_ context.Context, _ bool) (result provisio
 
 // PowerOff ensures the server is powered off independently of any image
 // provisioning operation.
-func (p *fixtureProvisioner) PowerOff(_ context.Context, _ metal3api.RebootMode, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
+func (p *fixtureProvisioner) PowerOff(_ context.Context, mode metal3api.RebootMode, force bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {
 	p.log.Info("ensuring host is powered off")
+	p.state.PowerOff.CapturedMode = mode
+	p.state.PowerOff.CapturedForce = force
+	if p.state.PowerOff.Error != nil {
+		return provisioner.Result{}, p.state.PowerOff.Error
+	}
 
 	if p.state.DisablePowerOff {
 		p.state.RebootCalled = true

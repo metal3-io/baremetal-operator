@@ -84,6 +84,28 @@ sudo setcap cap_net_admin+epi ./bin/vbmctl
 # server endpoint, not ironic.
 export IP_ADDRESS="192.168.222.1"
 
+# Generate a self-signed TLS certificate for the image server using openssl.
+# Since the certificate is self-signed, the same file is used both as the
+# server certificate (by the image server) and as the trusted CA (by
+# Ironic's ramdisk-downloader init container), so that the IPA
+# kernel/ramdisk can be downloaded over HTTPS instead of plain HTTP.
+IMAGE_SERVER_CERTS_DIR="${REPO_ROOT}/test/e2e/certs"
+mkdir -p "${IMAGE_SERVER_CERTS_DIR}"
+export IMAGE_SERVER_TLS_CERT_FILE="${IMAGE_SERVER_CERTS_DIR}/tls.crt"
+export IMAGE_SERVER_TLS_KEY_FILE="${IMAGE_SERVER_CERTS_DIR}/tls.key"
+openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=${IP_ADDRESS}" \
+  -addext "subjectAltName = IP:${IP_ADDRESS}" \
+  -out "${IMAGE_SERVER_TLS_CERT_FILE}" -keyout "${IMAGE_SERVER_TLS_KEY_FILE}"
+
+# Static nginx configuration adding an HTTPS listener (see
+# test/e2e/config/nginx-tls.conf) alongside the default plain-HTTP one, mounted
+# into the image server container together with the certificate/key above via
+# spec.imageServer.extraMounts/extraPorts in vbmctl.yaml.tmpl.
+export IMAGE_SERVER_NGINX_CONF_FILE="${REPO_ROOT}/test/e2e/config/nginx-tls.conf"
+
+IRSO_TRUSTED_CA_DIR="${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/components/trusted-ca"
+cp "${IMAGE_SERVER_TLS_CERT_FILE}" "${IRSO_TRUSTED_CA_DIR}/ca.crt"
+
 # E2E emulator configuration variables
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   export BMO_E2E_IMAGE="${VBMC_IMAGE}"
@@ -137,7 +159,7 @@ if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
 fi
 
 # shellcheck disable=SC2016
-envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
+envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR},${IMAGE_SERVER_TLS_CERT_FILE},${IMAGE_SERVER_TLS_KEY_FILE},${IMAGE_SERVER_NGINX_CONF_FILE}' < \
   "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
   "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
 

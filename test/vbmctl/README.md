@@ -19,7 +19,7 @@ This tool is under active development.
 | Configurable volumes |  ✅ Implemented |
 | Network management | ⚠️ Partially implemented (container networking missing) |
 | BMC emulator support | ✅ Implemented (basic) |
-| Image server | ✅ Implemented (basic) |
+| Image server | ✅ Implemented (basic, with generic extra mount/port passthrough) |
 | State management (persistent state) | ❌ TODO |
 
 ## Features
@@ -83,6 +83,19 @@ vbmctl create bml
 
 # Create an image server with default settings. Please note that if
 # a name is specified, vbmctl will automatically add the prefix `vbmctl-`.
+vbmctl create image-server
+
+# Create an image server that also serves HTTPS. vbmctl has no built-in TLS
+# support; instead, mount a certificate/key pair and a custom nginx
+# configuration file enabling an HTTPS server block, and publish the
+# corresponding port, via the imageServer.extraMounts/extraPorts fields in
+# the config file (see the "Configuration File" section below). For example,
+# generate a self-signed certificate/key pair with openssl:
+#   openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=192.168.222.1" \
+#     -addext "subjectAltName = IP:192.168.222.1" \
+#     -out tls.crt -keyout tls.key
+# and see test/e2e/config/nginx-tls.conf for an example nginx configuration
+# file with an HTTPS server block referencing these paths.
 vbmctl create image-server
 
 # Create a BMC emulator with default settings.
@@ -177,6 +190,23 @@ spec:
   imageServer:
     dataDir: "/tmp"
     port: 80
+    # Optional: additional host-to-container bind mounts and port mappings,
+    # e.g. to also serve HTTPS using a self-signed certificate/key pair
+    # (generated with a tool such as openssl) and a custom nginx
+    # configuration file (see test/e2e/config/nginx-tls.conf for an example).
+    extraMounts:
+    - hostPath: "/tmp/tls.crt"
+      containerPath: "/etc/nginx/certs/tls.crt"
+      readOnly: true
+    - hostPath: "/tmp/tls.key"
+      containerPath: "/etc/nginx/certs/tls.key"
+      readOnly: true
+    - hostPath: "/tmp/nginx-tls.conf"
+      containerPath: "/etc/nginx/conf.d/default.conf"
+      readOnly: true
+    extraPorts:
+    - hostPort: 443
+      containerPort: 8443
   bmcEmulator:
     type: "sushy-tools"
     configFile: "vbmc-emulator-file"

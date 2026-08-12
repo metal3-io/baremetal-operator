@@ -1,0 +1,37 @@
+apiVersion: ironic.metal3.io/v1alpha1
+kind: Ironic
+metadata:
+  name: ironic
+  namespace: baremetal-operator-system
+spec:
+  tls:
+    trustedCA:
+      name: image-server-ca
+      kind: ConfigMap
+      key: ca.crt
+  # EXPERIMENTAL: requires the Overrides feature gate (enabled via FEATURE_GATES
+  # in operator/irso-v0.10/kustomization.yaml). This replaces the default
+  # ramdisk-downloader init container so that it trusts the CA above and can
+  # therefore fetch the IPA kernel/ramdisk over HTTPS (see IPA_BASEURI in the
+  # same kustomization.yaml).
+  overrides:
+    initContainers:
+    - name: ramdisk-downloader
+      image: quay.io/metal3-io/ironic-ipa-downloader:latest
+      env:
+      - name: IPA_BASEURI
+        value: "https://192.168.222.1"
+      - name: CURL_CA_BUNDLE
+        value: /certs/ca/trusted/ca.crt
+      volumeMounts:
+      - name: ironic-shared
+        mountPath: /shared
+      - name: trusted-ca
+        mountPath: /certs/ca/trusted
+        readOnly: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        runAsUser: 997
+        runAsGroup: 994

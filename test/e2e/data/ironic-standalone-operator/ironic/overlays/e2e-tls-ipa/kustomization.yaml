@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: baremetal-operator-system
+
+# This overlay extends the e2e overlay with TLS-hardened IPA (Ironic Python
+# Agent) kernel/ramdisk downloads (see components/trusted-ca). It is kept
+# separate from the plain e2e overlay because e2e-upgrade also builds on top
+# of e2e, and is used together with older ironic-standalone-operator versions
+# (see operator/irso-v0.5, irso-v0.7, irso-v0.9) that may not support the
+# spec.tls.trustedCA / spec.overrides fields used here.
+
+resources:
+- ../e2e
+
+components:
+- ../../../components/trusted-ca

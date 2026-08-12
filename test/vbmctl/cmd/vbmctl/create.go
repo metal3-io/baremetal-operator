@@ -397,6 +397,10 @@ func newCreateImageServerCmd() *cobra.Command {
 				DataDir:          imageServerDataDir,
 				ContainerDataDir: imageServerContainerDataDir,
 				ContainerName:    containerName,
+				// ExtraMounts and ExtraPorts are only configurable via the config
+				// file (see spec.imageServer in the config file), not as flags.
+				ExtraMounts: effective.ExtraMounts,
+				ExtraPorts:  effective.ExtraPorts,
 			})
 		},
 	}

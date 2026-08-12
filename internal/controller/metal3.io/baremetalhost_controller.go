@@ -973,7 +973,16 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		preprovImgFormats != nil {
 		if preprovImg == nil {
 			waitingForPreprovImage.Inc()
-			return actionContinue{preprovImageRetryDelay}
+			result := actionContinue{preprovImageRetryDelay}
+			if dirty {
+				// Persist any pending changes (e.g. newly detected
+				// credentials) even though registration cannot complete
+				// yet. Otherwise they are re-detected and re-applied on
+				// every reconcile while waiting for the image, producing
+				// confusing repeated log output.
+				return actionUpdate{result}
+			}
+			return result
 		}
 		return recordActionFailure(info, metal3api.RegistrationError,
 			"Preprovisioning Image is not acceptable to provisioner")

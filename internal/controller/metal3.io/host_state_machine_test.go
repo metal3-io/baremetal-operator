@@ -215,6 +215,49 @@ func TestDeprovisioningCapacity(t *testing.T) {
 	}
 }
 
+// TestRegisterHostPersistsCredentialsWhileWaitingForPreprovisioningImage
+// ensures that, when registration cannot complete because the
+// PreprovisioningImage is not yet available, any state already detected
+// during this reconcile (such as newly tried credentials) is still saved.
+// Otherwise the same work is repeated, and logged, on every reconcile
+// until the image becomes available.
+func TestRegisterHostPersistsCredentialsWhileWaitingForPreprovisioningImage(t *testing.T) {
+	testHost := host(metal3api.StateInspecting).build()
+	// Simulate credentials that have not been tried yet.
+	testHost.Status.TriedCredentials.Version = "99"
+
+	reconciler := testNewReconciler(testHost)
+	prov := newMockProvisioner()
+	prov.preprovImageFormats = []metal3api.ImageFormat{metal3api.ImageFormatISO}
+	prov.registerErr = provisioner.ErrNeedsPreprovisioningImage
+
+	info := makeDefaultReconcileInfo(testHost)
+
+	result := reconciler.registerHost(t.Context(), prov, info)
+
+	assert.True(t, result.Dirty(), "expected a dirty result so newly tried credentials are persisted")
+	assert.Equal(t, info.bmcCredsSecret.ResourceVersion, testHost.Status.TriedCredentials.Version)
+}
+
+// TestRegisterHostNotDirtyWhileWaitingForPreprovisioningImage ensures that,
+// when there is nothing new to persist, waiting for the PreprovisioningImage
+// still results in a plain (non-dirty) retry rather than forcing an
+// unnecessary status update on every reconcile.
+func TestRegisterHostNotDirtyWhileWaitingForPreprovisioningImage(t *testing.T) {
+	testHost := host(metal3api.StateInspecting).build()
+
+	reconciler := testNewReconciler(testHost)
+	prov := newMockProvisioner()
+	prov.preprovImageFormats = []metal3api.ImageFormat{metal3api.ImageFormatISO}
+	prov.registerErr = provisioner.ErrNeedsPreprovisioningImage
+
+	info := makeDefaultReconcileInfo(testHost)
+
+	result := reconciler.registerHost(t.Context(), prov, info)
+
+	assert.False(t, result.Dirty(), "expected no forced status update when nothing changed")
+}
+
 func TestDetach(t *testing.T) {
 	testCases := []struct {
 		Scenario                  string
@@ -1279,9 +1322,11 @@ func newMockProvisioner() *mockProvisioner {
 }
 
 type mockProvisioner struct {
-	hasCapacity  bool
-	nextResults  map[string]provisioner.Result
-	callsNoError map[string]bool
+	hasCapacity         bool
+	nextResults         map[string]provisioner.Result
+	callsNoError        map[string]bool
+	registerErr         error
+	preprovImageFormats []metal3api.ImageFormat
 }
 
 func (m *mockProvisioner) getNextResultByMethod(name string) (result provisioner.Result) {
@@ -1316,11 +1361,11 @@ func (m *mockProvisioner) calledNoError(methodName string) bool {
 }
 
 func (m *mockProvisioner) Register(_ context.Context, _ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
-	return m.getNextResultByMethod("ValidateManagementAccess"), "", err
+	return m.getNextResultByMethod("ValidateManagementAccess"), "", m.registerErr
 }
 
 func (m *mockProvisioner) PreprovisioningImageFormats(_ context.Context) ([]metal3api.ImageFormat, error) {
-	return nil, nil
+	return m.preprovImageFormats, nil
 }
 
 func (m *mockProvisioner) InspectHardware(_ context.Context, _ provisioner.InspectData, _, _, _ bool) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {

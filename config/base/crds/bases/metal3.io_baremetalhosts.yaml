@@ -1163,7 +1163,10 @@ spec:
                     - method
                     type: object
                   firmware:
-                    description: The firmware settings that have been applied.
+                    description: |-
+                      The firmware settings that have been applied.
+
+                      Deprecated: no longer implemented and is always empty.
                     properties:
                       simultaneousMultithreadingEnabled:
                         description: Allows a single physical processor core to appear

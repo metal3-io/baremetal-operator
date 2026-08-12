@@ -913,6 +913,8 @@ type ProvisionStatus struct {
 	RAID *RAIDConfig `json:"raid,omitempty"`
 
 	// The firmware settings that have been applied.
+	//
+	// Deprecated: no longer implemented and is always empty.
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
 	// Custom deploy procedure applied to the host.

@@ -35,21 +35,7 @@ func RegisterFactory(name string, factory AccessDetailsFactory, schemes []string
 	}
 }
 
-type FirmwareConfig struct {
-	// Supports the virtualization of platform hardware.
-	VirtualizationEnabled *bool
-
-	// Allows a single physical processor core to appear as several logical processors.
-	SimultaneousMultithreadingEnabled *bool
-
-	// SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance.
-	SriovEnabled *bool
-}
-
 // AccessDetails contains the information about how to get to a BMC.
-//
-// NOTE(dhellmann): This structure is very likely to change as we
-// adapt it to additional types.
 type AccessDetails interface {
 	// Type returns the kind of the BMC, indicating the driver that
 	// will be used to communicate with it.
@@ -100,9 +86,6 @@ type AccessDetails interface {
 
 	// RequiresProvisioningNetwork checks the driver requires provisioning network
 	RequiresProvisioningNetwork() bool
-
-	// Build bios clean steps for ironic
-	BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error)
 }
 
 func GetParsedURL(address string) (parsedURL *url.URL, err error) {

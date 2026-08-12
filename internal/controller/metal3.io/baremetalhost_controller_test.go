@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -1012,9 +1011,6 @@ func TestRebootWithServicing(t *testing.T) {
 	host.Spec.Online = true
 	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
 	host.Spec.Image.URL = "foo"
-	host.Spec.Firmware = &metal3api.FirmwareConfig{
-		VirtualizationEnabled: ptr.To(true),
-	}
 	host.Status.Provisioning.Image.URL = "foo"
 
 	// HUP creation
@@ -1029,7 +1025,18 @@ func TestRebootWithServicing(t *testing.T) {
 		},
 	}
 
-	r := newTestReconciler(t, host, hup)
+	hfs := newHostFirmwareSettings(host,
+		[]metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	)
+	hfsKey := client.ObjectKey{
+		Name:      hfs.Name,
+		Namespace: hfs.Namespace,
+	}
+
+	r := newTestReconciler(t, host, hup, hfs)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -1046,7 +1053,16 @@ func TestRebootWithServicing(t *testing.T) {
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
-			return host.Status.OperationalStatus == metal3api.OperationalStatusServicing && !host.Status.PoweredOn
+			if host.Status.OperationalStatus == metal3api.OperationalStatusServicing && !host.Status.PoweredOn {
+				assert.NoError(t, r.Client.Get(t.Context(), hfsKey, hfs))
+				hfs.Status.Conditions = []metav1.Condition{
+					{Type: "ChangeDetected", Status: "False", Reason: "Success"},
+					{Type: "Valid", Status: "True", Reason: "Success"},
+				}
+				assert.NoError(t, r.Client.Status().Update(t.Context(), hfs))
+				return true
+			}
+			return false
 		},
 	)
 
@@ -1081,11 +1097,15 @@ func TestRebootWithoutServicing(t *testing.T) {
 	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
 	host.Spec.Image.URL = "foo"
 	host.Status.Provisioning.Image.URL = "foo"
-	host.Spec.Firmware = &metal3api.FirmwareConfig{
-		VirtualizationEnabled: ptr.To(true),
-	}
 
-	r := newTestReconciler(t, host)
+	hfs := newHostFirmwareSettings(host,
+		[]metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	)
+
+	r := newTestReconciler(t, host, hfs)
 
 	tryReconcile(t, r, host,
 		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
@@ -3236,35 +3256,6 @@ func TestHostFirmwareSettings(t *testing.T) {
 			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
 		})
 	}
-}
-
-func TestBMHTransitionToPreparing(t *testing.T) {
-	var True = true
-	var False = false
-	host := newDefaultHost(t)
-	host.Spec.Online = true
-	host.Spec.ExternallyProvisioned = false
-	host.Spec.ConsumerRef = &corev1.ObjectReference{}
-	r := newTestReconciler(t, host)
-
-	waitForProvisioningState(t, r, host, metal3api.StateAvailable)
-
-	// use different values between spec and status to force cleaning
-	host.Status.Provisioning.Firmware = &metal3api.FirmwareConfig{
-		VirtualizationEnabled:             &True,
-		SimultaneousMultithreadingEnabled: &False,
-	}
-	host.Spec.Firmware = &metal3api.FirmwareConfig{
-		VirtualizationEnabled:             &False,
-		SimultaneousMultithreadingEnabled: &True,
-	}
-
-	err := r.Update(t.Context(), host)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	waitForProvisioningState(t, r, host, metal3api.StatePreparing)
 }
 
 func TestHFSTransitionToPreparing(t *testing.T) {

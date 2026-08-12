@@ -635,16 +635,12 @@ func TestIronicHasSameImage(t *testing.T) {
 }
 
 func TestBuildCleanSteps(t *testing.T) {
-	var True = true
-	var False = false
-
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
 		name             string
 		ironic           *testserver.IronicMock
 		currentSettings  metal3api.SettingsMap
 		desiredSettings  metal3api.DesiredSettingsMap
-		firmwareConfig   *metal3api.FirmwareConfig
 		expectedSettings []map[string]any
 	}{
 		{
@@ -655,20 +651,6 @@ func TestBuildCleanSteps(t *testing.T) {
 			}),
 			currentSettings: nil,
 			desiredSettings: nil,
-			firmwareConfig: &metal3api.FirmwareConfig{
-				VirtualizationEnabled:             &True,
-				SimultaneousMultithreadingEnabled: &False,
-			},
-			expectedSettings: []map[string]any{
-				{
-					"name":  "ProcVirtualization",
-					"value": "Enabled",
-				},
-				{
-					"name":  "ProcHyperthreading",
-					"value": "Disabled",
-				},
-			},
 		},
 		{
 			name: "current settings same as bmc",
@@ -682,43 +664,11 @@ func TestBuildCleanSteps(t *testing.T) {
 				"ProcVirtualization": "Enabled",
 				"ProcHyperthreading": "Disabled",
 			},
-			desiredSettings: nil,
-			firmwareConfig: &metal3api.FirmwareConfig{
-				VirtualizationEnabled:             &True,
-				SimultaneousMultithreadingEnabled: &False,
-			},
+			desiredSettings:  nil,
 			expectedSettings: nil,
 		},
 		{
-			name: "current settings different than bmc",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
-				ProvisionState: string(nodes.DeployFail),
-				UUID:           nodeUUID,
-			}),
-			currentSettings: metal3api.SettingsMap{
-				"L2Cache":            "10x256 KB",
-				"NumCores":           "10",
-				"ProcVirtualization": "Disabled",
-				"ProcHyperthreading": "Enabled",
-			},
-			desiredSettings: nil,
-			firmwareConfig: &metal3api.FirmwareConfig{
-				VirtualizationEnabled:             &True,
-				SimultaneousMultithreadingEnabled: &False,
-			},
-			expectedSettings: []map[string]any{
-				{
-					"name":  "ProcVirtualization",
-					"value": "Enabled",
-				},
-				{
-					"name":  "ProcHyperthreading",
-					"value": "Disabled",
-				},
-			},
-		},
-		{
-			name: "current settings same as bmc different than desired",
+			name: "current settings different than desired",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
@@ -735,10 +685,6 @@ func TestBuildCleanSteps(t *testing.T) {
 				"ProcVirtualization":    intstr.FromString("Disabled"),
 				"ProcHyperthreading":    intstr.FromString("Enabled"),
 			},
-			firmwareConfig: &metal3api.FirmwareConfig{
-				VirtualizationEnabled:             &True,
-				SimultaneousMultithreadingEnabled: &False,
-			},
 			expectedSettings: []map[string]any{
 				{
 					"name":  "NetworkBootRetryCount",
@@ -751,74 +697,6 @@ func TestBuildCleanSteps(t *testing.T) {
 				{
 					"name":  "ProcHyperthreading",
 					"value": "Enabled",
-				},
-			},
-		},
-		{
-			name: "current settings different than bmc and desired",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
-				ProvisionState: string(nodes.DeployFail),
-				UUID:           nodeUUID,
-			}),
-			currentSettings: metal3api.SettingsMap{
-				"L2Cache":               "10x256 KB",
-				"NumCores":              "10",
-				"NetworkBootRetryCount": "20",
-				"ProcVirtualization":    "Enabled",
-				"ProcHyperthreading":    "Disabled",
-			},
-			desiredSettings: metal3api.DesiredSettingsMap{
-				"NetworkBootRetryCount": intstr.FromString("5"),
-				"ProcVirtualization":    intstr.FromString("Enabled"),
-				"ProcHyperthreading":    intstr.FromString("Disabled"),
-			},
-			firmwareConfig: &metal3api.FirmwareConfig{
-				VirtualizationEnabled:             &False,
-				SimultaneousMultithreadingEnabled: &True,
-			},
-			expectedSettings: []map[string]any{
-				{
-					"name":  "ProcVirtualization",
-					"value": "Disabled",
-				},
-				{
-					"name":  "ProcHyperthreading",
-					"value": "Enabled",
-				},
-				{
-					"name":  "NetworkBootRetryCount",
-					"value": "5",
-				},
-			},
-		},
-		{
-			name: "bmc and desired duplicate settings",
-			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
-				ProvisionState: string(nodes.DeployFail),
-				UUID:           nodeUUID,
-			}),
-			currentSettings: metal3api.SettingsMap{
-				"L2Cache":            "10x256 KB",
-				"NumCores":           "10",
-				"ProcVirtualization": "Enabled",
-				"ProcHyperthreading": "Disabled",
-			},
-			desiredSettings: metal3api.DesiredSettingsMap{
-				"ProcVirtualization": intstr.FromString("Disabled"),
-				"ProcHyperthreading": intstr.FromString("Enabled"),
-			},
-			firmwareConfig: &metal3api.FirmwareConfig{
-				VirtualizationEnabled:             &False,
-				SimultaneousMultithreadingEnabled: &True,
-			},
-			expectedSettings: []map[string]any{
-				{
-					"name":  "ProcHyperthreading",
-					"value": "Enabled",
-				},
-				{
-					"name":  "ProcVirtualization",
-					"value": "Disabled",
 				},
 			},
 		},
@@ -844,7 +722,6 @@ func TestBuildCleanSteps(t *testing.T) {
 			testBMC, _ := testbmc.NewTestBMCAccessDetails(parsedURL, false)
 
 			cleanSteps, err := prov.buildManualCleaningSteps(testBMC, provisioner.PrepareData{
-				FirmwareConfig:         tc.firmwareConfig,
 				ActualFirmwareSettings: tc.currentSettings,
 				TargetFirmwareSettings: tc.desiredSettings,
 			})

@@ -94,7 +94,3 @@ func (a *redfishVirtualMediaAccessDetails) SupportsISOPreprovisioningImage() boo
 func (a *redfishVirtualMediaAccessDetails) RequiresProvisioningNetwork() bool {
 	return false
 }
-
-func (a *redfishVirtualMediaAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
-	return a.redfishAccessDetails.BuildBIOSSettings(firmwareConfig)
-}

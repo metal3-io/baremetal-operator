@@ -530,10 +530,9 @@ type BareMetalHostSpec struct {
 	// time.
 	RAID *RAIDConfig `json:"raid,omitempty"`
 
-	// Firmware (BIOS) configuration for bare metal server. If set, the
-	// requested settings will be applied before the host is provisioned.
+	// Firmware (BIOS) configuration for bare metal server.
 	//
-	// Deprecated: no longer supported by any driver. An alternative is to
+	// Deprecated: no longer implemented. An alternative is to
 	// use HostFirmwareSettings resources that allow changing arbitrary
 	// values and support the generic Redfish-based drivers.
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`

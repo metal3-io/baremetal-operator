@@ -104,7 +104,7 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups=metal3.io,resources=dataimages/status,verbs=get;update;patch
 
 // Allow for updating hostupdatepolicies
-// +kubebuilder:rbac:groups=metal3.io,resources=hostupdatepolicies,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=metal3.io,resources=hostupdatepolicies,verbs=get;list;watch;update;delete
 
 // Allow reading Ironic resources
 // +kubebuilder:rbac:groups=ironic.metal3.io,resources=ironics,verbs=get;list;watch

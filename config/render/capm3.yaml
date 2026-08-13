@@ -3025,6 +3025,7 @@ rules:
   resources:
   - hostupdatepolicies
   verbs:
+  - delete
   - get
   - list
   - update

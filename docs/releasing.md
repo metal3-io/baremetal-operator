@@ -160,6 +160,13 @@ BMO e2e is running as GitHub Actions. We need to add released branch and remove
 the non-maintained branches there, along with the suitable configurations with
 recently released Ironic-image releases as well in the fixtures.
 
+### Pin Ironic image in BMO e2e on the new release branch
+
+Pin the Ironic image version on the new release branch to the latest stable
+ironic-image release.
+
+[Prior art](https://github.com/metal3-io/baremetal-operator/pull/3464)
+
 ### Dependabot configuration
 
 In `main` branch, Dependabot configuration must be amended to allow updates

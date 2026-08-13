@@ -30,8 +30,11 @@ type HostDeployPolicySpec struct {
 type HostClaimNamespaces struct {
 	// Namespaces is a list of namespace names where the hostClaim is authorized to reside in.
 	Names []string `json:"names,omitempty"`
-	// NameMatches is a string interpreted as a regular expression that must be matched by the
-	// namespace of the HostClaim.
+	// NameMatches is a regular expression that is matched against
+	// the entire namespace name of the HostClaim. NOTE:
+	// "prod" matches "prod", "production", "not-prod" and "reproduce".
+	// Use "^prod$" to match exactly "prod", "^prod.*" to match namespaces
+	// starting with "prod" etc.
 	NameMatches string `json:"nameMatches,omitempty"`
 	// HasLabels is a list of label names and their associated value.
 	// The namespace should have all of those labels. If the value

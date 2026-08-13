@@ -227,6 +227,11 @@ func NewHostclaim(name string) *HostClaimBuilder {
 	}
 }
 
+func (hb *HostClaimBuilder) InNamespace(ns string) *HostClaimBuilder {
+	hb.hostClaim.Namespace = ns
+	return hb
+}
+
 func (hb *HostClaimBuilder) Build() *metal3api.HostClaim {
 	return &hb.hostClaim
 }

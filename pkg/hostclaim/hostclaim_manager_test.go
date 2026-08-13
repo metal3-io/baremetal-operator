@@ -258,6 +258,62 @@ var _ = Describe("HostClaim manager", func() {
 			ExpectedBmhName: "",
 			ExpectFail:      true,
 		}),
+		Entry("with regexp matching exact namespace", testCaseChooseBMH{
+			HostClaim:  NewHostclaim(HostclaimName).InNamespace("prod").Build(),
+			Namespaces: []*corev1.Namespace{NewNamespace("prod").Build(), ns1},
+			HostDeployPolicies: []*metal3api.HostDeployPolicy{
+				NewHostdeploypolicy("hdp", "ns1").AcceptRegexp("prod").Build()},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1},
+			ExpectedBmhName: "bmh1",
+		}),
+		Entry("with regexp should not match namespace with extra prefix", testCaseChooseBMH{
+			HostClaim:  NewHostclaim(HostclaimName).InNamespace("not-prod").Build(),
+			Namespaces: []*corev1.Namespace{NewNamespace("not-prod").Build(), ns1},
+			HostDeployPolicies: []*metal3api.HostDeployPolicy{
+				NewHostdeploypolicy("hdp", "ns1").AcceptRegexp("prod").Build()},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1},
+			ExpectedBmhName: "bmh1",
+		}),
+		Entry("with regexp should not match namespace with extra suffix", testCaseChooseBMH{
+			HostClaim:  NewHostclaim(HostclaimName).InNamespace("production").Build(),
+			Namespaces: []*corev1.Namespace{NewNamespace("production").Build(), ns1},
+			HostDeployPolicies: []*metal3api.HostDeployPolicy{
+				NewHostdeploypolicy("hdp", "ns1").AcceptRegexp("prod").Build()},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1},
+			ExpectedBmhName: "bmh1",
+		}),
+		Entry("with regexp should not match unrelated namespace containing substring", testCaseChooseBMH{
+			HostClaim:  NewHostclaim(HostclaimName).InNamespace("reproduce").Build(),
+			Namespaces: []*corev1.Namespace{NewNamespace("reproduce").Build(), ns1},
+			HostDeployPolicies: []*metal3api.HostDeployPolicy{
+				NewHostdeploypolicy("hdp", "ns1").AcceptRegexp("prod").Build()},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1},
+			ExpectedBmhName: "bmh1",
+		}),
+		Entry("with regexp anchored full match", testCaseChooseBMH{
+			HostClaim:  NewHostclaim(HostclaimName).InNamespace("prod").Build(),
+			Namespaces: []*corev1.Namespace{NewNamespace("prod").Build(), ns1},
+			HostDeployPolicies: []*metal3api.HostDeployPolicy{
+				NewHostdeploypolicy("hdp", "ns1").AcceptRegexp("^prod$").Build()},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1},
+			ExpectedBmhName: "bmh1",
+		}),
+		Entry("with regexp anchored partial match (positive)", testCaseChooseBMH{
+			HostClaim:  NewHostclaim(HostclaimName).InNamespace("production").Build(),
+			Namespaces: []*corev1.Namespace{NewNamespace("production").Build(), ns1},
+			HostDeployPolicies: []*metal3api.HostDeployPolicy{
+				NewHostdeploypolicy("hdp", "ns1").AcceptRegexp("^prod.*$").Build()},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1},
+			ExpectedBmhName: "bmh1",
+		}),
+		Entry("with regexp anchored partial match should not match different prefix", testCaseChooseBMH{
+			HostClaim:  NewHostclaim(HostclaimName).InNamespace("reproduce").Build(),
+			Namespaces: []*corev1.Namespace{NewNamespace("reproduce").Build(), ns1},
+			HostDeployPolicies: []*metal3api.HostDeployPolicy{
+				NewHostdeploypolicy("hdp", "ns1").AcceptRegexp("^prod.*$").Build()},
+			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1},
+			ExpectedBmhName: "",
+		}),
 		Entry("with Failure Domain (available bmh)", testCaseChooseBMH{
 			HostClaim: NewHostclaim(HostclaimName).
 				SetLabelSelector(map[string]string{"default-selector": "default-value"}).

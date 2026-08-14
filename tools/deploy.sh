@@ -10,7 +10,6 @@ function usage {
     echo "       -t: deploy with TLS enabled"
     echo "       -n: deploy without authentication"
     echo "       -k: deploy with keepalived"
-    echo "       -m: deploy with mariadb (requires TLS enabled)"
 }
 
 DEPLOY_BMO=false
@@ -18,7 +17,6 @@ DEPLOY_IRONIC=false
 DEPLOY_TLS=false
 DEPLOY_BASIC_AUTH=true
 DEPLOY_KEEPALIVED=false
-DEPLOY_MARIADB=false
 
 while getopts ":hbitnkm" options; do
     case "${options}" in
@@ -41,9 +39,6 @@ while getopts ":hbitnkm" options; do
             ;;
         k)
             DEPLOY_KEEPALIVED=true
-            ;;
-        m)
-            DEPLOY_MARIADB=true
             ;;
         :)
             echo "ERROR: -${OPTARG} requires an argument"
@@ -89,13 +84,6 @@ if [[ "${DEPLOY_BMO}" == "false" ]] && [[ "${DEPLOY_IRONIC}" == "false" ]]; then
     exit 1
 fi
 
-if [[ "${DEPLOY_MARIADB}" == "true" ]] && [[ "${DEPLOY_TLS}" == "false" ]]; then
-    echo "ERROR: Deploying Ironic with MariaDB without TLS is not supported."
-    usage
-    exit 1
-fi
-
-MARIADB_HOST_IP="${MARIADB_HOST_IP:-"127.0.0.1"}"
 KUBECTL_ARGS="${KUBECTL_ARGS:-""}"
 RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED:-"false"}
 export NAMEPREFIX=${NAMEPREFIX:-"baremetal-operator"}
@@ -195,10 +183,6 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
     if [[ "${DEPLOY_KEEPALIVED}" == "true" ]]; then
         ${KUSTOMIZE} edit add component ../../components/keepalived
     fi
-
-    if [[ "${DEPLOY_MARIADB}" == "true" ]]; then
-        ${KUSTOMIZE} edit add component ../../components/mariadb
-    fi
     popd
 fi
 
@@ -258,7 +242,6 @@ if [[ "${DEPLOY_IRONIC}" == "true" ]]; then
         echo "RESTART_CONTAINER_CERTIFICATE_UPDATED=${RESTART_CONTAINER_CERTIFICATE_UPDATED}" >> "${IRONIC_BMO_CONFIGMAP}"
     fi
     sed -i "s/IRONIC_HOST_IP/${IRONIC_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/tls/certificate.yaml"
-    sed -i "s/MARIADB_HOST_IP/${MARIADB_HOST_IP}/g" "${SCRIPTDIR}/ironic-deployment/components/mariadb/certificate.yaml"
     ${KUSTOMIZE} edit add configmap ironic-bmo-configmap --behavior=create --from-env-file=ironic_bmo_configmap.env
     # shellcheck disable=SC2086
     ${KUSTOMIZE} build "${TEMP_IRONIC_OVERLAY}" | kubectl apply ${KUBECTL_ARGS} -f -

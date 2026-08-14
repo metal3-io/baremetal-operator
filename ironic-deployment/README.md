@@ -33,7 +33,7 @@ Here is a basic introduction of the kustomize structure:
 
 - **base** - This is the kustomize base that we start from.
 - **components** - In here you will find re-usable kustomize components
-  for running Ironic with TLS, basic-auth, keepalived or mariadb.
+  for running Ironic with TLS, basic-auth or keepalived.
    - **basic-auth** - Enable basic authentication. Note that the
      basic-auth component is missing the actual credentials. This is on
      purpose, to make sure that the user is setting the password.
@@ -42,8 +42,6 @@ Here is a basic introduction of the kustomize structure:
    - **keepalived** - Add a keepalived container to the deployment. This
      is useful when using a VIP for exposing the Ironic endpoint, so
      that the IP can move with the pod.
-   - **mariadb** - Use MariaDB instead of SQLite. TLS required for this
-     to work.
 - **default** - A minimal, fully working, Ironic kustomization including
   configmap and password.
 

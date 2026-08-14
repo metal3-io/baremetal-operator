@@ -33,9 +33,6 @@ func (r *RAIDTestBMC) VendorInterface() string                       { return ""
 func (r *RAIDTestBMC) InspectInterface() string                      { return "" }
 func (r *RAIDTestBMC) SupportsSecureBoot() bool                      { return false }
 func (r *RAIDTestBMC) RequiresProvisioningNetwork() bool             { return true }
-func (r *RAIDTestBMC) BuildBIOSSettings(_ *bmc.FirmwareConfig) ([]map[string]string, error) {
-	return nil, nil
-}
 
 func TestPrepare(t *testing.T) {
 	bmc.RegisterFactory("raid-test", func(u *url.URL, dcv bool) (bmc.AccessDetails, error) {

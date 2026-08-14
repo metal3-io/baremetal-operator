@@ -1,7 +1,6 @@
 package bmc
 
 import (
-	"fmt"
 	"net/url"
 )
 
@@ -109,11 +108,4 @@ func (a *redfishHTTPBootMediaAccessDetails) SupportsISOPreprovisioningImage() bo
 
 func (a *redfishHTTPBootMediaAccessDetails) RequiresProvisioningNetwork() bool {
 	return false
-}
-
-func (a *redfishHTTPBootMediaAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
-	if firmwareConfig != nil {
-		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
-	}
-	return nil, nil
 }

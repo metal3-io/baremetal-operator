@@ -34,9 +34,6 @@ func (r *BIOSTestBMC) VendorInterface() string                       { return ""
 func (r *BIOSTestBMC) InspectInterface() string                      { return "" }
 func (r *BIOSTestBMC) SupportsSecureBoot() bool                      { return false }
 func (r *BIOSTestBMC) RequiresProvisioningNetwork() bool             { return true }
-func (r *BIOSTestBMC) BuildBIOSSettings(_ *bmc.FirmwareConfig) ([]map[string]string, error) {
-	return nil, nil
-}
 
 func TestService(t *testing.T) {
 	bmc.RegisterFactory("bios-test", func(u *url.URL, dcv bool) (bmc.AccessDetails, error) {

@@ -5,23 +5,11 @@ import (
 	"fmt"
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
-	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
-func (p *ironicProvisioner) buildServiceSteps(bmcAccess bmc.AccessDetails, data provisioner.ServicingData) (serviceSteps []nodes.ServiceStep, err error) {
-	// Get the subset (currently 3) of vendor specific BIOS settings converted from common names
-	var firmwareConfig *bmc.FirmwareConfig
-	if data.FirmwareConfig != nil {
-		bmcConfig := bmc.FirmwareConfig(*data.FirmwareConfig)
-		firmwareConfig = &bmcConfig
-	}
-	fwConfigSettings, err := bmcAccess.BuildBIOSSettings(firmwareConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	newSettings := p.getNewFirmwareSettings(data.ActualFirmwareSettings, data.TargetFirmwareSettings, fwConfigSettings)
+func (p *ironicProvisioner) buildServiceSteps(data provisioner.ServicingData) (serviceSteps []nodes.ServiceStep) {
+	newSettings := p.getNewFirmwareSettings(data.ActualFirmwareSettings, data.TargetFirmwareSettings)
 	if len(newSettings) != 0 {
 		p.log.Info("Applying BIOS config clean steps", "settings", newSettings)
 		serviceSteps = append(
@@ -51,16 +39,11 @@ func (p *ironicProvisioner) buildServiceSteps(bmcAccess bmc.AccessDetails, data 
 		)
 	}
 
-	return serviceSteps, nil
+	return serviceSteps
 }
 
-func (p *ironicProvisioner) startServicing(ctx context.Context, bmcAccess bmc.AccessDetails, ironicNode *nodes.Node, data provisioner.ServicingData) (success bool, result provisioner.Result, err error) {
-	// Build service steps
-	serviceSteps, err := p.buildServiceSteps(bmcAccess, data)
-	if err != nil {
-		result, err = operationFailed(err.Error())
-		return
-	}
+func (p *ironicProvisioner) startServicing(ctx context.Context, ironicNode *nodes.Node, data provisioner.ServicingData) (success bool, result provisioner.Result, err error) {
+	serviceSteps := p.buildServiceSteps(data)
 
 	// Start servicing
 	if len(serviceSteps) != 0 {
@@ -89,12 +72,6 @@ func (p *ironicProvisioner) abortServicing(ctx context.Context, ironicNode *node
 }
 
 func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.ServicingData, unprepared, restartOnFailure bool) (result provisioner.Result, started bool, err error) {
-	bmcAccess, err := p.bmcAccess()
-	if err != nil {
-		result, err = transientError(err)
-		return result, started, err
-	}
-
 	ironicNode, err := p.getNode(ctx)
 	if err != nil {
 		result, err = transientError(err)
@@ -127,7 +104,7 @@ func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.Servic
 		fallthrough
 	case nodes.Active:
 		if unprepared {
-			started, result, err = p.startServicing(ctx, bmcAccess, ironicNode, data)
+			started, result, err = p.startServicing(ctx, ironicNode, data)
 			if started || result.Dirty || result.ErrorMessage != "" || err != nil {
 				return result, started, err
 			}

@@ -218,12 +218,12 @@ func TestValidateCreate(t *testing.T) {
 						VirtualizationEnabled: &enable,
 					},
 					BMC: metal3api.BMCDetails{
-						Address:         "ipmi://127.0.1.1",
+						Address:         "redfish://127.0.1.1",
 						CredentialsName: "test1",
 					},
 				}},
 			oldBMH:    nil,
-			wantedErr: "firmware settings for ipmi are not supported",
+			wantedErr: "the Firmware field is no longer supported, use HostFirmwareSettings resource instead",
 		},
 		{
 			name: "BootMACAddressRequiredWithoutBootMACAddress",

@@ -1,7 +1,6 @@
 package bmc
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 )
@@ -150,13 +149,6 @@ func (a *redfishAccessDetails) RequiresProvisioningNetwork() bool {
 	return true
 }
 
-func (a *redfishAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
-	if firmwareConfig != nil {
-		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
-	}
-	return nil, nil
-}
-
 // iDrac Redfish Overrides.
 func (a *redfishiDracAccessDetails) Driver() string {
 	return idrac
@@ -194,11 +186,4 @@ func (a *redfishiDracAccessDetails) RAIDInterface() string {
 func (a *redfishiDracAccessDetails) VendorInterface() string {
 	// NOTE(dtantsur): the idrac hardware type defaults to WSMAN vendor, we need to use the Redfish implementation.
 	return idracRedfish
-}
-
-func (a *redfishiDracAccessDetails) BuildBIOSSettings(firmwareConfig *FirmwareConfig) (settings []map[string]string, err error) {
-	if firmwareConfig != nil {
-		return nil, fmt.Errorf("firmware settings for %s are not supported", a.Driver())
-	}
-	return nil, nil
 }

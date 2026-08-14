@@ -51,6 +51,10 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 		}
 	}
 
+	if host.Spec.Firmware != nil {
+		errs = append(errs, errors.New("the Firmware field is no longer supported, use HostFirmwareSettings resource instead"))
+	}
+
 	errs = append(errs, webhook.validateCrossNamespaceSecretReferences(host)...)
 
 	if raidErrors := validateRAID(host); raidErrors != nil {
@@ -143,12 +147,6 @@ func validateBMCAccess(host *metal3api.BareMetalHost, bmcAccess bmc.AccessDetail
 	if s.RAID != nil && len(s.RAID.HardwareRAIDVolumes) > 0 {
 		if bmcAccess.RAIDInterface() == "no-raid" {
 			errs = append(errs, fmt.Errorf("BMC driver %s does not support configuring RAID", bmcAccess.Type()))
-		}
-	}
-
-	if s.Firmware != nil {
-		if _, err := bmcAccess.BuildBIOSSettings((*bmc.FirmwareConfig)(s.Firmware)); err != nil {
-			errs = append(errs, err)
 		}
 	}
 

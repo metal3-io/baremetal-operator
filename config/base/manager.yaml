@@ -74,8 +74,8 @@ spec:
           successThreshold: 1
           failureThreshold: 10
       volumes:
-      - emptyDir: {}
-        name: tmp
+      - name: tmp
+        emptyDir: {}
       terminationGracePeriodSeconds: 10
       securityContext:
         runAsNonRoot: true

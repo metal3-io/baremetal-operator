@@ -45,7 +45,19 @@ Here is a basic introduction of the kustomize structure:
    - **mariadb** - Use MariaDB instead of SQLite. TLS required for this
      to work.
 - **default** - A minimal, fully working, Ironic kustomization including
-  configmap and password. Use only for development! The DB password is
-  hard coded in the repo and there is no TLS or basic-auth.
+  configmap and password.
+
+  > **⚠️ WARNING: Development use only!** Default kustomization is intended
+  > solely for local development and testing. It does **not** follow security
+  > best practices:
+  >
+  > - No TLS (all traffic is plain HTTP)
+  > - No basic-auth (Ironic API is unauthenticated)
+  > - Hard-coded database password
+  > - Unpinned container images (`imagePullPolicy: Always` with mutable tags)
+  >
+  > These settings exist for ease of development, not as a deployment
+  > reference. **Do not use in production or as a template for production
+  > deployments.**
 - **overlays** - Here you will find ready made overlays that use the
   above mentioned components.

@@ -53,6 +53,13 @@ in `hack/ci-e2e.sh`, and put them directly in the `e2e` overlays.
       Kubernetes cluster, they can share the secret created for Ironic. The CA
       should be in a secret `ironic-cacert`.
 - **default** - A minimal, fully working, BMO kustomization including configmap.
-   Use only for development! There is no TLS or basic-auth.
+
+   > **⚠️ WARNING: Development use only!** Default kustomization is provided
+   > solely for local development and testing convenience. It uses plain HTTP
+   > for the Ironic endpoint (no TLS), has no basic-auth, and connects to
+   > Ironic without any transport integrity protection. **Do not use in
+   > production.** For production deployments, use
+   > overlays with the `tls` and `basic-auth` components
+   > enabled.
 - **overlays** - Here you will find ready made overlays that use the above
    mentioned components. These can be used as examples.

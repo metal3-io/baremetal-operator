@@ -35,6 +35,9 @@ spec:
       - name: cert-ironic-ca
         secret:
           secretName: ironic-cacert
+          items:
+          - key: tls.crt
+            path: tls.crt
       - name: cert-ironic
         secret:
           secretName: ironic-cert

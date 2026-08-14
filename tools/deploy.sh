@@ -102,6 +102,17 @@ export NAMEPREFIX=${NAMEPREFIX:-"baremetal-operator"}
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
+# Determine the BMO image tag to deploy.
+# Priority: BMO_IMAGE_TAG env var > exact git tag of HEAD > "latest"
+if [ -z "${BMO_IMAGE_TAG:-}" ]; then
+    BMO_IMAGE_TAG="$(git -C "${SCRIPTDIR}" describe --tags --exact-match 2>/dev/null || true)"
+    if [ -z "${BMO_IMAGE_TAG}" ]; then
+        echo "WARNING: HEAD is not on a git tag, defaulting BMO image tag to 'latest'." \
+            "Set BMO_IMAGE_TAG to override."
+        BMO_IMAGE_TAG="latest"
+    fi
+fi
+
 TEMP_BMO_OVERLAY="${SCRIPTDIR}/config/overlays/temp"
 TEMP_IRONIC_OVERLAY="${SCRIPTDIR}/ironic-deployment/overlays/temp"
 rm -rf "${TEMP_BMO_OVERLAY}"
@@ -211,6 +222,8 @@ if [[ "${DEPLOY_BMO}" == "true" ]]; then
     if [[ "${DEPLOY_TLS}" == "true" ]]; then
         ${KUSTOMIZE} edit add component ../../components/tls
     fi
+
+    ${KUSTOMIZE} edit set image quay.io/metal3-io/baremetal-operator=quay.io/metal3-io/baremetal-operator:"${BMO_IMAGE_TAG}"
     popd
 fi
 

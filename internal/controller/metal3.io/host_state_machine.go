@@ -227,7 +227,14 @@ func (hsm *hostStateMachine) checkInitiateDelete(log logr.Logger) bool {
 		return false
 	}
 
-	if hsm.NextState != metal3api.StateDeleting && hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached {
+	// A host is treated as detached for deletion purposes as soon as the
+	// detached annotation is present, not only once the operational status has
+	// caught up. Otherwise a delete requested in the window before the status
+	// flips falls through to deprovisioning, which talks to the provisioner the
+	// detach was meant to avoid and stalls the delete behind the 10-minute
+	// detached slow poll (issue #3213).
+	if hsm.NextState != metal3api.StateDeleting &&
+		(hsm.Host.OperationalStatus() == metal3api.OperationalStatusDetached || hasDetachedAnnotation(hsm.Host)) {
 		if delayDeleteForDetachedHost(hsm.Host) {
 			log.Info("delaying detached host deletion")
 			deleteDelayedForDetached.Inc()

@@ -222,6 +222,7 @@ sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name httpd \
 sudo "${CONTAINER_RUNTIME}" run -d --net host --privileged --name ironic \
      ${POD} ${CERTS_MOUNTS} ${BASIC_AUTH_MOUNTS} ${IRONIC_HTPASSWD_MOUNT} \
      --env-file "${IRONIC_DATA_DIR}/ironic-vars.env" \
+     --entrypoint /bin/runironic \
      -v "$IRONIC_DATA_DIR:/shared" "${IRONIC_IMAGE}"
 
 # Start ironic-endpoint-keepalived

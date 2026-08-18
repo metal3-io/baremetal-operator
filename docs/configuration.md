@@ -89,4 +89,7 @@ When an external Ironic is used, the following requirements must be met:
 * Either HTTP basic or no-auth authentication must be used (Keystone is not
   supported).
 
-* API version 1.81 (2023.1 "Antelope" release cycle) or newer must be available.
+* API version 1.89 (2024.1 "Caracal" release cycle) or newer must be available.
+
+* For the iDRAC driver, Ironic 26.1 (2024.2 "Dalmatian" release cycle) or newer
+  must be used.

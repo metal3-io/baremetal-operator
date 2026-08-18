@@ -46,9 +46,23 @@ collect_artifacts() {
     sudo cp -r /var/log/libvirt/qemu/. "${logs_dir}/qemu/"
     sudo chown -R "${USER}:${USER}" "${logs_dir}/qemu"
   fi
+
+  # Report whether Alloy shipped the logs, then stop it. verify.sh must run
+  # first: stop-alloy.sh tears down the metrics endpoint it reads. Its status is
+  # ignored, so log collection can never fail the e2e job.
+  "${REPO_ROOT}/hack/alloy/verify.sh" || true
+  "${REPO_ROOT}/hack/alloy/stop-alloy.sh"
+
   tar --directory "${REPO_ROOT}/test/e2e/" -czf "${REPO_ROOT}/artifacts-e2e-${BMO_E2E_EMULATOR}-${BMC_PROTOCOL}.tar.gz" _artifacts
 }
 trap collect_artifacts EXIT
+
+# Start streaming the test logs to the CI log collector. No-op unless the push
+# credential is configured, so local runs and unwired jobs are unaffected. Done
+# before the setup stages so a failure during setup is captured too.
+export BMC_PROTOCOL
+"${REPO_ROOT}/hack/alloy/run-alloy.sh" ||
+  echo "log-collection: failed to start alloy; continuing without streaming"
 
 # Same steps as .github/workflows/e2e-fixture-test.yml: the whole suite against
 # the fixture provisioner, with no Ironic, BMC emulators or VMs.

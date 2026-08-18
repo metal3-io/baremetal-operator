@@ -1,89 +1,163 @@
-# BaremetalHost Provisioning States
+# BareMetalHost States
 
-The following diagram shows the possible Provisioning State transitions for the
-BaremetalHost object:
+A BareMetalHost has two independent status fields:
 
-![BaremetalHost ProvisioningState transitions](BaremetalHost_ProvisioningState.png)
+- `status.provisioning.state` is the provisioning phase.
+- `status.operationalStatus` is the overall health of the host.
 
-## Created
+Errors do not move the host into a separate provisioning state.
+They set `status.operationalStatus` to `error` and populate
+`status.errorType` and `status.errorMessage`.
 
-Newly created hosts move immediately to Discovered or Registering. No
-host stays in the Created state while the operator is working
-properly.
+The following diagram shows the provisioning state transitions:
 
-## Unmanaged
+![BareMetalHost ProvisioningState transitions](BaremetalHost_ProvisioningState.png)
 
-An Unmanaged host is missing both the BMC address and credentials
-secret name, and does not have any information to access the BMC
-for registration.
+The diagram is generated from
+[`BaremetalHost_ProvisioningState.dot`](BaremetalHost_ProvisioningState.dot)
+with `make docs`.
 
-## Externally Provisioned
+## Provisioning states
 
-An Externally Provisioned host was deployed using another tool and
-then a host object was created with the externallyProvisioned flag
-set. Hosts in this state are monitored, and only their power status is
-managed.
+### None (created)
 
-The externallyProvisioned field can also be set to true after inspection
-is completed (when the host is in Available state). This workflow allows
-collecting hardware information via BMO's inspection process before
-handing off provisioning to an external tool (e.g., Image-based Installer
-for O-RAN deployments).
+A newly created host has an empty provisioning state.
+The operator immediately moves it to `registering` if BMC details are
+present, or to `unmanaged` otherwise.
+No host stays in this state while the operator is working properly.
 
-### Using with Cluster API Provider Metal3 (CAPM3)
+### Unmanaged
 
-When using externallyProvisioned hosts in environments with CAPM3, ensure
-that these hosts are labeled appropriately so that CAPM3's host selector
-can distinguish them from hosts managed by CAPM3. This prevents CAPM3 from
-attempting to claim hosts that are managed by external provisioners.
+An unmanaged host is missing both the BMC address and the credentials
+secret name, so the operator cannot contact the BMC.
+The operational status is `discovered` until BMC details are provided,
+at which point the host moves to `registering`.
 
-## Registering
+### Registering
 
-The host will stay in the Registering state while the BMC access
-details are being validated.
+The host stays in `registering` while BMC access details are validated.
+After a successful registration:
 
-## Inspecting
+- `spec.externallyProvisioned: true` moves to `externally provisioned`
+- inspection disabled (`spec.inspectionMode: disabled` or the
+  `inspect.metal3.io: disabled` annotation) moves to `preparing`
+- otherwise the host moves to `inspecting`
 
-After the host is registered, an agent image will be booted on it
-using a ramdisk. The agent collects information about the available
-hardware components, and this process is called "inspection." The host
-will stay in the Inspecting state until this process is completed.
+Deleting a host in `registering` skips power-off and goes straight to
+`deleting`.
 
-## Preparing
+### Inspecting
 
-When setting up RAID, BIOS and other similar configurations,
-the host will be in Preparing state. For ironic provisioner,
-we build and set up manual clean steps in Preparing state.
+After registration, an agent image is booted on the host unless
+`spec.inspectionMode` is `disabled` or `fast`.
+`disabled` skips inspection and moves to `preparing`.
+`fast` inspects out-of-band via the BMC without a ramdisk.
+Otherwise the agent collects hardware inventory.
+The host stays in `inspecting` until that process completes, then moves
+to `preparing`.
+Successful inspection creates a `HardwareData` resource.
 
-## Available
+Hosts in `available` can be sent back to `inspecting` with the
+`inspect.metal3.io` annotation.
+See [Inspect Annotation](inspectAnnotation.md).
 
-A host in the Available state is available to be provisioned.
-In older versions of the baremetal-operator, this state was called
-Ready.
+### Preparing
 
-## Provisioning
+RAID, BIOS, and similar configuration is applied in `preparing`.
+For the Ironic provisioner this is implemented as manual clean steps.
+When preparation completes, the host becomes `available`.
 
-While an image is being copied to the host and it is being configured
-to run the image the host will be in the Provisioning state.
+A host already in `available` returns to `preparing` when RAID, firmware
+settings, or firmware component updates change.
 
-## Provisioned
+### Available
 
-After an image is copied to the host and the host is running the
-image, it will be in the Provisioned state.
+A host in `available` can be provisioned.
+In older versions this state was called `ready`; the operator still
+accepts that value.
 
-## Deprovisioning
+The host moves to `provisioning` when `NeedsProvisioning()` is true:
+`spec.online` is true and either `spec.image.url` or
+`spec.customDeploy` is set.
+Setting `spec.externallyProvisioned: true` moves an available host to
+`externally provisioned`.
 
-When the previously provisioned image is being removed from the host,
-it will be in the Deprovisioning state.
+### Provisioning
 
-## Error
+While an image is being written to the host, or a custom deploy step
+is running, the host is in `provisioning`.
+On success it becomes `provisioned`.
+On failure, cancellation, or deletion it moves to `deprovisioning`.
 
-If an error occurs during one of the processing states (Registering,
-Inspecting, Provisioning, Deprovisioning) the host will enter the
-Error state.
+### Provisioned
 
-## Deleting
+After the image is on the host, the host is in `provisioned`.
+Clearing `spec.image` / `spec.customDeploy`, changing the image URL, or
+deleting the host moves it to `deprovisioning`.
 
-When the host is marked to be deleted, it will move from its current
-state to Deleting, at which point the resource record is deleted from
-kubernetes.
+Live firmware updates on a provisioned host do not change the
+provisioning state.
+They set `operationalStatus` to `servicing`.
+See the [live updates guide](https://book.metal3.io/bmo/live_updates_servicing).
+
+### Externally provisioned
+
+An externally provisioned host was deployed by another tool, or was
+handed off after inspection by setting `spec.externallyProvisioned`.
+The operator monitors the host and manages power, but does not
+provision an image.
+
+Clearing `spec.externallyProvisioned` moves the host to `provisioned`.
+If no image or custom deploy is set, deprovisioning starts on the next
+reconcile.
+
+When using these hosts with Cluster API Provider Metal3 (CAPM3), label
+them so CAPM3's host selector does not claim hosts managed by an
+external provisioner.
+
+### Deprovisioning
+
+The previously provisioned image is being removed.
+When deprovisioning completes without a deletion in progress, the host
+returns to `available`.
+It does not jump straight back to `provisioning`; a later reconcile
+from `available` starts provisioning again if an image is still set.
+
+If the host is being deleted, successful (or given-up) deprovisioning
+moves to `powering off before delete`.
+
+### Powering off before delete
+
+Most non-provisioned hosts are powered off before the Kubernetes object
+is removed.
+Hosts in `registering`, `unmanaged`, or the empty created state skip
+this step.
+Hosts with the `baremetalhost.metal3.io/detached` annotation also skip
+power-off and deprovisioning and go straight to `deleting`
+(see [Operational status](#operational-status)).
+
+### Deleting
+
+The host record is being removed from Kubernetes, including Ironic
+registration and owned resources such as `HardwareData`.
+
+## Operational status
+
+`status.operationalStatus` is independent of the provisioning state:
+
+- `OK` — the host is healthy
+- `discovered` — the host is known but lacks BMC details
+- `error` — an operation failed; see `status.errorType` and
+  `status.errorMessage`
+- `delayed` — (de)provisioning or inspection is waiting because
+  `PROVISIONING_LIMIT` is reached
+- `detached` — the `baremetalhost.metal3.io/detached` annotation is
+  set; the provisioner is not managing the host
+- `servicing` — a live firmware update is in progress on a provisioned
+  host
+
+Typical `errorType` values include registration, inspection,
+preparation, provisioning, power management, detach, and servicing
+errors.
+The host remains in its current provisioning state while the operator
+retries.

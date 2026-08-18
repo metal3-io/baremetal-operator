@@ -17,6 +17,12 @@ ramdisk.
 `DEPLOY_ISO_URL` -- The URL for the ISO containing the Ironic agent for
 drivers that support ISO boot. Optional if kernel/ramdisk are set.
 
+Architecture-specific variants are also accepted, in this order:
+`DEPLOY_KERNEL_URL_AARCH64` (or `_X86_64`), then
+`DEPLOY_KERNEL_BY_ARCH=aarch64:http://...,x86_64:http://...`, then the
+base `DEPLOY_KERNEL_URL`. The same pattern applies to
+`DEPLOY_RAMDISK_URL` and `DEPLOY_ISO_URL`.
+
 `IRONIC_NAME` -- The name of the [Ironic resource][IronicCR] to take
 configuration from.
 
@@ -66,6 +72,35 @@ used to tell Ironic which IP version it should set on the BMC.
 feature a provisioning network. This option disables drivers that require a
 provisioning network (such as IPMI).
 
+`WATCH_NAMESPACE` -- Namespace(s) for the operator to watch. Empty
+watches all namespaces. A comma-separated list watches several
+namespaces.
+
+`PROVISIONER_PLUGIN_DIR` -- Directory of provisioner `.so` plugins.
+Defaults to `/plugins`. See [Provisioner plugins](plugin-provisioners.md).
+
+`LIVE_ISO_FORCE_PERSISTENT_BOOT_DEVICE` -- (`Default`, `Always`,
+`Never`) Controls persistent boot device for live-ISO deployments.
+
+`DIRECT_DEPLOY_FORCE_PERSISTENT_BOOT_DEVICE` -- (`Default`, `Always`,
+`Never`) Controls persistent boot device for direct-deploy images.
+
+`IRONIC_NETWORKING_ENABLED` -- Set to `true` to enable the
+BareMetalSwitch controller. When enabled, the following must also be
+set:
+
+- `IRONIC_SWITCH_CONFIGS_SECRET` -- Secret name written with generated
+  switch configuration
+- `IRONIC_SWITCH_CREDENTIALS_SECRET` -- Secret name that receives
+  switch credentials for Ironic
+- `IRONIC_SWITCH_CREDENTIALS_PATH` -- Filesystem path where switch
+  credentials are materialized
+
+The `-hostclaims` manager flag enables the HostClaim controller.
+That feature is under development and is not ready for use.
+PreprovisioningImage integration is enabled with
+`-build-preprov-image`.
+
 [IronicCR]: https://github.com/metal3-io/ironic-standalone-operator/blob/main/docs/api.md#ironic
 
 Kustomization Configuration
@@ -86,7 +121,10 @@ Notes on external Ironic
 
 When an external Ironic is used, the following requirements must be met:
 
-* Either HTTP basic or no-auth authentication must be used (Keystone is not
+- Either HTTP basic or no-auth authentication must be used (Keystone is not
   supported).
-
-* API version 1.81 (2023.1 "Antelope" release cycle) or newer must be available.
+- API version 1.89 or newer must be available. That is the minimum
+  BMO will accept (virtual media attach/detach). When Ironic supports
+  a newer microversion, BMO negotiates up to 1.110 (deployment abort),
+  also using 1.93 (virtual media GET), 1.95 (disable power off), and
+  1.109 (health API) as they become available.

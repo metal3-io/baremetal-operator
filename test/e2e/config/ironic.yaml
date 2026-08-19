@@ -25,6 +25,8 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic-standalone-operator:v0.10.0
   loadBehavior: tryLoad
+- name: quay.io/metal3-io/ironic-standalone-operator:v0.11.0
+  loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic-ipa-downloader:main
   loadBehavior: tryLoad
 
@@ -34,7 +36,7 @@ variables:
   DEPLOY_IRONIC: "true"
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
-  IRSO_KUSTOMIZATION: "data/ironic-standalone-operator/operator/irso-v0.10"
+  IRSO_KUSTOMIZATION: "data/ironic-standalone-operator/operator/irso-v0.11"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "data/ironic-standalone-operator/ironic/overlays/e2e"
 

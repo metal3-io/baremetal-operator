@@ -233,14 +233,7 @@ EOF
 fi
 export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
 
-# Generate credentials
-BMO_OVERLAYS=(
-  "${REPO_ROOT}/config/overlays/e2e"
-  "${REPO_ROOT}/config/overlays/e2e-release-0.11"
-  "${REPO_ROOT}/config/overlays/e2e-release-0.12"
-  "${REPO_ROOT}/config/overlays/e2e-release-0.13"
-)
-
+# Generate credentials for Ironic (IRSO manages them, BMO discovers via Ironic CR)
 IRONIC_USERNAME="$(uuidgen)"
 IRONIC_PASSWORD="$(uuidgen)"
 
@@ -248,14 +241,18 @@ IRONIC_PASSWORD="$(uuidgen)"
 export IRONIC_USERNAME
 export IRONIC_PASSWORD
 
-for overlay in "${BMO_OVERLAYS[@]}"; do
-  echo "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
-  echo "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
+# Release overlays still use basic-auth and need credential files.
+for overlay in \
+  "${REPO_ROOT}/config/overlays/e2e-release-0.11" \
+  "${REPO_ROOT}/config/overlays/e2e-release-0.12" \
+  "${REPO_ROOT}/config/overlays/e2e-release-0.13"; do
+  echo -n "${IRONIC_USERNAME}" > "${overlay}/ironic-username"
+  echo -n "${IRONIC_PASSWORD}" > "${overlay}/ironic-password"
 done
 
 IRSO_IRONIC_AUTH_DIR="${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/components/basic-auth"
-echo "${IRONIC_USERNAME}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-username"
-echo "${IRONIC_PASSWORD}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-password"
+echo -n "${IRONIC_USERNAME}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-username"
+echo -n "${IRONIC_PASSWORD}" > "${IRSO_IRONIC_AUTH_DIR}/ironic-password"
 
 # shellcheck disable=SC2016
 SSH_PUB_KEY_CONTENT="${pub_ssh_key}" envsubst '${SSH_PUB_KEY_CONTENT}' < \

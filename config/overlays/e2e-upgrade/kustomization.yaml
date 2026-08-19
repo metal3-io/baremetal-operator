@@ -1,16 +1,51 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# This overlay extends the e2e overlay with non-default Ironic ports
-# for use in upgrade tests. This allows upgrade tests to run on
-# a separate kind cluster without conflicting with the main e2e cluster.
-
+# Dedicated upgrade target for the BMO upgrade E2E tests.
+#
+# The upgrade tests run on a separate, minimal kind cluster that only has the
+# baremetal-operator-system and upgrade-bmo namespaces. Reusing the full e2e
+# overlay as the upgrade target does not work here: it carries every test
+# namespace and their per-namespace RBAC, so `kubectl apply` fails on the
+# namespaces that do not exist on the upgrade cluster. That partial apply also
+# leaves the previous release's `ironic` ConfigMap in place, which pins the
+# upgraded BMO to the env-var Ironic client path (IRONIC_ENDPOINT) instead of
+# discovering Ironic via the Ironic CR (IRONIC_NAME).
+#
+# This overlay is scoped to only the namespaces that exist on the upgrade
+# cluster and provides an `ironic` ConfigMap with IRONIC_NAME set, so the
+# upgraded BMO uses Ironic CR discovery.
 resources:
-- ../e2e
+- ../../base
+- ../e2e/baremetal-operator-system
+- ../e2e/upgrade-bmo
+
+components:
+- ../../components/namespace-scoped
 
 configMapGenerator:
 - name: ironic
   namespace: baremetal-operator-system
-  behavior: replace
+  behavior: create
   envs:
   - ironic.env
+
+patches:
+- patch: |
+    # Don't try to pull again the pre-loaded image
+    - op: replace
+      path: /spec/template/spec/containers/0/imagePullPolicy
+      value: IfNotPresent
+  target:
+    kind: Deployment
+    name: controller-manager
+- path: ./namespaced-manager-patch.yaml
+
+images:
+- name: quay.io/metal3-io/baremetal-operator
+  newTag: e2e
+
+# We cannot use suffix hashes since the kustomizations we build on
+# cannot be aware of what suffixes we add.
+generatorOptions:
+  disableNameSuffixHash: true

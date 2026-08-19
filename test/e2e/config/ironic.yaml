@@ -107,27 +107,36 @@ kindExtraPortMappings:
   protocol: TCP
 
 bmoUpgradeSpecs:
+# These tests exercise upgrading BMO across versions. The upgraded (main) BMO
+# discovers Ironic via the Ironic CR, so the upgrade target is a dedicated
+# overlay (config/overlays/e2e-upgrade) scoped to only the namespaces that exist
+# on the upgrade cluster (baremetal-operator-system and upgrade-bmo). The full
+# e2e overlay cannot be used here: it carries every test namespace and their
+# per-namespace RBAC, so applying it on the upgrade cluster fails on the missing
+# namespaces and leaves the previous release's `ironic` ConfigMap in place,
+# which would keep the upgraded BMO on the env-var (IRONIC_ENDPOINT) client path
+# instead of Ironic CR discovery (IRONIC_NAME).
 # Upgrade BMO 0.11 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.11"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.10"
 # Upgrade BMO 0.12 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.12"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.10"
 # Upgrade BMO 0.13 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.13"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.9"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.10"
 
 ironicUpgradeSpecs:
 # Upgrade Ironic 30.0 -> latest | BMO 0.11

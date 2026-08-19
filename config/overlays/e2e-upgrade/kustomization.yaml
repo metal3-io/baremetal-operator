@@ -1,16 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# This overlay extends the e2e overlay with non-default Ironic ports
-# for use in upgrade tests. This allows upgrade tests to run on
-# a separate kind cluster without conflicting with the main e2e cluster.
+# This overlay extends the e2e overlay for use in upgrade tests.
+# This allows upgrade tests to run on a separate kind cluster
+# without conflicting with the main e2e cluster.
+# It is used to run upgrade tests on a separate kind cluster without
+# conflicting with the main e2e cluster. Conflict avoidance no longer
+# depends on overriding ironic endpoint/port settings in this overlay;
+# it relies on the inherited ironic service name/service discovery
+# configuration from the e2e overlay instead.
 
 resources:
 - ../e2e
-
-configMapGenerator:
-- name: ironic
-  namespace: baremetal-operator-system
-  behavior: replace
-  envs:
-  - ironic.env

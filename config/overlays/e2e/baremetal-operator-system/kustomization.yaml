@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# BMO needs RBAC in baremetal-operator-system to read the Ironic CR
+# and its secrets (API credentials and TLS certificate).
+
+resources:
+- ../roles-rolebindings
+
+namespace: baremetal-operator-system

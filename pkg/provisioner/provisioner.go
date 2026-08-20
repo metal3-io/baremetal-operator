@@ -24,6 +24,15 @@ var ErrNotReady = errors.New("provisioner is not ready")
 // with provisioning.
 type EventPublisher func(reason, message string)
 
+// PortConfig represents the configuration attributes to be applied to node
+// ports.
+type PortConfig struct {
+	SwitchPortConfig metal3api.SwitchPortConfig
+	// SwitchPortIdentifier is only provided if the user has provided an
+	// override for what could be provided by LLDP during node inspection.
+	SwitchPortIdentifier *metal3api.SwitchPortIdentifier
+}
+
 type HostData struct {
 	ObjectMeta                     metav1.ObjectMeta
 	BMCAddress                     string
@@ -91,6 +100,18 @@ type ManagementAccessData struct {
 	HardwareData               *metal3api.HardwareData
 	DisableInspection          bool
 	InspectionMode             metal3api.InspectionMode
+	PortConfigs                map[string]*PortConfig
+}
+
+// CanUpdateSwitchConfig returns true when the given provisioning state
+// allows switch port configuration to be modified on Ironic ports.
+func CanUpdateSwitchPortConfig(state metal3api.ProvisioningState) bool {
+	switch state {
+	case metal3api.StateRegistering, metal3api.StateAvailable:
+		return true
+	default:
+		return false
+	}
 }
 
 type AdoptData struct {

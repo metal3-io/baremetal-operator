@@ -7,7 +7,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.13.0
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
-	github.com/metal3-io/ironic-standalone-operator/api v0.10.0
+	github.com/metal3-io/ironic-standalone-operator/api v0.11.0
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/moby/client v0.5.1
 	github.com/onsi/ginkgo/v2 v2.32.1

@@ -14,14 +14,15 @@ manage hosts.
 
 Several conditions must be met in order to initiate provisioning.
 
-1. The host `spec.image.url` field must contain a URL for a valid
-   image file that is visible from within the cluster and from the
-   host receiving the image.
+1. Either `spec.image.url` contains a URL for a valid image file that
+   is visible from within the cluster and from the host receiving the
+   image, or `spec.customDeploy` is set.
 1. The host must have `online` set to `true` so that the operator will
    keep the host powered on.
 1. The host must have all of the BMC details.
 
-To initiate deprovisioning, clear the image URL from the host spec.
+To initiate deprovisioning, clear the image URL and `customDeploy`
+from the host spec.
 
 ## Unmanaged Hosts
 
@@ -44,12 +45,12 @@ annotation will enable the reconciliation again.
 ## HostFirmwareSettings
 
 A **HostFirmwareSettings** resource is used to manage BIOS settings for a host,
-there is a one-to-one mapping with **BareMetalHosts**.  A
-**HostFirmwareSettings** resource is created when BIOS settings are read from
-Ironic as the host moves to the Ready state.  These settings are the complete
-actual BIOS configuration names returned from the BMC, typically 100-200
-settings per host, as compared to the three vendor-independent fields stored in
-the **BareMetalHosts** `firmware` field.
+there is a one-to-one mapping with **BareMetalHosts**.  The resource is
+created during host registration.  BIOS values are filled in later when
+they are read from Ironic.  These settings are the complete actual BIOS
+configuration names returned from the BMC, typically 100-200 settings per
+host, as compared to the three vendor-independent fields stored in the
+**BareMetalHosts** `firmware` field.
 
 See [HostFirmwareSettings
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/HostFirmwareSettings/v1alpha1)
@@ -79,16 +80,16 @@ for a detailed API description.
 A **HardwareData** resource contains hardware specifications data of a
 specific host and it is tightly coupled to its owner resource
 BareMetalHost. The data in the HardwareData comes from Ironic after a
-successful inspection phase. As such, operator will create HardwareData
-resource for a specific BareMetalHost during transitioning phase from
-inspecting into available state of the BareMetalHost. HardwareData gets
-deleted automatically by the operator whenever its BareMetalHost is
-deleted. Deprovisioning of the BareMetalHost should not trigger the
-deletion of HardwareData, but during next provisioning it can be
-re-created (with the same name and namespace) with the latest inspection
-data retrieved from Ironic. HardwareData holds the same name and
-namespace as its corresponding BareMetalHost resource. Currently,
-HardwareData doesn't have *Status* subresource but only the *Spec*.
+successful inspection phase. The operator creates HardwareData when
+inspection completes, before the host moves from inspecting to
+preparing. HardwareData gets deleted automatically by the operator
+whenever its BareMetalHost is deleted. Deprovisioning of the
+BareMetalHost should not trigger the deletion of HardwareData, but a
+later re-inspection can recreate it (with the same name and namespace)
+with the latest inspection data retrieved from Ironic. HardwareData holds
+the same name and namespace as its corresponding BareMetalHost resource.
+Currently, HardwareData doesn't have *Status* subresource but only the
+*Spec*.
 
 See [HardwareData
 CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/HardwareData/v1alpha1)
@@ -132,4 +133,106 @@ and continues generating config for the remaining healthy switches.
 
 See [BareMetalSwitch
 CR](../apis/metal3.io/v1alpha1/baremetalswitch_types.go)
+for a detailed API description.
+
+The BareMetalSwitch controller is enabled when
+`IRONIC_NETWORKING_ENABLED` is `true`. See
+[Configuration](configuration.md).
+
+## HostFirmwareComponents
+
+A **HostFirmwareComponents** resource tracks BIOS and BMC firmware
+versions for a host, with a one-to-one mapping to **BareMetalHost**.
+The operator creates it during registration when the provisioner
+reports firmware components. Desired updates are listed in `spec.updates`
+as component name and image URL pairs. Those updates are applied in
+`preparing`, or on a provisioned host during servicing when a matching
+**HostUpdatePolicy** allows it.
+
+See [HostFirmwareComponents
+CR](../apis/metal3.io/v1alpha1/hostfirmwarecomponents_types.go)
+for a detailed API description. See the [firmware updates
+guide](https://book.metal3.io/bmo/firmware_updates) for how to
+apply firmware updates.
+
+## HostUpdatePolicy
+
+A **HostUpdatePolicy** resource opts a host into live firmware changes
+while it is provisioned. The name must match the BareMetalHost.
+`spec.firmwareSettings` and `spec.firmwareUpdates` can each be set to
+`onPreparing` (default preparing-time behavior) or `onReboot` (apply
+on the next reboot of a provisioned host, which sets
+`operationalStatus` to `servicing`).
+
+See [HostUpdatePolicy
+CR](../apis/metal3.io/v1alpha1/hostupdatepolicy_types.go)
+for a detailed API description. See the [live updates
+guide](https://book.metal3.io/bmo/live_updates_servicing).
+
+## BMCEventSubscription
+
+A **BMCEventSubscription** resource registers a webhook destination
+on a host BMC so that hardware events can be forwarded. It references
+a BareMetalHost by name and an optional secret of HTTP headers to send
+with each notification.
+
+See [BMCEventSubscription
+CR](../apis/metal3.io/v1alpha1/bmceventsubscription_types.go)
+for a detailed API description.
+
+## DataImage
+
+A **DataImage** resource attaches a virtual-media image (for example an
+ISO) to a BareMetalHost. The name must match the BareMetalHost. The
+controller attaches `spec.url` via the BMC and reports the currently
+attached image in status.
+
+See [DataImage
+CR](../apis/metal3.io/v1alpha1/dataimage_types.go)
+for a detailed API description.
+
+## HostClaim
+
+> **⚠️ Under development.** This API is not ready for use. The
+> controller is not functional yet; the CRD exists for early review
+> only.
+
+A **HostClaim** selects and binds a BareMetalHost, then copies
+provisioning fields (image, user/network/meta data, custom deploy,
+power) onto that host. It is an alternative to writing those fields
+directly on the BareMetalHost, typically used when a consumer such as
+Cluster API claims hardware. The HostClaim controller is disabled by
+default and is enabled with the `-hostclaims` flag.
+
+See [HostClaim
+CR](../apis/metal3.io/v1alpha1/hostclaim_types.go)
+for a detailed API description.
+
+## HostDeployPolicy
+
+> **⚠️ Under development.** This API is not ready for use. It is part
+> of the HostClaim work; the controller is not functional yet.
+
+A **HostDeployPolicy** restricts which namespaces may bind
+BareMetalHosts in the policy's namespace via HostClaim
+(`spec.hostClaimNamespaces`).
+
+See [HostDeployPolicy
+CR](../apis/metal3.io/v1alpha1/hostdeploypolicy_types.go)
+for a detailed API description.
+
+## HostNetworkAttachment
+
+> **⚠️ Under development.** This API is not ready for use. The
+> controller is not functional yet; the CRD exists for early review
+> only.
+
+A **HostNetworkAttachment** describes switchport configuration (access,
+trunk, or hybrid VLAN mode) that a BareMetalHost can reference from
+`spec.networkInterfaces`. The BareMetalSwitch controller uses this
+together with BareMetalSwitch resources to generate Ironic networking
+configuration.
+
+See [HostNetworkAttachment
+CR](../apis/metal3.io/v1alpha1/hostnetworkattachment_types.go)
 for a detailed API description.

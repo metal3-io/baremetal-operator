@@ -34,7 +34,7 @@ is the easiest way to iterate without installing a C toolchain.
 1. Install cert-manager
 
     ```bash
-    kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.2/cert-manager.yaml
     ```
 
 1. Verify that it is deployed correctly. Note: don't move to the
@@ -210,7 +210,7 @@ kind create cluster --name bmo
 **Install Cert-Manager**:
 
 ```sh
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.2/cert-manager.yaml
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.2/cert-manager.yaml
 ```
 
 **Launch Tilt**:

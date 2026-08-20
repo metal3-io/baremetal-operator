@@ -1,54 +1,32 @@
 # Maintain Ironic Endpoint with Keepalived
 
-The motivation behind maintaining Ironic Endpoint with Keepalived is to ensure
-that the Ironic Endpoint IP is also passed onto the target cluster control
-plane. This also guarantees that once pivoting is done and the management
-cluster is taken down, target cluster controlplane can re-claim the ironic
-endpoint IP through keepalived. The end goal is to make ironic endpoint
-reachable in the target cluster.
+Keepalived holds the Ironic API endpoint on a virtual IP so that the
+address can move with the Ironic pod. After cluster pivoting, the
+target cluster can reclaim that IP and keep Ironic reachable.
 
-## Command to deploy Ironic with Keepalived container
+## Deploying Ironic with Keepalived
 
-```bash
-
-kustomize build $BMOPATH/ironic-deployment/keepalived | kubectl apply -f -
-
-```
-
-where $BMOPATH points to the baremetal-operator path.
-
-## Ironic Keepalived Container
-
-Ironic Endpoint IP is maintained with Keepalived which now runs in a separate
-docker container in bmo deployment. The container is named
-`ironic-endpoint-keepalived`. The container files reside in
-`resources/keepalived-docker` path.
+Keepalived is a kustomize component, not a standalone overlay root.
+Use an overlay that includes it, for example:
 
 ```bash
-
-tree resources/keepalived-docker/
-
-├── Dockerfile
-├── manage-keepalived.sh
-├── OWNERS
-└── sample.keepalived.conf
-
+kustomize build ironic-deployment/overlays/basic-auth_tls_keepalived | kubectl apply -f -
 ```
 
-It is assumed that the docker image is uploaded in some registry and the image
-URL is used with `ironic-deployment/keepalived/keepalived_patch.yaml` to replace
-the default image URL with the correct URL through kustomization.
+The component itself lives in
+`ironic-deployment/components/keepalived`.
+See [ironic-deployment/README.md](../ironic-deployment/README.md) for
+the full kustomize layout and the `deploy.sh` / `deploy-cli` helpers.
 
-**Important Note**
-When the baremetal-operator is deployed through metal3-dev-env, this container
-inherits the following environment variables through configmap:
+## Ironic Keepalived container
 
-```bash
+The deployment adds a sidecar named `ironic-endpoint-keepalived`.
+The image and container spec are in
+`ironic-deployment/components/keepalived/keepalived_patch.yaml`
+(default image `quay.io/metal3-io/keepalived`).
+Override that image in your overlay if you build a custom image.
 
-$PROVISIONING_IP
-$PROVISIONING_INTERFACE
-
-```
-
-In case you are deploying baremetal-operator locally, make sure to populate and
-export these environment variables before deploying.
+When Metal3 is deployed through metal3-dev-env, the container inherits
+`PROVISIONING_IP` and `PROVISIONING_INTERFACE` from the Ironic
+configmap. For a local deploy, set those values before applying the
+manifests.

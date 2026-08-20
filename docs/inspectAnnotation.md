@@ -1,24 +1,36 @@
 # Inspect Annotation
 
-Baremetalhost's(BMH) _Status_ sub-resource contains a _hardware_ key
-which contains the result of introspection which is carried out during
-BMH registration.
+Inspection results are stored on the BareMetalHost as
+`status.hardware` and in the owned **HardwareData** resource.
+Inspection normally runs after registration, unless it is disabled.
 
-In some circumstances it may be desirable to disable this inspection process,
-and provide data from external source. The _Inspect Annotation_ provides some
-interfaces to enable this.
+## Disabling inspection
 
-Note the `inspect.metal3.io/hardwaredetails` annotation is consumed:
+Prefer `spec.inspectionMode` on the BareMetalHost:
 
-* At any time when `inspect.metal3.io: disabled` is specified
-* When there is no existing HardwareDetails data in the Status
+- `agent` — boot the IPA ramdisk and collect hardware details (default
+  when unset)
+- `fast` — out-of-band inspection via the BMC (for example Redfish),
+  without booting a ramdisk
+- `disabled` — skip inspection and move from registering to preparing
 
-The `inspect.metal3.io/hardwaredetails` annotation will be removed when
-successfully processed or when the status is already set, generating an
+The `inspect.metal3.io: disabled` annotation is still honored for
+backward compatibility. Do not set both the annotation and
+`spec.inspectionMode` to conflicting values; the webhook rejects that.
+
+When inspection is disabled, hardware details can be supplied with the
+`inspect.metal3.io/hardwaredetails` annotation. That annotation is
+consumed:
+
+- at any time when inspection is disabled
+- when there is no existing HardwareDetails data in the status
+
+The `inspect.metal3.io/hardwaredetails` annotation is removed when
+successfully processed, or when status is already set, generating an
 event in each case.
 
-The structure of the annotation's value should match the hardware status
-field schema, or a subset of that schema, for example:
+The annotation value must match the hardware status field schema, or a
+subset of that schema, for example:
 
 ```yaml
 inspect.metal3.io: disabled
@@ -34,15 +46,12 @@ inspect.metal3.io/hardwaredetails: '{"systemVendor":{"manufacturer":"QEMU",
 "flags":["foo"],"count":4},"hostname":"hwdAnnotation-0"}'
 ```
 
-Apart from that, sometimes you might want to request re-inspection for an
-already inspected host. This might be necessary when there was a hardware
-change on the host and you want to ensure that BMH status contains the latest
-inspection data about your host. To request a new inspection, simply annotating
-the host with `inspect.metal3.io` is enough. Once inspection is requested, you should
-see the BMH in `inspecting` state until inspection is completed and by the end of
-inspection the `inspect.metal3.io` annotation will be removed by Baremetal Operator.
+## Requesting re-inspection
 
-Note that, inspection can be requested only when BMH is in `Ready` state (i.e. before
-it is provisioned). The reason for this limitation is because requesting an inspection
-for provisioned BMH will result in rebooting the host, which will result in application
-downtime running on that host.
+To refresh inventory after a hardware change, annotate an `available`
+host (the older `ready` name is still accepted) with `inspect.metal3.io`
+(any value other than `disabled`). The host moves to `inspecting` until
+inspection completes. The operator then removes the annotation.
+
+Re-inspection is not performed on provisioned hosts, because it would
+reboot the machine and interrupt workloads.

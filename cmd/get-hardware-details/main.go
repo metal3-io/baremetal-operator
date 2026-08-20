@@ -87,6 +87,25 @@ func getOptions() (o options) {
 	if err != nil {
 		log.Fatalf("Error: %s\n", err)
 	}
+
+	o.AuthConfig, err = resolveAuthConfig(o.AuthConfig)
+	if err != nil {
+		log.Fatalf("Error: %s\n", err)
+	}
+
 	o.NodeID = os.Args[2]
 	return
+}
+
+// resolveAuthConfig returns urlAuth unchanged if it already carries
+// credentials parsed from the endpoint URL. Embedding credentials in the
+// URL exposes them in the process list, so when none were supplied that
+// way, this falls back to the auth files read by LoadAuth (see
+// docs/ironic-authentication.md) so credentials can be passed without
+// appearing on the command line.
+func resolveAuthConfig(urlAuth clients.AuthConfig) (clients.AuthConfig, error) {
+	if urlAuth.Type != clients.NoAuth {
+		return urlAuth, nil
+	}
+	return clients.LoadAuth()
 }

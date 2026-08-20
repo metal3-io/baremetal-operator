@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/hostoperations"
 	. "github.com/metal3-io/baremetal-operator/pkg/logging"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -486,8 +487,10 @@ func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcil
 		return actionComplete{}
 	}
 
+	m := hostoperations.NewManager(hsm.Reconciler.Client, info.host, hsm.Provisioner, info.log)
+
 	// Check if hostFirmwareSettings have changed
-	if dirty, _, err := hsm.Reconciler.getHostFirmwareSettings(ctx, info); err != nil {
+	if dirty, _, err := m.GetFirmwareSettingsChanges(ctx); err != nil {
 		return actionError{err}
 	} else if dirty {
 		hsm.NextState = metal3api.StatePreparing
@@ -495,7 +498,7 @@ func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcil
 	}
 
 	// Check if hostFirmwareComponents have changed
-	if dirty, _, err := hsm.Reconciler.getHostFirmwareComponents(ctx, info); err != nil {
+	if dirty, _, err := m.GetFirmwareComponentsChanges(ctx); err != nil {
 		return actionError{err}
 	} else if dirty {
 		hsm.NextState = metal3api.StatePreparing

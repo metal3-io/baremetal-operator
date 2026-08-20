@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.release-version.outputs.release_version }}
+      release_branch: ${{ steps.release-branch.outputs.release_branch }}
     if: github.repository == 'metal3-io/baremetal-operator'
     steps:
     - name: Checkout code
@@ -48,14 +49,17 @@ jobs:
           fi
         done
     - name: Determine the release branch to use
+      id: release-branch
       run: |
         if [[ ${RELEASE_VERSION} =~ beta ]] || [[ ${RELEASE_VERSION} =~ alpha ]]; then
           export RELEASE_BRANCH=main
           echo "RELEASE_BRANCH=${RELEASE_BRANCH}" >> ${GITHUB_ENV}
+          echo "release_branch=${RELEASE_BRANCH}" >> ${GITHUB_OUTPUT}
           echo "This is a beta or alpha release, will use release branch ${RELEASE_BRANCH}"
         else
           export RELEASE_BRANCH=release-$(echo ${RELEASE_VERSION} | sed -E 's/^v([0-9]+)\.([0-9]+)\..*$/\1.\2/')
           echo "RELEASE_BRANCH=${RELEASE_BRANCH}" >> ${GITHUB_ENV}
+          echo "release_branch=${RELEASE_BRANCH}" >> ${GITHUB_OUTPUT}
           echo "This is not a beta or alpha release, will use release branch ${RELEASE_BRANCH}"
         fi
     - name: Create or checkout release branch
@@ -152,6 +156,25 @@ jobs:
       pushImage: true
       ref: ${{ needs.push_release_tags.outputs.release_tag }}
       generate-sbom: true
+      sign-image: true
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  build_bmo_release_branch:
+    permissions:
+      contents: read
+      id-token: write
+    needs: push_release_tags
+    name: Build BMO release branch image
+    if: github.repository == 'metal3-io/baremetal-operator' && needs.push_release_tags.outputs.release_branch != 'main'
+    uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main # zizmor: ignore[unpinned-uses]
+    with:
+      image-name: 'baremetal-operator'
+      pushImage: true
+      ref: ${{ needs.push_release_tags.outputs.release_branch }}
+      generate-sbom: false
       sign-image: true
     secrets:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}

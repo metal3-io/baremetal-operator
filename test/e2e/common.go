@@ -410,13 +410,20 @@ func Cleanup(ctx context.Context, clusterProxy framework.ClusterProxy, namespace
 	} else {
 		// When namespace-scoped, the namespace is reused between tests; clean up
 		// individual resources to allow the next run to start clean.
+		// Delete BMHs before other tracked resources so that dependent secrets
+		// remain available for deprovisioning and finalizer handling.
+		bmhIntervals := cfg.GetIntervals("default", "wait-bmh-deleted")
 		for _, obj := range toCleanup {
 			if bmh, ok := obj.(*metal3api.BareMetalHost); ok {
-				CleanupBMH(ctx, clusterProxy.GetClient(), bmh, cfg.GetIntervals("default", "wait-bmh-deleted")...)
-			} else {
-				if err := clusterProxy.GetClient().Delete(ctx, obj); err != nil && !k8serrors.IsNotFound(err) {
-					Expect(err).NotTo(HaveOccurred(), "Unable to delete %T %s/%s", obj, obj.GetNamespace(), obj.GetName())
-				}
+				CleanupBMH(ctx, clusterProxy.GetClient(), bmh, bmhIntervals...)
+			}
+		}
+		for _, obj := range toCleanup {
+			if _, ok := obj.(*metal3api.BareMetalHost); ok {
+				continue
+			}
+			if err := clusterProxy.GetClient().Delete(ctx, obj); err != nil && !k8serrors.IsNotFound(err) {
+				Expect(err).NotTo(HaveOccurred(), "Unable to delete %T %s/%s", obj, obj.GetNamespace(), obj.GetName())
 			}
 		}
 	}

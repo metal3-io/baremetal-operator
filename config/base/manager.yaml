@@ -49,8 +49,12 @@ spec:
             drop:
             - ALL
           privileged: false
+          readOnlyRootFilesystem: true
           runAsUser: 65532
           runAsGroup: 65532
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
         livenessProbe:
           httpGet:
             path: /healthz
@@ -69,6 +73,9 @@ spec:
           timeoutSeconds: 2
           successThreshold: 1
           failureThreshold: 10
+      volumes:
+      - name: tmp
+        emptyDir: {}
       terminationGracePeriodSeconds: 10
       securityContext:
         runAsNonRoot: true

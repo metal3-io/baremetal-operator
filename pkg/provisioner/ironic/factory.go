@@ -379,7 +379,31 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 		}
 	}
 
-	c.provNetDisabled = strings.ToLower(os.Getenv("PROVISIONING_NETWORK_DISABLED")) == "true"
+	const envTrue = "true"
+
+	c.provNetDisabled = strings.ToLower(os.Getenv("PROVISIONING_NETWORK_DISABLED")) == envTrue
+
+	// Enable management of switch ports if networking is enabled
+	networkingValue := os.Getenv("IRONIC_NETWORKING_ENABLED")
+	if networkingValue != "" {
+		var parseErr error
+		c.enableNetworking, parseErr = strconv.ParseBool(networkingValue)
+		if parseErr != nil {
+			return c, fmt.Errorf("invalid IRONIC_NETWORKING_ENABLED value %q: %w", networkingValue, parseErr)
+		}
+	}
+
+	// Ironic currently only supports a single interface for standalone switch
+	// port configurations, but we have this variable so that we can override
+	// this to "noop" for the purpose of running e2e tests since we don't (yet)
+	// have a virtual switch available in the test environment.  If, by the time
+	// we implement a virtual switch in the test environment, we still don't
+	// have other driver interfaces available in Ironic we can remove this
+	// variable.
+	c.networkInterface = os.Getenv("IRONIC_NETWORK_INTERFACE")
+	if c.networkInterface == "" && c.enableNetworking {
+		c.networkInterface = "ironic-networking"
+	}
 
 	return c, nil
 }

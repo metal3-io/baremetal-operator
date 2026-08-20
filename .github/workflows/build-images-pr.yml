@@ -1,0 +1,28 @@
+name: Build container image for PR
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+    branches:
+    - 'main'
+    - 'release-*'
+    paths:
+    - 'Dockerfile'
+    - 'Makefile'
+    - '.github/workflows/build-pr.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build container image
+    if: github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main # zizmor: ignore[unpinned-uses]
+    with:
+      image-name: 'baremetal-operator'
+      pushImage: false
+      generate-sbom: false
+      sign-image: false

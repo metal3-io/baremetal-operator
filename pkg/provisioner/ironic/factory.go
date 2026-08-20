@@ -539,7 +539,7 @@ func writeTempFile(prefix string, data []byte) (string, error) {
 	name := tmpFile.Name()
 	_, err = tmpFile.Write(data)
 	if err != nil {
-		if rmErr := os.Remove(name); rmErr != nil && !os.IsNotExist(rmErr) { //nolint:gosec // name is from os.CreateTemp, not user input
+		if rmErr := os.Remove(name); rmErr != nil && !os.IsNotExist(rmErr) { //nolint:gosec // G703: name is OS-generated temp path, not user input
 			rmErr = fmt.Errorf("failed to delete temporary file during clean-up: %w", rmErr)
 			return "", errors.Join(err, rmErr)
 		}

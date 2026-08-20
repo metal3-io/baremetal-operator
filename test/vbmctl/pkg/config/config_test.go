@@ -135,20 +135,20 @@ spec:
 		t.Errorf("expected BMC emulator type 'sushy-tools', got %s", cfg.Spec.BMCEmulator.Type)
 	}
 
-	if cfg.Spec.BMCEmulator.ConfigFile != "vbmc-emulator-file" {
-		t.Errorf("expected BMC emulator config file 'vbmc-emulator-file', got %s", cfg.Spec.BMCEmulator.ConfigFile)
+	if cfg.Spec.BMCEmulator.SushyToolsConfig.ConfigFile != "vbmc-emulator-file" {
+		t.Errorf("expected BMC emulator config file 'vbmc-emulator-file', got %s", cfg.Spec.BMCEmulator.SushyToolsConfig.ConfigFile)
 	}
 
 	if cfg.Spec.BMCEmulator.Image != "test/bmc-emulator:latest" {
 		t.Errorf("expected BMC emulator image 'test/bmc-emulator:latest', got %s", cfg.Spec.BMCEmulator.Image)
 	}
 
-	if cfg.Spec.BMCEmulator.ListenAddress != "1.2.3.4" {
-		t.Errorf("expected BMC emulator listen address '1.2.3.4', got %s", cfg.Spec.BMCEmulator.ListenAddress)
+	if cfg.Spec.BMCEmulator.SushyToolsConfig.ListenAddress != "1.2.3.4" {
+		t.Errorf("expected BMC emulator listen address '1.2.3.4', got %s", cfg.Spec.BMCEmulator.SushyToolsConfig.ListenAddress)
 	}
 
-	if cfg.Spec.BMCEmulator.ListenPort != 1234 {
-		t.Errorf("expected BMC emulator listen port 1234, got %d", cfg.Spec.BMCEmulator.ListenPort)
+	if cfg.Spec.BMCEmulator.SushyToolsConfig.ListenPort != 1234 {
+		t.Errorf("expected BMC emulator listen port 1234, got %d", cfg.Spec.BMCEmulator.SushyToolsConfig.ListenPort)
 	}
 
 	// Libvirt network tests
@@ -237,11 +237,13 @@ func TestLoadAndSave(t *testing.T) {
 		ContainerName:    "vbmctl-image-server",
 	}
 	cfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-		Type:          BMCEmulatorTypeSushyTools,
-		ConfigFile:    "vbmc-emulator-file",
-		Image:         "test/bmc-emulator:latest",
-		ListenAddress: "1.2.3.4",
-		ListenPort:    1234,
+		Type:  vbmctlapi.BMCEmulatorTypeSushyTools,
+		Image: "test/bmc-emulator:latest",
+		SushyToolsConfig: vbmctlapi.SushyToolsConfig{
+			ConfigFile:    "vbmc-emulator-file",
+			ListenAddress: "1.2.3.4",
+			ListenPort:    1234,
+		},
 	}
 	cfg.Spec.DockerNetworks = []vbmctlapi.DockerBridgeNetwork{{
 		Name:       "kind",
@@ -307,24 +309,24 @@ func TestLoadAndSave(t *testing.T) {
 		t.Fatal("expected BMC emulator config, got nil")
 	}
 
-	if loadedCfg.Spec.BMCEmulator.Type != BMCEmulatorTypeSushyTools {
-		t.Errorf("expected BMC emulator type '%s', got %s", BMCEmulatorTypeSushyTools, loadedCfg.Spec.BMCEmulator.Type)
+	if loadedCfg.Spec.BMCEmulator.Type != vbmctlapi.BMCEmulatorTypeSushyTools {
+		t.Errorf("expected BMC emulator type '%s', got %s", vbmctlapi.BMCEmulatorTypeSushyTools, loadedCfg.Spec.BMCEmulator.Type)
 	}
 
-	if loadedCfg.Spec.BMCEmulator.ConfigFile != "vbmc-emulator-file" {
-		t.Errorf("expected BMC emulator config file 'vbmc-emulator-file', got %s", loadedCfg.Spec.BMCEmulator.ConfigFile)
+	if loadedCfg.Spec.BMCEmulator.SushyToolsConfig.ConfigFile != "vbmc-emulator-file" {
+		t.Errorf("expected BMC emulator config file 'vbmc-emulator-file', got %s", loadedCfg.Spec.BMCEmulator.SushyToolsConfig.ConfigFile)
 	}
 
 	if loadedCfg.Spec.BMCEmulator.Image != "test/bmc-emulator:latest" {
 		t.Errorf("expected BMC emulator image 'test/bmc-emulator:latest', got %s", loadedCfg.Spec.BMCEmulator.Image)
 	}
 
-	if loadedCfg.Spec.BMCEmulator.ListenAddress != "1.2.3.4" {
-		t.Errorf("expected BMC emulator listen address '1.2.3.4', got %s", loadedCfg.Spec.BMCEmulator.ListenAddress)
+	if loadedCfg.Spec.BMCEmulator.SushyToolsConfig.ListenAddress != "1.2.3.4" {
+		t.Errorf("expected BMC emulator listen address '1.2.3.4', got %s", loadedCfg.Spec.BMCEmulator.SushyToolsConfig.ListenAddress)
 	}
 
-	if loadedCfg.Spec.BMCEmulator.ListenPort != 1234 {
-		t.Errorf("expected BMC emulator listen port '1234', got %d", loadedCfg.Spec.BMCEmulator.ListenPort)
+	if loadedCfg.Spec.BMCEmulator.SushyToolsConfig.ListenPort != 1234 {
+		t.Errorf("expected BMC emulator listen port '1234', got %d", loadedCfg.Spec.BMCEmulator.SushyToolsConfig.ListenPort)
 	}
 
 	// DockerNetworks tests
@@ -510,7 +512,7 @@ func TestValidate(t *testing.T) {
 			name: "valid BMC emulator config (vbmc)",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-					Type:  BMCEmulatorTypeVBMC,
+					Type:  vbmctlapi.BMCEmulatorTypeVBMC,
 					Image: "test/bmc-emulator:latest",
 				}
 			},
@@ -520,10 +522,12 @@ func TestValidate(t *testing.T) {
 			name: "valid BMC emulator config (sushy-tools) no config file specified",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-					Type:          BMCEmulatorTypeSushyTools,
-					Image:         "test/bmc-emulator:latest",
-					ListenAddress: "1.2.3.4",
-					ListenPort:    1234,
+					Type:  vbmctlapi.BMCEmulatorTypeSushyTools,
+					Image: "test/bmc-emulator:latest",
+					SushyToolsConfig: vbmctlapi.SushyToolsConfig{
+						ListenAddress: "1.2.3.4",
+						ListenPort:    1234,
+					},
 				}
 			},
 			wantErr: false,
@@ -532,9 +536,11 @@ func TestValidate(t *testing.T) {
 			name: "valid BMC emulator config (sushy-tools) with config file specified",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-					Type:       BMCEmulatorTypeSushyTools,
-					Image:      "test/bmc-emulator:latest",
-					ConfigFile: "vbmc-emulator-file",
+					Type:  vbmctlapi.BMCEmulatorTypeSushyTools,
+					Image: "test/bmc-emulator:latest",
+					SushyToolsConfig: vbmctlapi.SushyToolsConfig{
+						ConfigFile: "vbmc-emulator-file",
+					},
 				}
 			},
 			wantErr: false,
@@ -543,12 +549,14 @@ func TestValidate(t *testing.T) {
 			name: "valid BMC emulator config (sushy-tools) with all values specified",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-					Type:          BMCEmulatorTypeSushyTools,
-					Image:         "test/bmc-emulator:latest",
-					ConfigFile:    "vbmc-emulator-file",
-					StoragePool:   "custom-storage-pool",
-					ListenAddress: "1.2.3.4",
-					ListenPort:    1234,
+					Type:  vbmctlapi.BMCEmulatorTypeSushyTools,
+					Image: "test/bmc-emulator:latest",
+					SushyToolsConfig: vbmctlapi.SushyToolsConfig{
+						ConfigFile:    "vbmc-emulator-file",
+						StoragePool:   "custom-storage-pool",
+						ListenAddress: "1.2.3.4",
+						ListenPort:    1234,
+					},
 				}
 			},
 			wantErr: false,
@@ -557,8 +565,10 @@ func TestValidate(t *testing.T) {
 			name: "invalid BMC emulator config - missing type",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-					ConfigFile: "vbmc-emulator-file",
-					Image:      "test/bmc-emulator:latest",
+					Image: "test/bmc-emulator:latest",
+					SushyToolsConfig: vbmctlapi.SushyToolsConfig{
+						ConfigFile: "vbmc-emulator-file",
+					},
 				}
 			},
 			wantErr: true,
@@ -567,9 +577,11 @@ func TestValidate(t *testing.T) {
 			name: "invalid BMC emulator config - missing either config file or listen address for sushy-tools",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-					Type:       BMCEmulatorTypeSushyTools,
-					Image:      "test/bmc-emulator:latest",
-					ListenPort: 1234,
+					Type:  vbmctlapi.BMCEmulatorTypeSushyTools,
+					Image: "test/bmc-emulator:latest",
+					SushyToolsConfig: vbmctlapi.SushyToolsConfig{
+						ListenPort: 1234,
+					},
 				}
 			},
 			wantErr: true,
@@ -578,9 +590,11 @@ func TestValidate(t *testing.T) {
 			name: "invalid BMC emulator config - missing either config file or listen port for sushy-tools",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-					Type:          BMCEmulatorTypeSushyTools,
-					Image:         "test/bmc-emulator:latest",
-					ListenAddress: "1.2.3.4",
+					Type:  vbmctlapi.BMCEmulatorTypeSushyTools,
+					Image: "test/bmc-emulator:latest",
+					SushyToolsConfig: vbmctlapi.SushyToolsConfig{
+						ListenAddress: "1.2.3.4",
+					},
 				}
 			},
 			wantErr: true,
@@ -589,8 +603,10 @@ func TestValidate(t *testing.T) {
 			name: "invalid BMC emulator config - missing image",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-					Type:       BMCEmulatorTypeVBMC,
-					ConfigFile: "vbmc-emulator-file",
+					Type: vbmctlapi.BMCEmulatorTypeVBMC,
+					SushyToolsConfig: vbmctlapi.SushyToolsConfig{
+						ConfigFile: "vbmc-emulator-file",
+					},
 				}
 			},
 			wantErr: true,
@@ -728,7 +744,7 @@ func TestApplyDefaults(t *testing.T) {
 	// If BMCEmulator type is vbmc, vbmc image default should be applied
 	vbmcCfg := &Config{}
 	vbmcCfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-		Type: BMCEmulatorTypeVBMC,
+		Type: vbmctlapi.BMCEmulatorTypeVBMC,
 	}
 	vbmcCfg.ApplyDefaults()
 	if vbmcCfg.Spec.BMCEmulator.Image != DefaultBMCEmulatorVBMCImage {
@@ -739,37 +755,37 @@ func TestApplyDefaults(t *testing.T) {
 	// that the listen address and listen port defaults are applied when no config file is specified.
 	sushyCfg := &Config{}
 	sushyCfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-		Type: BMCEmulatorTypeSushyTools,
+		Type: vbmctlapi.BMCEmulatorTypeSushyTools,
 	}
 	sushyCfg.ApplyDefaults()
 	if sushyCfg.Spec.BMCEmulator.Image != DefaultBMCEmulatorSushyToolsImage {
 		t.Errorf("expected BMC Emulator Image %s, got %s", DefaultBMCEmulatorSushyToolsImage, sushyCfg.Spec.BMCEmulator.Image)
 	}
-	if sushyCfg.Spec.BMCEmulator.ListenAddress != DefaultNetworkAddress {
-		t.Errorf("expected BMC Emulator Listen Address %s, got %s", DefaultNetworkAddress, sushyCfg.Spec.BMCEmulator.ListenAddress)
+	if sushyCfg.Spec.BMCEmulator.SushyToolsConfig.ListenAddress != DefaultNetworkAddress {
+		t.Errorf("expected BMC Emulator Listen Address %s, got %s", DefaultNetworkAddress, sushyCfg.Spec.BMCEmulator.SushyToolsConfig.ListenAddress)
 	}
-	if sushyCfg.Spec.BMCEmulator.ListenPort != DefaultBMCEmulatorSushyToolsListenPort {
-		t.Errorf("expected BMC Emulator Listen Port %d, got %d", DefaultBMCEmulatorSushyToolsListenPort, sushyCfg.Spec.BMCEmulator.ListenPort)
+	if sushyCfg.Spec.BMCEmulator.SushyToolsConfig.ListenPort != DefaultBMCEmulatorSushyToolsListenPort {
+		t.Errorf("expected BMC Emulator Listen Port %d, got %d", DefaultBMCEmulatorSushyToolsListenPort, sushyCfg.Spec.BMCEmulator.SushyToolsConfig.ListenPort)
 	}
-	if sushyCfg.Spec.BMCEmulator.StoragePool != DefaultPoolName {
-		t.Errorf("expected BMC Emulator Storage Pool %s, got %s", DefaultPoolName, sushyCfg.Spec.BMCEmulator.StoragePool)
+	if sushyCfg.Spec.BMCEmulator.SushyToolsConfig.StoragePool != DefaultPoolName {
+		t.Errorf("expected BMC Emulator Storage Pool %s, got %s", DefaultPoolName, sushyCfg.Spec.BMCEmulator.SushyToolsConfig.StoragePool)
 	}
-	if sushyCfg.Spec.BMCEmulator.LibvirtURI != DefaultLibvirtURI {
-		t.Errorf("expected BMC Emulator Libvirt URI %s, got %s", DefaultLibvirtURI, sushyCfg.Spec.BMCEmulator.LibvirtURI)
+	if sushyCfg.Spec.BMCEmulator.SushyToolsConfig.LibvirtURI != DefaultLibvirtURI {
+		t.Errorf("expected BMC Emulator Libvirt URI %s, got %s", DefaultLibvirtURI, sushyCfg.Spec.BMCEmulator.SushyToolsConfig.LibvirtURI)
 	}
 
 	// However, if a config file is specified for sushy-tools, the listen address and listen port defaults should not be applied.
 	sushyWithConfigFileCfg := &Config{}
 	sushyWithConfigFileCfg.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{
-		Type:       BMCEmulatorTypeSushyTools,
-		ConfigFile: "vbmc-emulator-file",
+		Type: vbmctlapi.BMCEmulatorTypeSushyTools,
 	}
+	sushyWithConfigFileCfg.Spec.BMCEmulator.SushyToolsConfig = vbmctlapi.SushyToolsConfig{ConfigFile: "vbmc-emulator-file"}
 	sushyWithConfigFileCfg.ApplyDefaults()
-	if sushyWithConfigFileCfg.Spec.BMCEmulator.ListenAddress != "" {
-		t.Errorf("expected BMC Emulator Listen Address <empty>, got %s", sushyWithConfigFileCfg.Spec.BMCEmulator.ListenAddress)
+	if sushyWithConfigFileCfg.Spec.BMCEmulator.SushyToolsConfig.ListenAddress != "" {
+		t.Errorf("expected BMC Emulator Listen Address <empty>, got %s", sushyWithConfigFileCfg.Spec.BMCEmulator.SushyToolsConfig.ListenAddress)
 	}
-	if sushyWithConfigFileCfg.Spec.BMCEmulator.ListenPort != 0 {
-		t.Errorf("expected BMC Emulator Listen Port <empty>, got %d", sushyWithConfigFileCfg.Spec.BMCEmulator.ListenPort)
+	if sushyWithConfigFileCfg.Spec.BMCEmulator.SushyToolsConfig.ListenPort != 0 {
+		t.Errorf("expected BMC Emulator Listen Port <empty>, got %d", sushyWithConfigFileCfg.Spec.BMCEmulator.SushyToolsConfig.ListenPort)
 	}
 }
 

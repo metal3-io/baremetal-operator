@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/mgrutils"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -139,7 +140,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// If DataImage exists, add its ownerReference
-	if !ownerReferenceExists(bmh, di) {
+	if !mgrutils.OwnerReferenceExists(bmh, di) {
 		if err := controllerutil.SetOwnerReference(bmh, di, r.Scheme()); err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not set bmh as controller, %w", err)
 		}

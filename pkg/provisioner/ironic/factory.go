@@ -455,7 +455,7 @@ func (f *ironicProvisionerFactory) loadConfigFromIronicCR(ctx context.Context) (
 		return "", clients.AuthConfig{}, clients.TLSConfig{}, fmt.Errorf("ironic resource %s/%s is not ready: %s", f.ironicNamespace, f.ironicName, unreadyReason)
 	}
 
-	endpoint = fmt.Sprintf("http://%s.%s.svc", f.ironicName, f.ironicNamespace)
+	endpoint = fmt.Sprintf("http://%s.%s.svc/v1/", f.ironicName, f.ironicNamespace)
 
 	// Handle authentication
 	auth, err = f.loadAuthConfigFromIronicCR(ctx, &sm, ironicCR)
@@ -467,7 +467,7 @@ func (f *ironicProvisionerFactory) loadConfigFromIronicCR(ctx context.Context) (
 	// Do it last because it may create a temporary file that will need to be cleaned up
 	// by the caller even in case of an error.
 	if ironicCR.Spec.TLS.CertificateName != "" {
-		endpoint = fmt.Sprintf("https://%s.%s.svc", f.ironicName, f.ironicNamespace)
+		endpoint = fmt.Sprintf("https://%s.%s.svc/v1/", f.ironicName, f.ironicNamespace)
 		tlsConfig, err = f.loadTLSConfigFromIronicCR(ctx, &sm, ironicCR)
 		if err != nil {
 			return "", clients.AuthConfig{}, clients.TLSConfig{}, err
@@ -497,8 +497,8 @@ func (f *ironicProvisionerFactory) loadAuthConfigFromIronicCR(ctx context.Contex
 
 	return clients.AuthConfig{
 		Type:     clients.HTTPBasicAuth,
-		Username: string(username),
-		Password: string(password),
+		Username: strings.TrimSpace(string(username)),
+		Password: strings.TrimSpace(string(password)),
 	}, nil
 }
 

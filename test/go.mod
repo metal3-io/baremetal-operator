@@ -16,7 +16,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.35.7
 	k8s.io/apiextensions-apiserver v0.35.7
-	k8s.io/apimachinery v0.35.7
+	k8s.io/apimachinery v0.35.8
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	libvirt.org/go/libvirt v1.12002.0

@@ -1634,6 +1634,112 @@ func TestGetUpdateOptsForNodeOCIClearPullSecret(t *testing.T) {
 	assert.True(t, found, "expected a RemoveOp patch for image_pull_secret")
 }
 
+func TestGetUpdateOptsForNodeWithRootFilesystemUUID(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHost()
+	host.Spec.Image.Checksum = "checksum"
+	host.Spec.Image.ChecksumType = metal3api.MD5
+	host.Spec.Image.RootFilesystemUUID = ptr.To("62003de3-90d1-4fe4-b9f1-71f3c6605205")
+
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher, "https://ironic.test", auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{}
+
+	provData := provisioner.ProvisionData{
+		Image:    *host.Spec.Image,
+		BootMode: metal3api.DefaultBootMode,
+	}
+	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	found := false
+	for _, patch := range patches {
+		update, ok := patch.(nodes.UpdateOperation)
+		require.True(t, ok, "expected patch to be UpdateOperation")
+		if update.Path == "/instance_info/image_rootfs_uuid" {
+			assert.Equal(t, "62003de3-90d1-4fe4-b9f1-71f3c6605205", update.Value)
+			found = true
+		}
+	}
+	assert.True(t, found, "expected an image_rootfs_uuid patch")
+}
+
+func TestGetUpdateOptsForNodeWithoutRootFilesystemUUID(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHost()
+	host.Spec.Image.Checksum = "checksum"
+	host.Spec.Image.ChecksumType = metal3api.MD5
+
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher, "https://ironic.test", auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{}
+
+	provData := provisioner.ProvisionData{
+		Image:    *host.Spec.Image,
+		BootMode: metal3api.DefaultBootMode,
+	}
+	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	found := false
+	for _, patch := range patches {
+		update, ok := patch.(nodes.UpdateOperation)
+		require.True(t, ok, "expected patch to be UpdateOperation")
+		if update.Path == "/instance_info/image_rootfs_uuid" {
+			found = true
+		}
+	}
+	assert.False(t, found, "image_rootfs_uuid patch should not be present when RootFilesystemUUID is unset")
+}
+
+func TestGetUpdateOptsForNodeClearRootFilesystemUUID(t *testing.T) {
+	eventPublisher := func(reason, message string) {}
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+
+	host := makeHost()
+	host.Spec.Image.Checksum = "checksum"
+	host.Spec.Image.ChecksumType = metal3api.MD5
+
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, eventPublisher, "https://ironic.test", auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ironicNode := &nodes.Node{
+		InstanceInfo: map[string]any{
+			"image_rootfs_uuid": "old-uuid",
+		},
+	}
+
+	provData := provisioner.ProvisionData{
+		Image:    *host.Spec.Image,
+		BootMode: metal3api.DefaultBootMode,
+	}
+	patches := prov.getInstanceUpdateOpts(ironicNode, provData).Updates
+
+	t.Logf("patches: %v", patches)
+
+	found := false
+	for _, patch := range patches {
+		update, ok := patch.(nodes.UpdateOperation)
+		require.True(t, ok, "expected patch to be UpdateOperation")
+		if update.Path == "/instance_info/image_rootfs_uuid" {
+			assert.Equal(t, nodes.RemoveOp, update.Op, "image_rootfs_uuid should be removed")
+			found = true
+		}
+	}
+	assert.True(t, found, "expected a RemoveOp patch for image_rootfs_uuid")
+}
+
 func TestBuildCleanStepsForUpdateFirmware(t *testing.T) {
 	nodeUUID := "eec38659-4c68-7431-9535-d10766f07a58"
 	cases := []struct {

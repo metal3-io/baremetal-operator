@@ -607,6 +607,18 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		"image_disk_format": imageData.DiskFormat,
 	}
 
+	// Required by Ironic when deploying a whole-disk image onto a host
+	// with software RAID configured, so it can locate the root filesystem
+	// inside the assembled RAID array and reinstall a RAID-aware
+	// bootloader. Cleared (nil) when unset, same as image_pull_secret
+	// below, so a previously-set value doesn't linger across reprovisions
+	// that stop specifying it.
+	if imageData.RootFilesystemUUID != nil {
+		optValues["image_rootfs_uuid"] = *imageData.RootFilesystemUUID
+	} else {
+		optValues["image_rootfs_uuid"] = nil
+	}
+
 	// Set or clear image pull secret (clear removes a previously-set secret on reprovision)
 	if imagePullSecret != "" {
 		optValues["image_pull_secret"] = imagePullSecret

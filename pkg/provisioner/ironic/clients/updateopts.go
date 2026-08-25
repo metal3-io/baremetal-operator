@@ -2,7 +2,9 @@ package clients
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -10,6 +12,86 @@ import (
 )
 
 type UpdateOptsData map[string]any
+
+// sensitiveURLQueryParams are query parameter names (compared
+// case-insensitively) whose values may carry credential or signed access
+// tokens and must not be leaked in status, events or logs.
+var sensitiveURLQueryParams = map[string]struct{}{
+	"token":                {},
+	"access_token":         {},
+	"accesstoken":          {},
+	"signature":            {},
+	"sig":                  {},
+	"x-amz-signature":      {},
+	"x-amz-credential":     {},
+	"x-amz-security-token": {},
+	"x-goog-signature":     {}, // GCS V4 signed URL
+	"x-goog-credential":    {}, // GCS V4 signed URL
+	"temp_url_sig":         {}, // OpenStack Swift TempURL
+}
+
+var urlInTextRegexp = regexp.MustCompile(`(?:https?|file|oci)://[^\s"'<>]+`)
+
+// RedactSensitiveURL redacts embedded credentials (user:pass@host) and the
+// values of known-sensitive query parameters from a bare URL, so pre-signed or
+// credentialed image URLs are not disclosed in status, events or logs. If the
+// input cannot be parsed as a URL it is returned unchanged.
+func RedactSensitiveURL(raw string) string {
+	if raw == "" {
+		return raw
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+
+	// Strip embedded credentials (user:pass@host).
+	u.User = nil
+
+	// Redact sensitive query parameters.
+	if u.RawQuery != "" {
+		q, perr := url.ParseQuery(u.RawQuery)
+		if perr != nil {
+			// Malformed query: fail safe rather than risk leaking a value
+			// that ParseQuery would silently drop.
+			u.RawQuery = "REDACTED"
+		} else {
+			changed := false
+			for key := range q {
+				if _, ok := sensitiveURLQueryParams[strings.ToLower(key)]; ok {
+					q.Set(key, "REDACTED")
+					changed = true
+				}
+			}
+			if changed {
+				u.RawQuery = q.Encode()
+			}
+		}
+	}
+
+	return u.String()
+}
+
+// RedactSensitiveText redacts any URLs embedded inside an arbitrary string,
+// such as Ironic's LastError or a log value (RedactSensitiveURL only handles a
+// string that is itself a bare URL).
+func RedactSensitiveText(s string) string {
+	if s == "" {
+		return s
+	}
+
+	return urlInTextRegexp.ReplaceAllStringFunc(s, RedactSensitiveURL)
+}
+
+// redactLogValue redacts string log values that contain a URL, leaving
+// non-string values untouched.
+func redactLogValue(v any) any {
+	if s, ok := v.(string); ok {
+		return RedactSensitiveText(s)
+	}
+	return v
+}
 
 func optionValueEqual(current, value any) bool {
 	if reflect.DeepEqual(current, value) {
@@ -106,12 +188,12 @@ func getUpdateOperation(name string, currentData map[string]any, desiredValue an
 	desiredValue = deref(desiredValue)
 	if desiredValue != nil {
 		if !(present && optionValueEqual(deref(current), desiredValue)) {
-			logValue := sanitisedValue(desiredValue)
+			logValue := redactLogValue(sanitisedValue(desiredValue))
 			if isSensitiveOption(name) {
 				logValue = "<redacted>"
 			}
 			if present {
-				oldLogValue := sanitisedValue(current)
+				oldLogValue := redactLogValue(sanitisedValue(current))
 				if isSensitiveOption(name) {
 					oldLogValue = "<redacted>"
 				}

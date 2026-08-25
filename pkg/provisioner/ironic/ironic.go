@@ -960,13 +960,13 @@ func (p *ironicProvisioner) setUpForProvisioning(ctx context.Context, ironicNode
 	// If validation is successful we can start moving the host
 	// through the states necessary to make it "available".
 	p.log.Info("starting provisioning",
-		"lastError", ironicNode.LastError,
+		"lastError", redactSensitiveText(ironicNode.LastError),
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 		"deploy step", ironicNode.DeployStep,
 	)
 	p.publisher("ProvisioningStarted",
-		"Image provisioning started for "+data.Image.URL)
+		"Image provisioning started for "+redactSensitiveURL(data.Image.URL))
 	return result, nil
 }
 
@@ -1018,7 +1018,7 @@ func (p *ironicProvisioner) Adopt(ctx context.Context, data provisioner.AdoptDat
 			)
 		}
 		return operationFailed("Host adoption failed: " +
-			ironicNode.LastError)
+			redactSensitiveText(ironicNode.LastError))
 	case nodes.Active:
 		// Empty Fault means that maintenance was set manually, not by Ironic
 		if ironicNode.Maintenance && ironicNode.Fault == "" && data.State != metal3api.StateDeleting {
@@ -1056,7 +1056,7 @@ func (p *ironicProvisioner) ironicHasSameImage(ironicNode *nodes.Node, image met
 				ironicNode.InstanceInfo["image_os_hash_value"] == checksum)
 		}
 		p.log.Info("checking image settings",
-			"source", ironicNode.InstanceInfo["image_source"],
+			"source", redactInstanceInfoURL(ironicNode.InstanceInfo["image_source"]),
 			"checksumType", checksumType,
 			"checksum", checksum,
 			"same", sameImage,
@@ -1237,7 +1237,7 @@ func (p *ironicProvisioner) Prepare(ctx context.Context, data provisioner.Prepar
 		// If restartOnFailure is false, it means the settings aren't cleared.
 		// So we can't set the node's state to manageable, until the settings are cleared.
 		if !restartOnFailure {
-			result, err = operationFailed(ironicNode.LastError)
+			result, err = operationFailed(redactSensitiveText(ironicNode.LastError))
 			return result, started, err
 		}
 		if ironicNode.Maintenance {
@@ -1363,13 +1363,13 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 				p.log.Info("failed but error message not available")
 				return retryAfterDelay(0)
 			}
-			p.log.Info("found error", "msg", ironicNode.LastError)
+			p.log.Info("found error", "msg", redactSensitiveText(ironicNode.LastError))
 			checksum, _, _ := data.Image.GetChecksum()
-			imageInfo := "url: " + data.Image.URL
+			imageInfo := "url: " + redactSensitiveURL(data.Image.URL)
 			if checksum != "" {
 				imageInfo += ", checksum: " + checksum
 			}
-			return operationFailed(fmt.Sprintf("Image provisioning failed (%s): %s", imageInfo, ironicNode.LastError))
+			return operationFailed(fmt.Sprintf("Image provisioning failed (%s): %s", imageInfo, redactSensitiveText(ironicNode.LastError)))
 		}
 		p.log.Info("recovering from previous failure")
 		if provResult, err = p.setUpForProvisioning(ctx, ironicNode, data); err != nil || provResult.Dirty || provResult.ErrorMessage != "" {
@@ -1429,7 +1429,7 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 	case nodes.Active:
 		// provisioning is done
 		p.publisher("ProvisioningComplete",
-			"Image provisioning completed for "+data.Image.URL)
+			"Image provisioning completed for "+redactSensitiveURL(data.Image.URL))
 		p.log.Info("finished provisioning")
 		return operationComplete()
 
@@ -1515,11 +1515,11 @@ func (p *ironicProvisioner) Deprovision(ctx context.Context, restartOnFailure bo
 
 	p.log.Info("deprovisioning host",
 		"ID", ironicNode.UUID,
-		"lastError", ironicNode.LastError,
+		"lastError", redactSensitiveText(ironicNode.LastError),
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 		"deploy step", ironicNode.DeployStep,
-		"instance_info", ironicNode.InstanceInfo,
+		"image_source", redactInstanceInfoURL(ironicNode.InstanceInfo["image_source"]),
 	)
 
 	switch nodes.ProvisionState(ironicNode.ProvisionState) {
@@ -1529,7 +1529,7 @@ func (p *ironicProvisioner) Deprovision(ctx context.Context, restartOnFailure bo
 			if ironicNode.LastError == "" {
 				result.ErrorMessage = "Deprovisioning failed"
 			} else {
-				result.ErrorMessage = ironicNode.LastError
+				result.ErrorMessage = redactSensitiveText(ironicNode.LastError)
 			}
 			return result, nil
 		}
@@ -1541,8 +1541,8 @@ func (p *ironicProvisioner) Deprovision(ctx context.Context, restartOnFailure bo
 
 	case nodes.CleanFail:
 		if !restartOnFailure {
-			p.log.Info("cleaning failed", "lastError", ironicNode.LastError)
-			return operationFailed("Cleaning failed: " + ironicNode.LastError)
+			p.log.Info("cleaning failed", "lastError", redactSensitiveText(ironicNode.LastError))
+			return operationFailed("Cleaning failed: " + redactSensitiveText(ironicNode.LastError))
 		}
 		p.log.Info("retrying cleaning")
 		if ironicNode.Maintenance {
@@ -1624,7 +1624,7 @@ func (p *ironicProvisioner) Delete(ctx context.Context) (result provisioner.Resu
 
 	p.log.Info("deleting host",
 		"ID", ironicNode.UUID,
-		"lastError", ironicNode.LastError,
+		"lastError", redactSensitiveText(ironicNode.LastError),
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 		"deploy step", ironicNode.DeployStep,
@@ -1745,7 +1745,7 @@ func (p *ironicProvisioner) Detach(ctx context.Context, force bool) (result prov
 
 	p.log.Info("deleting host for detachment",
 		"ID", ironicNode.UUID,
-		"lastError", ironicNode.LastError,
+		"lastError", redactSensitiveText(ironicNode.LastError),
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 		"deploy step", ironicNode.DeployStep,
@@ -1835,9 +1835,9 @@ func (p *ironicProvisioner) PowerOn(ctx context.Context, force bool) (result pro
 			return operationContinuing(shortRetryDelay)
 		}
 		if ironicNode.LastError != "" && !force {
-			p.log.Info("PowerOn operation failed", "msg", ironicNode.LastError)
+			p.log.Info("PowerOn operation failed", "msg", redactSensitiveText(ironicNode.LastError))
 			return operationFailed("PowerOn operation failed: " +
-				ironicNode.LastError)
+				redactSensitiveText(ironicNode.LastError))
 		}
 		return p.changePower(ctx, ironicNode, nodes.PowerOn)
 	}
@@ -1937,11 +1937,11 @@ func (p *ironicProvisioner) PowerOff(ctx context.Context, rebootMode metal3api.R
 		// this is expected and we should proceed with power off rather than failing.
 		if targetState == "" && ironicNode.LastError != "" && !force {
 			if !strings.Contains(ironicNode.LastError, "aborted") {
-				p.log.Info("power off error", "msg", ironicNode.LastError)
-				return operationFailed(ironicNode.LastError)
+				p.log.Info("power off error", "msg", redactSensitiveText(ironicNode.LastError))
+				return operationFailed(redactSensitiveText(ironicNode.LastError))
 			}
 			// Error is from an abort operation, not a power-off failure - proceed
-			p.log.Info("ignoring abort error, proceeding with power off", "msg", ironicNode.LastError)
+			p.log.Info("ignoring abort error, proceeding with power off", "msg", redactSensitiveText(ironicNode.LastError))
 		}
 
 		if rebootMode == metal3api.RebootModeSoft && !force {
@@ -1967,6 +1967,25 @@ func (p *ironicProvisioner) PowerOff(ctx context.Context, rebootMode metal3api.R
 
 func ironicNodeName(objMeta metav1.ObjectMeta) string {
 	return objMeta.Namespace + nameSeparator + objMeta.Name
+}
+
+// redactSensitiveURL and redactSensitiveText delegate to the shared
+// implementation in the clients package (which cannot import this package),
+// so both packages redact identically.
+func redactSensitiveURL(raw string) string {
+	return clients.RedactSensitiveURL(raw)
+}
+
+func redactSensitiveText(s string) string {
+	return clients.RedactSensitiveText(s)
+}
+
+// redactInstanceInfoURL redacts a URL stored in an Ironic InstanceInfo field,
+// which is typed as any and may be nil or absent (yielding "" rather than a
+// mangled "<nil>").
+func redactInstanceInfoURL(v any) string {
+	s, _ := v.(string)
+	return clients.RedactSensitiveURL(s)
 }
 
 func (p *ironicProvisioner) HasCapacity(ctx context.Context) (result bool, err error) {

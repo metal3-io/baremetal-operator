@@ -116,7 +116,7 @@ func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisione
 		return result, started, details, err
 	case nodes.InspectFail:
 		if !restartOnFailure {
-			failure := ironicNode.LastError
+			failure := redactSensitiveText(ironicNode.LastError)
 			if failure == "" {
 				failure = "Inspection failed"
 			}
@@ -133,7 +133,7 @@ func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisione
 		}
 	default:
 		p.log.Info("unexpected provisioning state for inspection",
-			"provisionState", ironicNode.ProvisionState, "targetProvisionState", ironicNode.TargetProvisionState, "lastError", ironicNode.LastError)
+			"provisionState", ironicNode.ProvisionState, "targetProvisionState", ironicNode.TargetProvisionState, "lastError", redactSensitiveText(ironicNode.LastError))
 		result, err = transientError(fmt.Errorf("unexpected provision state %s", ironicNode.ProvisionState))
 		return result, started, details, err
 	}

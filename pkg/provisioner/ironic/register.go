@@ -223,7 +223,7 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 	}
 
 	p.log.Info("current provision state",
-		"lastError", ironicNode.LastError,
+		"lastError", redactSensitiveText(ironicNode.LastError),
 		"current", ironicNode.ProvisionState,
 		"target", ironicNode.TargetProvisionState,
 	)
@@ -234,7 +234,7 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 
 		// If ironic is reporting an error, stop working on the node.
 		if ironicNode.LastError != "" && !(credentialsChanged || restartOnFailure) {
-			result, err = operationFailed(ironicNode.LastError)
+			result, err = operationFailed(redactSensitiveText(ironicNode.LastError))
 			return result, provID, err
 		}
 
@@ -270,7 +270,7 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 
 	case nodes.Active:
 		// The host is already running, maybe it's a controlplane host?
-		p.debugLog.Info("have active host", "image_source", ironicNode.InstanceInfo["image_source"])
+		p.debugLog.Info("have active host", "image_source", redactInstanceInfoURL(ironicNode.InstanceInfo["image_source"]))
 		fallthrough
 
 	default:

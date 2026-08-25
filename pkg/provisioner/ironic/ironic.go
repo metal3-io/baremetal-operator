@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -835,7 +836,7 @@ func (p *ironicProvisioner) setUpForProvisioning(ctx context.Context, ironicNode
 		"deploy step", ironicNode.DeployStep,
 	)
 	p.publisher("ProvisioningStarted",
-		"Image provisioning started for "+data.Image.URL)
+		"Image provisioning started for "+redactSensitiveURL(data.Image.URL))
 	return result, nil
 }
 
@@ -1234,7 +1235,7 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 			}
 			p.log.Info("found error", "msg", ironicNode.LastError)
 			checksum, _, _ := data.Image.GetChecksum()
-			imageInfo := "url: " + data.Image.URL
+			imageInfo := "url: " + redactSensitiveURL(data.Image.URL)
 			if checksum != "" {
 				imageInfo += ", checksum: " + checksum
 			}
@@ -1298,7 +1299,7 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 	case nodes.Active:
 		// provisioning is done
 		p.publisher("ProvisioningComplete",
-			"Image provisioning completed for "+data.Image.URL)
+			"Image provisioning completed for "+redactSensitiveURL(data.Image.URL))
 		p.log.Info("finished provisioning")
 		return operationComplete()
 
@@ -1835,6 +1836,57 @@ func (p *ironicProvisioner) PowerOff(ctx context.Context, rebootMode metal3api.R
 
 func ironicNodeName(objMeta metav1.ObjectMeta) string {
 	return objMeta.Namespace + nameSeparator + objMeta.Name
+}
+
+// sensitiveURLQueryParams are query parameter names (compared
+// case-insensitively) whose values may carry credential or signed
+// access tokens and must not be leaked in the status/events/logs.
+var sensitiveURLQueryParams = map[string]struct{}{
+	"token":                {},
+	"access_token":         {},
+	"accesstoken":          {},
+	"signature":            {},
+	"sig":                  {},
+	"x-amz-signature":      {},
+	"x-amz-credential":     {},
+	"x-amz-security-token": {},
+	"x-goog-signature":     {}, // GCS V4 signed URL
+	"x-goog-credential":    {}, // GCS V4 signed URL
+	"temp_url_sig":         {}, // OpenStack Swift TempURL
+	"se":                   {}, // Azure SAS expiry/signature-related
+}
+
+func redactSensitiveURL(raw string) string {
+	if raw == "" {
+		return raw
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+
+	// Strip embedded credentials (user:pass@host).
+	if u.User != nil {
+		u.User = nil
+	}
+
+	// Redact sensitive query parameters.
+	if u.RawQuery != "" {
+		q := u.Query()
+		changed := false
+		for key := range q {
+			if _, ok := sensitiveURLQueryParams[strings.ToLower(key)]; ok {
+				q.Set(key, "REDACTED")
+				changed = true
+			}
+		}
+		if changed {
+			u.RawQuery = q.Encode()
+		}
+	}
+
+	return u.String()
 }
 
 func (p *ironicProvisioner) HasCapacity(ctx context.Context) (result bool, err error) {

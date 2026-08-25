@@ -1,9 +1,11 @@
 package clients
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -447,34 +449,35 @@ func TestInstanceInfoUpdateOpts(t *testing.T) {
 	assert.Equal(t, "/instance_info/baz", op.Path)
 }
 
-func TestSanitisedValue(t *testing.T) {
-	assert.Nil(t, sanitisedValue(nil))
+// A map-valued option must not smuggle a signed URL into the log: Register
+// passes the whole DriverInfo map when the credentials or BMC address change.
+func TestGetUpdateOperationRedactsMapLogValues(t *testing.T) {
+	var logged bytes.Buffer
+	log := funcr.New(func(_, args string) {
+		logged.WriteString(args)
+	}, funcr.Options{})
 
-	unchanged := []any{
-		"foo",
-		42,
-		true,
-		[]string{"bar", "baz"},
-		map[string]string{"foo": "bar"},
-		map[string][]string{"foo": {"bar", "baz"}},
-		map[string]any{"foo": []string{"bar", "baz"}, "bar": 42},
+	currentData := map[string]any{
+		"driver_info": map[string]any{
+			"deploy_kernel": "https://example.com/ipa.kernel?X-Amz-Signature=oldsignature",
+			"ipmi_password": "oldpassword",
+		},
+	}
+	desiredValue := map[string]any{
+		"deploy_kernel": "https://example.com/ipa.kernel?X-Amz-Signature=newsignature",
+		"ipmi_password": "newpassword",
 	}
 
-	for _, u := range unchanged {
-		assert.Exactly(t, u, sanitisedValue(u))
-	}
+	updateOp := getUpdateOperation("driver_info", currentData, desiredValue,
+		"/driver_info", log)
+	require.NotNil(t, updateOp)
 
-	unsafe := map[string]any{
-		"foo":               "bar",
-		"password":          "secret",
-		"ipmi_password":     "secret",
-		"image_pull_secret": "user:pass",
-	}
-	safe := map[string]any{
-		"foo":               "bar",
-		"password":          "<redacted>",
-		"ipmi_password":     "<redacted>",
-		"image_pull_secret": "<redacted>",
-	}
-	assert.Exactly(t, safe, sanitisedValue(unsafe))
+	out := logged.String()
+	assert.NotContains(t, out, "oldsignature")
+	assert.NotContains(t, out, "newsignature")
+	assert.NotContains(t, out, "oldpassword")
+	assert.NotContains(t, out, "newpassword")
+	assert.Contains(t, out, "REDACTED")
+	// Only the log is redacted, the update itself carries the real values.
+	assert.Equal(t, desiredValue, updateOp.Value)
 }

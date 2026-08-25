@@ -6,6 +6,7 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
 )
 
 func (p *ironicProvisioner) buildServiceSteps(data provisioner.ServicingData) (serviceSteps []nodes.ServiceStep) {
@@ -89,7 +90,7 @@ func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.Servic
 		// When servicing failed and there are pending updates, we need to clean host provisioning settings
 		// If restartOnFailure is false, it means the settings aren't cleared.
 		if !restartOnFailure {
-			result, err = operationFailed(ironicNode.LastError)
+			result, err = operationFailed(clients.RedactSensitiveText(ironicNode.LastError))
 			return result, started, err
 		}
 

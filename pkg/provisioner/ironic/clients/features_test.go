@@ -50,6 +50,20 @@ func TestAvailableFeatures_ChooseMicroversion(t *testing.T) {
 			want: "1.110",
 		},
 		{
+			name: "MaxVersion = 113 return 1.110",
+			feature: fields{
+				MaxVersion: 113,
+			},
+			want: "1.110",
+		},
+		{
+			name: "MaxVersion = 114 return 1.114",
+			feature: fields{
+				MaxVersion: 114,
+			},
+			want: "1.114",
+		},
+		{
 			name: "MaxVersion >= 114 return 1.114",
 			feature: fields{
 				MaxVersion: 115,

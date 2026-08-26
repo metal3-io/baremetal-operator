@@ -1,0 +1,426 @@
+# BareMetalOperator with the Starlark provisioner, inspecting hosts out of band over Redfish.
+#
+# curl -s https://fluxcd.io/install.sh | sudo bash
+# flux install
+# kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.21.1/cert-manager.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: metal3-system
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: baremetal-operator
+  namespace: metal3-system
+spec:
+  interval: 10m
+  ref:
+    branch: starlark
+  timeout: 60s
+  url: https://github.com/s3rj1k/baremetal-operator
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: baremetal-operator-crds
+  namespace: metal3-system
+spec:
+  force: false
+  interval: 10m
+  path: ./config/base/crds
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: baremetal-operator
+  timeout: 5m
+  wait: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: baremetal-operator
+  namespace: metal3-system
+spec:
+  dependsOn:
+  - name: baremetal-operator-crds
+  force: false
+  interval: 10m
+  patches:
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ghcr.io/s3rj1k/baremetal-operator-oot-amd64:starlark
+    target:
+      kind: Deployment
+      name: controller-manager
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/ports
+        value:
+          - containerPort: 9443
+            name: webhook-server
+            protocol: TCP
+          - containerPort: 8069
+            name: metrics
+            protocol: TCP
+    target:
+      kind: Deployment
+      name: controller-manager
+  - patch: |
+      - op: replace
+        path: /spec/dnsNames
+        value:
+          - baremetal-operator-webhook-service.metal3-system.svc
+          - baremetal-operator-webhook-service.metal3-system.svc.cluster.local
+    target:
+      kind: Certificate
+      name: baremetal-operator-serving-cert
+  - patch: |
+      - op: replace
+        path: /metadata/annotations/cert-manager.io~1inject-ca-from
+        value: metal3-system/baremetal-operator-serving-cert
+    target:
+      kind: ValidatingWebhookConfiguration
+      name: baremetal-operator-validating-webhook-configuration
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom
+        value:
+          - configMapRef:
+              name: starlark-provisioner
+    target:
+      kind: Deployment
+      name: controller-manager
+  - patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: controller-manager
+      spec:
+        strategy:
+          type: Recreate
+        template:
+          spec:
+            dnsPolicy: ClusterFirstWithHostNet
+            hostNetwork: true
+            containers:
+              - name: manager
+                imagePullPolicy: Always
+                args:
+                  - --enable-leader-election
+                  - --tls-min-version=TLS13
+                  - --build-preprov-image=false
+                  - --metrics-addr=:8069
+                  - --provisioner=starlark
+                env:
+                  - name: STARLARK_PROVISIONER_SCRIPT
+                    value: /scripts/redfish-inspect.star
+              - name: caddy
+                image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+                imagePullPolicy: IfNotPresent
+                command:
+                  - caddy
+                  - run
+                  - --config
+                  - /etc/caddy/Caddyfile
+                env:
+                  - name: XDG_DATA_HOME
+                    value: /tmp
+                  - name: XDG_CONFIG_HOME
+                    value: /tmp
+                ports:
+                  - containerPort: 8080
+                    name: http
+                    protocol: TCP
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8080
+                    scheme: HTTP
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                      - ALL
+                  runAsUser: 65532
+                  runAsGroup: 65532
+                volumeMounts:
+                  - mountPath: /shared
+                    name: shared
+                  - mountPath: /etc/caddy
+                    name: caddy-config
+                    readOnly: true
+            volumes:
+              - name: shared
+                hostPath:
+                  path: /var/lib/metal3-shared
+                  type: DirectoryOrCreate
+              - name: caddy-config
+                configMap:
+                  name: caddy
+    target:
+      kind: Deployment
+      name: controller-manager
+  path: ./config/base
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: baremetal-operator
+  targetNamespace: metal3-system
+  timeout: 5m
+  wait: true
+---
+# Permissions the plugin needs on top of the stock BMO role, which grants no
+# Secrets create and no ConfigMaps at all. Namespaced, the plugin reads nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: starlark-provisioner
+  namespace: metal3-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: starlark-provisioner
+  namespace: metal3-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: starlark-provisioner
+subjects:
+- kind: ServiceAccount
+  name: baremetal-operator-controller-manager
+  namespace: metal3-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: starlark-provisioner
+  namespace: metal3-system
+data:
+  BMO_CONCURRENCY: "2"
+  REDFISH_INSPECT_FIELDS: "systemVendor,ramMebibytes,cpu,nics,storage"
+  REDFISH_INSECURE: "false"
+  STARLARK_CALLBACK_ADDR: "127.0.0.1:9080"
+  STARLARK_CALLBACK_BASE_URL: "http://172.17.1.10:8080"
+  STARLARK_KS_FALLBACK_CONFIGMAP: "kickstart-fallback"
+  STARLARK_KS_FALLBACK_KEY: "ks.cfg"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kickstart
+  namespace: metal3-system
+data:
+  ks.cfg: |
+    text
+    eula --agreed
+    keyboard --xlayouts=us
+    lang en_US.UTF-8
+    timezone UTC --utc
+    network --bootproto=dhcp --activate --hostname={{ .Name }}
+    rootpw --lock
+    firewall --enabled --ssh
+    selinux --enforcing
+    ignoredisk --only-use=sda
+    clearpart --all --initlabel --drives=sda
+    autopart --type=lvm --nohome
+    reboot --eject
+
+    %packages
+    @^minimal-environment
+    openssh-server
+    %end
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kickstart-fallback
+  namespace: metal3-system
+data:
+  ks.cfg: |
+    # Served when no BareMetalHost claims the MACs anaconda reported.
+    # Deliberately carries no storage commands, nothing is installed.
+    %pre --interpreter=/bin/bash
+    echo "no BareMetalHost matches this machine, refusing to install" > /dev/console
+    /sbin/poweroff -f
+    %end
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddy
+  namespace: metal3-system
+data:
+  Caddyfile: |
+    {
+      auto_https off
+    }
+
+    :8080 {
+      handle /healthz {
+        @notget not method GET
+        respond @notget 405
+        respond 200
+      }
+      handle /callback/* {
+        reverse_proxy 127.0.0.1:9080
+      }
+      handle /serve/* {
+        reverse_proxy 127.0.0.1:9080
+      }
+      handle /ks/* {
+        reverse_proxy 127.0.0.1:9080
+      }
+      handle {
+        file_server {
+          root /shared/html
+        }
+      }
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rocky-iso-builder-10.2-ks1-amd64
+  namespace: metal3-system
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      containers:
+      - name: builder
+        image: rockylinux/rockylinux:10@sha256:827d37bc128288ccf160ee318bb3cb92d591164cb217e92f8bc61e3982ae1834
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+        - name: ISO_ARCH
+          value: x86_64
+        - name: ISO_URL
+          value: https://download.rockylinux.org/pub/rocky/10/isos/x86_64/Rocky-10.2-x86_64-boot.iso
+        - name: ISO_SHA256
+          value: bf3a75907948563d0c11f3d1b8546ee9216e18a3ea2dc0a67eb4c45452e210f9
+        - name: KS_URL
+          value: http://172.17.1.10:8080/ks/kickstart
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -o errexit -o nounset -o pipefail
+
+          out="/shared/html/rocky-10.2-${ISO_ARCH}-ks1.iso"
+          if [ -f "${out}" ]; then
+            echo "${out} already built"
+            exit 0
+          fi
+
+          dnf install -y --setopt=install_weak_deps=False lorax xorriso isomd5sum
+
+          work="$(mktemp -d)"
+          trap 'rm -rf "${work}"' EXIT
+
+          curl -fsSL -o "${work}/boot.iso" "${ISO_URL}"
+          echo "${ISO_SHA256}  ${work}/boot.iso" | sha256sum -c -
+
+          mkksiso --cmdline "inst.ks=${KS_URL} inst.ks.sendmac" "${work}/boot.iso" "${work}/out.iso"
+
+          mkdir -p /shared/html
+          install -m 0644 "${work}/out.iso" "${out}.tmp"
+          mv "${out}.tmp" "${out}"
+          echo "built ${out}"
+        volumeMounts:
+        - mountPath: /shared
+          name: shared
+      volumes:
+      - name: shared
+        hostPath:
+          path: /var/lib/metal3-shared
+          type: DirectoryOrCreate
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rocky-iso-builder-10.2-ks1-arm64
+  namespace: metal3-system
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+      - name: builder
+        image: rockylinux/rockylinux:10@sha256:827d37bc128288ccf160ee318bb3cb92d591164cb217e92f8bc61e3982ae1834
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+        - name: ISO_ARCH
+          value: aarch64
+        - name: ISO_URL
+          value: https://download.rockylinux.org/pub/rocky/10/isos/aarch64/Rocky-10.2-aarch64-boot.iso
+        - name: ISO_SHA256
+          value: 33c2d3dfd5f947b3201478180b549bb2995bd9573c2776b384e5ec1dd47326c0
+        - name: KS_URL
+          value: http://172.17.1.10:8080/ks/kickstart
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -o errexit -o nounset -o pipefail
+
+          out="/shared/html/rocky-10.2-${ISO_ARCH}-ks1.iso"
+          if [ -f "${out}" ]; then
+            echo "${out} already built"
+            exit 0
+          fi
+
+          dnf install -y --setopt=install_weak_deps=False lorax xorriso isomd5sum
+
+          work="$(mktemp -d)"
+          trap 'rm -rf "${work}"' EXIT
+
+          curl -fsSL -o "${work}/boot.iso" "${ISO_URL}"
+          echo "${ISO_SHA256}  ${work}/boot.iso" | sha256sum -c -
+
+          mkksiso --cmdline "inst.ks=${KS_URL} inst.ks.sendmac" "${work}/boot.iso" "${work}/out.iso"
+
+          mkdir -p /shared/html
+          install -m 0644 "${work}/out.iso" "${out}.tmp"
+          mv "${out}.tmp" "${out}"
+          echo "built ${out}"
+        volumeMounts:
+        - mountPath: /shared
+          name: shared
+      volumes:
+      - name: shared
+        hostPath:
+          path: /var/lib/metal3-shared
+          type: DirectoryOrCreate

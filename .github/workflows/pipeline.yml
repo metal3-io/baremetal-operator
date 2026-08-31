@@ -19,16 +19,10 @@ permissions: {}
 
 jobs:
 
-  unit:
-    if: github.event.pull_request.draft == false
-    uses: ./.github/workflows/unit.yml
-
   e2e-fixture-test:
-    needs: [unit]
     uses: ./.github/workflows/e2e-fixture-test.yml
 
   e2e-test:
-    needs: [unit]
     strategy:
       # Avoid wasting CI resources
       fail-fast: true

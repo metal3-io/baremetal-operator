@@ -29,7 +29,7 @@ func validateURL(input string) error {
 	}
 
 	// Check the URL scheme
-	allowed := []string{"http", "https", "ftp", "gopher", "oci"}
+	allowed := []string{"http", "https", "oci"}
 	if !slices.Contains(allowed, urlObj.Scheme) {
 		return fmt.Errorf("invalid scheme in URL, \"%s\" not allowed", urlObj.Scheme)
 	}

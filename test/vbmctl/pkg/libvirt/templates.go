@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"strings"
 	"text/template"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
@@ -99,7 +100,20 @@ func (r *TemplateRenderer) RenderVolume(cfg vbmctlapi.VolumeConfig) (string, err
 // RenderNetwork renders the network XML template with the given data.
 func (r *TemplateRenderer) RenderNetwork(cfg vbmctlapi.NetworkConfig) (string, error) {
 	cfg = cfg.Defaults()
-	return r.render("network.xml.tpl", cfg)
+	ipFamily := "ipv4"
+	// The address is validated before, it contains either v4 or v6 address
+	if strings.Contains(cfg.Address, ":") {
+		ipFamily = "ipv6"
+	}
+
+	data := struct {
+		vbmctlapi.NetworkConfig
+		IPFamily string
+	}{
+		NetworkConfig: cfg,
+		IPFamily:      ipFamily,
+	}
+	return r.render("network.xml.tpl", data)
 }
 
 // RenderDHCPHost renders XML for a DHCP host entry.

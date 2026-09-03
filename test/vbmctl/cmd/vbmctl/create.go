@@ -282,7 +282,7 @@ func newCreateNetworkCmd() *cobra.Command {
 		name    string
 		bridge  string
 		address string
-		netmask string
+		netmask uint8
 	)
 
 	cmd := &cobra.Command{
@@ -329,7 +329,7 @@ func newCreateNetworkCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", config.DefaultNetworkName, "name of the network")
 	cmd.Flags().StringVar(&bridge, "bridge", config.DefaultNetworkBridge, "name of the bridge interface")
 	cmd.Flags().StringVar(&address, "address", config.DefaultNetworkAddress, "address of bridge")
-	cmd.Flags().StringVar(&netmask, "netmask", config.DefaultNetworkNetmask, "netmask for network")
+	cmd.Flags().Uint8Var(&netmask, "netmask", config.DefaultNetworkNetmask, "netmask for network")
 
 	return cmd
 }

@@ -11,6 +11,20 @@ import (
 
 func TestResolveAuthConfig(t *testing.T) {
 	t.Run("URL credentials take precedence", func(t *testing.T) {
+		authRoot := filepath.Join(t.TempDir(), "auth")
+		t.Setenv("METAL3_AUTH_ROOT_DIR", authRoot)
+
+		authPath := path.Join(authRoot, "ironic")
+		if err := os.MkdirAll(authPath, 0750); err != nil {
+			t.Fatalf("failed to set up auth dir: %v", err)
+		}
+		if err := os.WriteFile(path.Join(authPath, "username"), []byte("fileuser"), 0600); err != nil {
+			t.Fatalf("failed to write username file: %v", err)
+		}
+		if err := os.WriteFile(path.Join(authPath, "password"), []byte("filepass"), 0600); err != nil {
+			t.Fatalf("failed to write password file: %v", err)
+		}
+
 		urlAuth := clients.AuthConfig{
 			Type:     clients.HTTPBasicAuth,
 			Username: "urluser",

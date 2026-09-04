@@ -129,6 +129,44 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "hardwareRAIDVolumes and softwareRAIDVolumes can not be set at the same time",
 		},
 		{
+			name: "rootFilesystemUUIDWithoutSoftwareRAID",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL:                "https://example.com/image",
+						Checksum:           "be254ebfd73e66ca91f6d91f5050aa2ee1ec4813ee65ba472f608ed340cbff09",
+						RootFilesystemUUID: ptr.To("62003de3-90d1-4fe4-b9f1-71f3c6605205"),
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "image.rootFilesystemUUID can only be set when softwareRAIDVolumes is configured",
+		},
+		{
+			name: "rootFilesystemUUIDWithSoftwareRAID",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta:   tm,
+				ObjectMeta: om,
+				Spec: metal3api.BareMetalHostSpec{
+					Image: &metal3api.Image{
+						URL:                "https://example.com/image",
+						Checksum:           "be254ebfd73e66ca91f6d91f5050aa2ee1ec4813ee65ba472f608ed340cbff09",
+						RootFilesystemUUID: ptr.To("62003de3-90d1-4fe4-b9f1-71f3c6605205"),
+					},
+					RAID: &metal3api.RAIDConfig{
+						SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+							{
+								Level:      "1",
+								RootVolume: true,
+							},
+						},
+					},
+				}},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
 			name: "supportBMCType",
 			newBMH: &metal3api.BareMetalHost{
 				TypeMeta:   tm,

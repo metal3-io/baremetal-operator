@@ -23,12 +23,16 @@ jobs:
     if: github.event.pull_request.draft == false
     uses: ./.github/workflows/unit.yml
 
+  verify-e2e-checksums:
+    if: github.event.pull_request.draft == false
+    uses: ./.github/workflows/verify-e2e-checksums.yml
+
   e2e-fixture-test:
-    needs: [unit]
+    needs: [unit, verify-e2e-checksums]
     uses: ./.github/workflows/e2e-fixture-test.yml
 
   e2e-test:
-    needs: [unit]
+    needs: [unit, verify-e2e-checksums]
     strategy:
       # Avoid wasting CI resources
       fail-fast: true

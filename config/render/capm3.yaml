@@ -2723,8 +2723,14 @@ spec:
                       type: string
                     lastVersionFlashed:
                       type: string
+                    model:
+                      type: string
+                    serialNumber:
+                      type: string
                     updatedAt:
                       format: date-time
+                      type: string
+                    vendor:
                       type: string
                   required:
                   - component

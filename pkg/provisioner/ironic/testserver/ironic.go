@@ -482,6 +482,29 @@ func (m *IronicMock) NoBIOS(nodeUUID string) *IronicMock {
 	return m
 }
 
+// FirmwareComponents configures the server with a valid response for /v1/nodes/<node>/firmware.
+func (m *IronicMock) FirmwareComponents(nodeUUID string, components []nodes.FirmwareComponent) *IronicMock {
+	resp := struct {
+		Firmware []nodes.FirmwareComponent `json:"firmware"`
+	}{
+		Firmware: components,
+	}
+	m.ResponseJSON(m.buildURL(v1node+nodeUUID+"/firmware", http.MethodGet), resp)
+	m.AddDefaultResponseJSON(v1node+nodeUUID, "", http.StatusOK, nodes.Node{
+		UUID: nodeUUID,
+	})
+	return m
+}
+
+// NoFirmwareComponents configures the server so /v1/nodes/<node>/firmware returns a 404.
+func (m *IronicMock) NoFirmwareComponents(nodeUUID string) *IronicMock {
+	m.ErrorResponse(v1node+nodeUUID+"/firmware", http.StatusNotFound)
+	m.AddDefaultResponseJSON(v1node+nodeUUID, "", http.StatusOK, nodes.Node{
+		UUID: nodeUUID,
+	})
+	return m
+}
+
 // WithInventory configures the server with a valid response for /v1/nodes/<node>/inventory.
 func (m *IronicMock) WithInventory(nodeUUID string, data nodes.InventoryData) *IronicMock {
 	m.ResponseJSON(v1node+nodeUUID+"/inventory", data)

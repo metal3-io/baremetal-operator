@@ -49,7 +49,7 @@ const (
 	DefaultNetworkAddress = "192.168.222.1"
 
 	// DefaultNetworkNetmask is the default netmask for the network.
-	DefaultNetworkNetmask = "255.255.255.0"
+	DefaultNetworkNetmask = 24
 
 	// dirPermissions is the default permission for directories.
 	dirPermissions = 0750
@@ -313,31 +313,38 @@ func (c *Config) Validate() error {
 			return errors.New("name is required for libvirt network")
 		}
 
-		if network.Bridge != "" {
-			if len(network.Bridge) > unix.IFNAMSIZ-1 {
-				return fmt.Errorf("too long bridgename for libvirt network %s", network.Name)
-			}
+		if network.Bridge == "" {
+			return errors.New("network bridge name is required")
+		}
+		if len(network.Bridge) > unix.IFNAMSIZ-1 {
+			return fmt.Errorf(
+				"too long bridgename for libvirt network %s, maximum length for name is %d",
+				network.Name,
+				unix.IFNAMSIZ,
+			)
 		}
 
-		if network.Address != "" {
-			addr, err := netip.ParseAddr(network.Address)
-			if err != nil {
-				return fmt.Errorf("malformed libvirt network address: %w", err)
-			}
-			if !addr.Is4() {
-				return fmt.Errorf("libvirt network address must be an IPv4 address: %s", network.Address)
-			}
+		if network.Address == "" {
+			return errors.New("network address is required")
 		}
 
-		if network.Netmask != "" {
-			ip := net.ParseIP(network.Netmask)
-			if ip == nil {
-				return fmt.Errorf("malformed libvirt netmask: %s", ip)
+		addr, err := netip.ParseAddr(network.Address)
+		if err != nil {
+			return fmt.Errorf("malformed libvirt network address: %w", err)
+		}
+
+		if network.Netmask == 0 {
+			return errors.New("netmask is required (cannot be 0)")
+		}
+		if addr.Is4() {
+			//nolint:mnd
+			if network.Netmask > 32 {
+				return errors.New("netmask must be integer between 1 and 32 with IPv4 address")
 			}
-			m := net.IPMask(ip.To4())
-			ones, zeros := m.Size()
-			if ones == 0 && zeros == 0 {
-				return fmt.Errorf("malformed libvirt netmask: %s", ip)
+		} else {
+			//nolint:mnd
+			if network.Netmask > 128 {
+				return errors.New("netmask must be integer between 1 and 32 with IPv6 address")
 			}
 		}
 	}

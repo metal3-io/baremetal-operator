@@ -6,5 +6,8 @@
     </nat>
   </forward>
   <bridge name='{{ .Bridge }}'/>
-  <ip address='{{ .Address }}' netmask='{{ .Netmask}}'/>
+  <ip family='{{ .IPFamily }}' address='{{ .Address }}' prefix='{{ .Netmask }}'/>
+  <!-- disabling dns disables libvirt dnsmasq server, so it does not -->
+  <!-- interfere with ironic dnsmasq server -->
+  <dns enable='no' />
 </network>

@@ -123,11 +123,13 @@ type NetworkConfig struct {
 	// Bridge is the name of the bridge interface for the network.
 	Bridge string `json:"bridge,omitempty" yaml:"bridge,omitempty"`
 
-	// Address is the address of the bridge interface. Address is expected to be IPv4.
+	// Address is the address of the bridge interface. Address can
+	// be either v4 or v6.
 	Address string `json:"address,omitempty" yaml:"address,omitempty"`
 
-	// Netmask is the netmask for the network.
-	Netmask string `json:"netmask,omitempty" yaml:"netmask,omitempty"`
+	// Netmask is the netmask for the network. The netmask must be an integer
+	// which defines the significant bits of the network address.
+	Netmask uint8 `json:"netmask,omitempty" yaml:"netmask,omitempty"`
 }
 
 type VethPair struct {
@@ -265,8 +267,8 @@ func (c NetworkConfig) Defaults() NetworkConfig {
 	if cfg.Address == "" {
 		cfg.Address = "192.168.222.1"
 	}
-	if cfg.Netmask == "" {
-		cfg.Netmask = "255.255.255.0"
+	if cfg.Netmask == 0 {
+		cfg.Netmask = 24
 	}
 	return cfg
 }

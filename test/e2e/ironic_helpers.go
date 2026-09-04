@@ -118,7 +118,7 @@ func VerifyIronicSecurityConfig(ctx context.Context, config IronicSecurityConfig
 	//nolint:forcetypeassert
 	tlsConn := rawConn.(*tls.Conn)
 	state := tlsConn.ConnectionState()
-	_ = rawConn.Close()
+	Expect(rawConn.Close()).NotTo(HaveOccurred())
 	Expect(state.HandshakeComplete).To(BeTrue(), "TLS handshake with Ironic should be complete")
 	Expect(state.PeerCertificates).NotTo(BeEmpty(), "Ironic server should present a TLS certificate")
 	Logf("Ironic TLS certificate subject: %s", state.PeerCertificates[0].Subject)
@@ -142,7 +142,7 @@ func VerifyIronicSecurityConfig(ctx context.Context, config IronicSecurityConfig
 	Expect(err).NotTo(HaveOccurred())
 	resp, err := httpClient.Do(req)
 	Expect(err).NotTo(HaveOccurred(), "Ironic should be reachable at %s", nodesEndpoint)
-	_ = resp.Body.Close()
+	Expect(resp.Body.Close()).NotTo(HaveOccurred())
 	Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized),
 		"Ironic should return HTTP 401 when accessed without credentials")
 
@@ -152,7 +152,7 @@ func VerifyIronicSecurityConfig(ctx context.Context, config IronicSecurityConfig
 	req.SetBasicAuth("wrong-user", "wrong-password")
 	resp, err = httpClient.Do(req)
 	Expect(err).NotTo(HaveOccurred())
-	_ = resp.Body.Close()
+	Expect(resp.Body.Close()).NotTo(HaveOccurred())
 	Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized),
 		"Ironic should return HTTP 401 when accessed with wrong credentials")
 
@@ -162,7 +162,7 @@ func VerifyIronicSecurityConfig(ctx context.Context, config IronicSecurityConfig
 	req.SetBasicAuth(username, password)
 	resp, err = httpClient.Do(req)
 	Expect(err).NotTo(HaveOccurred())
-	_ = resp.Body.Close()
+	Expect(resp.Body.Close()).NotTo(HaveOccurred())
 	Expect(resp.StatusCode).To(Equal(http.StatusOK),
 		"Ironic should return HTTP 200 when accessed with correct credentials")
 

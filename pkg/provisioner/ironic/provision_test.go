@@ -863,6 +863,10 @@ func TestGetUpdateOptsForNodeVirtual(t *testing.T) {
 			Value: "not-empty",
 		},
 		{
+			Path:  "/instance_info/image_type",
+			Value: "whole-disk",
+		},
+		{
 			Path:  "/instance_info/image_os_hash_algo",
 			Value: "md5",
 		},
@@ -1072,6 +1076,7 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 	ironicNode := &nodes.Node{
 		InstanceInfo: map[string]any{
 			"image_source":        "oldimage",
+			"image_type":          "whole-disk",
 			"image_os_hash_value": "thechecksum",
 			"image_os_hash_algo":  "md5",
 		},
@@ -1103,6 +1108,10 @@ func TestGetUpdateOptsForNodeImageToLiveIso(t *testing.T) {
 		},
 		{
 			Path: "/instance_info/image_source",
+			Op:   nodes.RemoveOp,
+		},
+		{
+			Path: "/instance_info/image_type",
 			Op:   nodes.RemoveOp,
 		},
 		{
@@ -1182,6 +1191,11 @@ func TestGetUpdateOptsForNodeLiveIsoToImage(t *testing.T) {
 		{
 			Path:  "/instance_info/image_source",
 			Value: "newimage",
+			Op:    nodes.AddOp,
+		},
+		{
+			Path:  "/instance_info/image_type",
+			Value: "whole-disk",
 			Op:    nodes.AddOp,
 		},
 		{
@@ -1537,6 +1551,10 @@ func TestGetUpdateOptsForNodeOCIWithPullSecret(t *testing.T) {
 			Path:  "/instance_info/image_pull_secret",
 			Value: "user:pass",
 		},
+		{
+			Path:  "/instance_info/image_type",
+			Value: nil,
+		},
 	}
 
 	for _, e := range expected {
@@ -1550,10 +1568,11 @@ func TestGetUpdateOptsForNodeOCIWithPullSecret(t *testing.T) {
 					break
 				}
 			}
-			if update.Path != e.Path {
-				t.Errorf("did not find %q in updates", e.Path)
+			if e.Value == nil {
+				assert.Emptyf(t, update.Path, "found an update for %q when none is expected", e.Path)
 				return
 			}
+			require.Equalf(t, e.Path, update.Path, "did not find %q in updates", e.Path)
 			assert.Equal(t, e.Value, update.Value, "%s does not match", e.Path)
 		})
 	}

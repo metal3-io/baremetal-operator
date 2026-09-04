@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,6 +38,34 @@ func TestNoDataInSecretErrorAs(t *testing.T) {
 	if errors.As(err, new(*NoDataInSecretError)) {
 		t.Fatal("errors.As with new(*NoDataInSecretError) should NOT match value type errors - if this passes, the Go behavior changed")
 	}
+}
+
+func TestSecretAccessError(t *testing.T) {
+	host := newHost("host", &metal3api.BareMetalHostSpec{
+		UserData: &corev1.SecretReference{
+			Name:      "missing-user-data",
+			Namespace: namespace,
+		},
+	})
+	c := fakeclient.NewClientBuilder().Build()
+	baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
+	hcd := &hostConfigData{
+		host:          host,
+		log:           baselog.WithName("host_config_data"),
+		secretManager: secretutils.NewSecretManager(baselog, c, c),
+	}
+
+	_, err := hcd.UserData(t.Context())
+	require.Error(t, err)
+
+	var secretErr SecretAccessError
+	require.ErrorAs(t, err, &secretErr, "expected a SecretAccessError")
+	assert.Equal(t, "missing-user-data", secretErr.secret)
+	assert.Equal(t, "userData", secretErr.key)
+
+	// The underlying not-found error must remain inspectable by callers,
+	// e.g. the deletion-flow handling in PreprovisioningNetworkData.
+	assert.True(t, k8serrors.IsNotFound(err), "underlying NotFound error should be preserved through Unwrap")
 }
 
 func TestLabelSecrets(t *testing.T) {

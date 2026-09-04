@@ -1196,3 +1196,19 @@ func ContainCondition(conditionType string, conditionStatus metav1.ConditionStat
 		),
 	)
 }
+
+type WaitForHostClaimConditionInput struct {
+	Client        client.Client
+	HostClaim     *metal3api.HostClaim
+	ConditionType string
+	Status        metav1.ConditionStatus
+}
+
+func WaitForHostClaimCondition(ctx context.Context, input WaitForHostClaimConditionInput, intervals ...interface{}) {
+	Eventually(func(g Gomega) {
+		hostclaim := metal3api.HostClaim{}
+		key := types.NamespacedName{Namespace: input.HostClaim.Namespace, Name: input.HostClaim.Name}
+		g.Expect(input.Client.Get(ctx, key, &hostclaim)).To(Succeed())
+		g.Expect(hostclaim.Status.Conditions).To(ContainCondition(input.ConditionType, input.Status))
+	}, intervals...).Should(Succeed())
+}

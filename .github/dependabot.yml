@@ -60,14 +60,14 @@ updates:
   - "ok-to-test"
 ## Main branch config ends here
 
-## release-0.13 branch config starts here
+## release-0.14 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
     day: "sunday"
     time: "03:30" # 3.30am utc
-  target-branch: release-0.13
+  target-branch: release-0.14
   ## group all action bumps into single PR
   groups:
     github-actions:
@@ -94,6 +94,61 @@ updates:
     interval: "weekly"
     day: "sunday"
     time: "04:00" # 4am utc
+  target-branch: release-0.14
+  groups:
+    kubernetes:
+      patterns: [ "k8s.io/*" ]
+    capi:
+      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test" ]
+  ignore:
+  # golang.org/x/* only releases minors no patches, so minors have to be allowed
+  - dependency-name: "golang.org/x/*"
+    update-types: [ "version-update:semver-major" ]
+  - dependency-name: "*"
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
+  commit-message:
+    prefix: ":seedling:"
+  cooldown:
+    default-days: 3
+  labels:
+  - "ok-to-test"
+
+## release-0.14 branch config ends here
+
+## release-0.13 branch config starts here
+- package-ecosystem: "github-actions"
+  directory: "/" # Location of package manifests
+  schedule:
+    interval: "monthly"
+    day: "sunday"
+    time: "04:30" # 4.30am utc
+  target-branch: release-0.13
+  ## group all action bumps into single PR
+  groups:
+    github-actions:
+      patterns: [ "*" ]
+  ignore:
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
+  cooldown:
+    default-days: 3
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+  # Go
+- package-ecosystem: "gomod" # zizmor: ignore[dependabot-cooldown]
+  directories:
+  - "/"
+  - "/apis"
+  - "/hack/tools"
+  - "/pkg/hardwareutils"
+  - "/test"
+  schedule:
+    interval: "weekly"
+    day: "sunday"
+    time: "05:00" # 5am utc
   target-branch: release-0.13
   groups:
     kubernetes:
@@ -121,7 +176,7 @@ updates:
   schedule:
     interval: "monthly"
     day: "sunday"
-    time: "04:30" # 4.30am utc
+    time: "05:30" # 5.30am utc
   target-branch: release-0.12
   ## group all action bumps into single PR
   groups:
@@ -148,7 +203,7 @@ updates:
   schedule:
     interval: "weekly"
     day: "sunday"
-    time: "05:00" # 5am utc
+    time: "06:00" # 6am utc
   target-branch: release-0.12
   groups:
     kubernetes:

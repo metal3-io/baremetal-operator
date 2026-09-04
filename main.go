@@ -34,6 +34,7 @@ import (
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/internal/controller/metal3.io"
 	webhooks "github.com/metal3-io/baremetal-operator/internal/webhooks/metal3.io/v1alpha1"
 	ppicontroller "github.com/metal3-io/baremetal-operator/pkg/controllers"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	"github.com/metal3-io/baremetal-operator/pkg/hostclaim"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
@@ -188,6 +189,7 @@ func main() {
 	var leaseDurationSeconds string
 	var renewDeadlineSeconds string
 	var retryPeriodSeconds string
+	var featureGates map[string]bool
 	var supportedTLSCurvesNames = make([]string, 0, len(supportedTLSCurvesPreferences))
 	for name := range supportedTLSCurvesPreferences {
 		supportedTLSCurvesNames = append(supportedTLSCurvesNames, name)
@@ -249,6 +251,16 @@ func main() {
 	flag.StringVar(&renewDeadlineSeconds, "renew-deadline-seconds", os.Getenv("RENEW_DEADLINE_SECONDS"), "Leader election renew deadline duration in seconds.")
 	flag.StringVar(&retryPeriodSeconds, "retry-period-seconds", os.Getenv("RETRY_PERIOD_SECONDS"), "Leader election retry period in seconds.")
 
+	featureGatesFlag := cliflag.NewMapStringBool(&featureGates)
+	if defaultFeatureGates := os.Getenv("FEATURE_GATES"); defaultFeatureGates != "" {
+		if err := featureGatesFlag.Set(defaultFeatureGates); err != nil {
+			fmt.Fprintf(os.Stderr, "unable to parse FEATURE_GATES environment variable: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	flag.Var(featureGatesFlag, "feature-gates", "A set of key=value pairs that describe feature gates:\n"+
+		strings.Join(features.CurrentFeatureGate.KnownFeatures(), "\n"))
+
 	flag.Parse()
 
 	logOpts := zap.Options{}
@@ -260,7 +272,13 @@ func main() {
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&logOpts)))
 
+	if err := features.CurrentFeatureGate.SetFromMap(featureGates); err != nil {
+		setupLog.Error(err, "unable to set feature gates")
+		os.Exit(1)
+	}
+
 	printVersion()
+	setupLog.Info("feature gates", "gates", features.CurrentFeatureGate.String())
 
 	var hostFeatures []provisioner.HostFeature
 	if preprovImgEnable {

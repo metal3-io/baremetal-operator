@@ -39,3 +39,14 @@ jobs:
     uses: ./.github/workflows/e2e-test.yml
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}
+
+  # The provisioner is chosen per deployment, so anaconda needs its own BMO
+  # and cannot share a lane with the tests above.
+  e2e-anaconda-test:
+    needs: [unit]
+    uses: ./.github/workflows/e2e-test.yml
+    with:
+      bmc-protocol: redfish-virtualmedia
+      e2e-conf-file: test/e2e/config/anaconda.yaml
+      ginkgo-focus: Anaconda
+      artifact-suffix: -anaconda

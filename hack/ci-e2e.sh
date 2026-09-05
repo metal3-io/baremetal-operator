@@ -32,7 +32,9 @@ fi
 echo "BMC_PROTOCOL=${BMC_PROTOCOL}"
 echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 
-export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
+# Overridable so the anaconda lane can point at its own config, which runs a
+# different provisioner and therefore needs its own BMO deployment.
+export E2E_CONF_FILE="${E2E_CONF_FILE:-${REPO_ROOT}/test/e2e/config/ironic.yaml}"
 export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
 
 VBMC_IMAGE="${VBMC_IMAGE:-quay.io/metal3-io/vbmc}"
@@ -75,6 +77,12 @@ sudo sysctl fs.inotify.max_user_instances=8192
 
 # Build the container image with e2e tag (used in tests)
 IMG=quay.io/metal3-io/baremetal-operator IMG_TAG=e2e make docker
+
+# The anaconda plugin is not in a release image, so layer it on when that is
+# the lane being run.
+if grep -q "provisioner-anaconda\|overlays/anaconda" "${E2E_CONF_FILE}"; then
+  IMG=quay.io/metal3-io/baremetal-operator make docker-build-anaconda-e2e
+fi
 
 # Build vbmctl
 make build-vbmctl

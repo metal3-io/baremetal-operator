@@ -22,9 +22,15 @@ jobs:
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
     - name: Build provisioner plugins
-      run: make ironic-plugin demo-plugin
+      run: make ironic-plugin demo-plugin anaconda-plugin
     - name: Run unit tests
       run: make -e unit-cover
+      env:
+        TEST_FLAGS: "-v"
+    # Its own module, so make unit-cover does not reach it. No coverage here
+    # either, -cover makes plugin.Open fail the package version check.
+    - name: Run anaconda plugin unit tests
+      run: make -e unit-anaconda
       env:
         TEST_FLAGS: "-v"
     - name: Install libvirt-dev

@@ -128,6 +128,12 @@ unit-cover: ## Run unit tests with code coverage
 unit-verbose: ## Run unit tests with verbose output
 	TEST_FLAGS=-v make unit
 
+# No -coverprofile here, it instruments the test binary but not the .so, and
+# plugin.Open then fails the package version check.
+.PHONY: unit-anaconda
+unit-anaconda: ## Run unit tests for the anaconda out-of-tree plugin
+	cd test/anaconda && go test ./... $(GO_TEST_FLAGS)
+
 FUZZ_TIME ?= 30s
 
 .PHONY: fuzz
@@ -178,6 +184,7 @@ lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	cd apis; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	cd test; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
+	cd test/anaconda; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	cd pkg/hardwareutils; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	cd hack/tools; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	./hack/check-e2e.sh
@@ -330,6 +337,10 @@ IRONIC_PLUGIN_DIR = pkg/provisioner/ironic/plugin
 IRONIC_PLUGIN_SO = bin/ironic-provisioner.so
 DEMO_PLUGIN_DIR = pkg/provisioner/demo/plugin
 DEMO_PLUGIN_SO = bin/demo-provisioner.so
+# Out-of-tree exemplar in its own module, so its gofish dependency stays out
+# of BMO's graph. Built from this checkout so the .so matches the manager.
+ANACONDA_PLUGIN_DIR = test/anaconda
+ANACONDA_PLUGIN_SO = $(abspath bin/anaconda-provisioner.so)
 
 .PHONY: ironic-plugin
 ironic-plugin: ## Build the ironic provisioner plugin .so locally
@@ -338,6 +349,23 @@ ironic-plugin: ## Build the ironic provisioner plugin .so locally
 .PHONY: demo-plugin
 demo-plugin: ## Build the demo provisioner plugin .so locally
 	CGO_ENABLED=1 go build -buildmode=plugin -ldflags $(LDFLAGS) -o $(DEMO_PLUGIN_SO) ./$(DEMO_PLUGIN_DIR)/
+
+.PHONY: anaconda-plugin
+anaconda-plugin: ## Build the anaconda out-of-tree provisioner plugin .so locally
+	cd $(ANACONDA_PLUGIN_DIR); CGO_ENABLED=1 go build -buildmode=plugin -ldflags $(LDFLAGS) -o $(ANACONDA_PLUGIN_SO) ./plugin/
+
+# The e2e image plus the anaconda plugin. Kept separate so a release image never
+# carries a test exemplar. Needs $(IMG):e2e to exist, see make docker.
+ANACONDA_E2E_IMG ?= ${IMG}:e2e-anaconda
+
+.PHONY: docker-build-anaconda-e2e
+docker-build-anaconda-e2e: ## Layer the anaconda plugin onto the e2e image
+	$(CONTAINER_RUNTIME) build --platform=linux/$(ARCH) \
+	--build-arg ARCH=$(ARCH) \
+	--build-arg http_proxy=$(http_proxy) \
+	--build-arg https_proxy=$(https_proxy) \
+	-f Dockerfile.anaconda-e2e \
+	. -t $(ANACONDA_E2E_IMG)
 
 .PHONY: docker-build-sdk
 docker-build-sdk: ## Build the BMO SDK image for authoring custom provisioner plugins
@@ -440,6 +468,8 @@ mod: ## Clean up go module settings
 	cd hack/tools; go mod verify
 	cd test; go mod tidy
 	cd test; go mod verify
+	cd test/anaconda; go mod tidy
+	cd test/anaconda; go mod verify
 
 ## --------------------------------------
 ## Release

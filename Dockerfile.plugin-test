@@ -9,7 +9,9 @@
 #   plugin-author      fresh git repo with its own go.mod, builds demo .so
 #                      against BMO via replace directives (the closest
 #                      reproduction of an external author depending on BMO)
-#   plugin-load-tester runs plugin-load-test against the .so, build fails on
+#   anaconda-builder   builds the in-repo anaconda plugin, a full provisioner
+#                      in its own module with a dependency BMO does not have
+#   plugin-load-tester runs plugin-load-test against each .so, build fails on
 #                      any error
 ARG BUILD_IMAGE=docker.io/golang:1.26.6@sha256:640a234f4bea3e399c056b7b8f9c667c4939befae8db2f14e9785e16eccd4205
 
@@ -58,8 +60,23 @@ RUN GOOS=linux GOARCH=${ARCH} \
     go build -buildmode=plugin -ldflags "${LDFLAGS}" \
     -o /out/demo-provisioner.so .
 
+# Its own module under test/, so its gofish dependency stays out of BMO's
+# graph. Derived from bmo-builder to compile against the same /bmo checkout
+# the binary was built from, which is what makes the recorded paths agree.
+FROM bmo-builder AS anaconda-builder
+ARG ARCH=amd64
+ARG LDFLAGS=-s -w
+WORKDIR /bmo/test/anaconda
+RUN GOOS=linux GOARCH=${ARCH} \
+    go build -buildmode=plugin -ldflags "${LDFLAGS}" \
+    -o /out/anaconda-provisioner.so ./plugin/
+
 FROM $BUILD_IMAGE AS plugin-load-tester
 COPY --from=bmo-builder /out/baremetal-operator /usr/local/bin/baremetal-operator
 COPY --from=bmo-builder /out/plugin-load-test /usr/local/bin/plugin-load-test
 COPY --from=plugin-author /out/demo-provisioner.so /plugins/demo-provisioner.so
+COPY --from=anaconda-builder /out/anaconda-provisioner.so /plugins/anaconda-provisioner.so
 RUN /usr/local/bin/plugin-load-test /plugins/demo-provisioner.so demo healthy
+# No GetHealth assertion, the harness passes a zero HostData so there is no
+# BMC address to reach and it returns "".
+RUN /usr/local/bin/plugin-load-test /plugins/anaconda-provisioner.so anaconda

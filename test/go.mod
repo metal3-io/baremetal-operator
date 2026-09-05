@@ -5,8 +5,8 @@ go 1.26.0
 require (
 	github.com/cert-manager/cert-manager v1.20.3
 	github.com/gophercloud/gophercloud/v2 v2.14.0
-	github.com/metal3-io/baremetal-operator/apis v0.5.1
-	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
+	github.com/metal3-io/baremetal-operator/apis v0.13.4
+	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.13.4
 	github.com/metal3-io/ironic-standalone-operator/api v0.11.0
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/moby/client v0.5.1

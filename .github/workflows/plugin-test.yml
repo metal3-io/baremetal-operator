@@ -12,6 +12,7 @@ on:
     - 'cmd/plugin-load-test/**'
     - 'hack/plugin-test/**'
     - 'pkg/provisioner/**'
+    - 'test/anaconda/**'
     - 'go.mod'
     - 'go.sum'
     - 'apis/go.mod'

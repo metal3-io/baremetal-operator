@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../namespace
+- ../../default
+- ./service.yaml
+
+patches:
+- patch: |
+    # Load the out-of-tree anaconda plugin instead of ironic
+    - op: add
+      path: /spec/template/spec/containers/0/args/-
+      value: --provisioner=anaconda
+    # The kickstart and callback listener. The e2e spec dials it from a pod, so
+    # it needs a name the Service can target.
+    - op: add
+      path: /spec/template/spec/containers/0/ports/-
+      value:
+        containerPort: 9080
+        protocol: TCP
+        name: anaconda
+    # Don't try to pull again the pre-loaded image
+    - op: replace
+      path: /spec/template/spec/containers/0/imagePullPolicy
+      value: IfNotPresent
+  target:
+    kind: Deployment
+    name: controller-manager
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+- name: ironic
+  behavior: merge
+  literals:
+  # Not loopback, the curl pod has to reach it from outside the manager pod
+  - ANACONDA_LISTEN_ADDR=0.0.0.0:9080
+  - ANACONDA_BASE_URL=http://baremetal-operator-anaconda.baremetal-operator-system.svc.cluster.local:9080
+  # Short on purpose. A live ISO guest may ignore the graceful shutdown, and
+  # this is the budget ShutDownAfterInstall waits out before cutting power.
+  - ANACONDA_INSTALL_TIMEOUT=5m
+
+images:
+- name: quay.io/metal3-io/baremetal-operator
+  newTag: e2e-anaconda

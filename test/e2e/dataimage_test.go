@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -305,6 +306,127 @@ var _ = Describe("DataImage Finalizer", Label("required", "dataimage"), func() {
 			}, &metal3api.DataImage{})
 			return k8serrors.IsNotFound(err)
 		}, "20m", "10s").Should(BeTrue())
+	})
+
+	It("should attach a data image to a provisioned host", func() {
+		bmhName := specName + "-attach"
+		secretName := bmhName + "-bmc-creds"
+
+		By("Creating a secret with BMH credentials")
+		bmcCredentialsData := map[string]string{
+			"username": bmc.User,
+			"password": bmc.Password,
+		}
+		secret := CreateSecret(ctx, clusterProxy.GetClient(), namespace.Name, secretName, bmcCredentialsData)
+		toCleanup = append(toCleanup, secret)
+
+		By("Creating a BMH with inspection and cleaning disabled")
+		bmh := metal3api.BareMetalHost{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			},
+			Spec: metal3api.BareMetalHostSpec{
+				Online: true,
+				BMC: metal3api.BMCDetails{
+					Address:                        bmc.Address,
+					CredentialsName:                secretName,
+					DisableCertificateVerification: bmc.DisableCertificateVerification,
+				},
+				BootMode:              metal3api.BootMode(e2eConfig.GetVariable("BOOT_MODE")),
+				BootMACAddress:        bmc.BootMacAddress,
+				AutomatedCleaningMode: metal3api.CleaningModeDisabled,
+				InspectionMode:        metal3api.InspectionModeDisabled,
+			},
+		}
+		err := clusterProxy.GetClient().Create(ctx, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+		toCleanup = append(toCleanup, &bmh)
+
+		By("Waiting for the BMH to become available")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateAvailable,
+		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+		By("Patching the BMH to trigger provisioning")
+		err = PatchBMHForProvisioning(ctx, PatchBMHForProvisioningInput{
+			client:    clusterProxy.GetClient(),
+			bmh:       &bmh,
+			bmc:       bmc,
+			e2eConfig: e2eConfig,
+			namespace: namespace.Name,
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for the BMH to become provisioned")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateProvisioned,
+		}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
+
+		By("Creating a DataImage with the same name as the BMH")
+		dataImageURL := e2eConfig.GetVariable("ISO_IMAGE_URL")
+		di := &metal3api.DataImage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			},
+			Spec: metal3api.DataImageSpec{
+				URL: dataImageURL,
+			},
+		}
+		err = clusterProxy.GetClient().Create(ctx, di)
+		Expect(err).NotTo(HaveOccurred())
+		toCleanup = append(toCleanup, di)
+
+		By("Waiting for the DataImage finalizer to be set")
+		Eventually(func(g Gomega) {
+			updatedDI := &metal3api.DataImage{}
+			g.Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			}, updatedDI)).To(Succeed())
+			g.Expect(updatedDI.Finalizers).To(ContainElement(metal3api.DataImageFinalizer))
+		}, e2eConfig.GetIntervals(specName, "wait-available")...).Should(Succeed())
+
+		By("Powering off the BMH")
+		err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{Name: bmhName, Namespace: namespace.Name}, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+		helper, err := patch.NewHelper(&bmh, clusterProxy.GetClient())
+		Expect(err).NotTo(HaveOccurred())
+		bmh.Spec.Online = false
+		Expect(helper.Patch(ctx, &bmh)).To(Succeed())
+
+		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  PoweredOff,
+		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
+
+		By("Powering on the BMH to trigger DataImage attachment")
+		err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{Name: bmhName, Namespace: namespace.Name}, &bmh)
+		Expect(err).NotTo(HaveOccurred())
+		helper, err = patch.NewHelper(&bmh, clusterProxy.GetClient())
+		Expect(err).NotTo(HaveOccurred())
+		bmh.Spec.Online = true
+		Expect(helper.Patch(ctx, &bmh)).To(Succeed())
+
+		By("Waiting for the DataImage to be attached")
+		WaitForDataImageAttached(ctx, WaitForDataImageAttachedInput{
+			Client:      clusterProxy.GetClient(),
+			Name:        bmhName,
+			Namespace:   namespace.Name,
+			ExpectedURL: dataImageURL,
+		}, e2eConfig.GetIntervals(specName, "wait-dataimage-attached")...)
+
+		By("Verifying no errors on the DataImage")
+		updatedDI := &metal3api.DataImage{}
+		err = clusterProxy.GetClient().Get(ctx, types.NamespacedName{Name: bmhName, Namespace: namespace.Name}, updatedDI)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedDI.Status.Error.Count).To(Equal(0))
 	})
 
 	AfterEach(func() {

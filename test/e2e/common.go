@@ -1187,6 +1187,24 @@ func ConfigureProvisioningNetwork(ctx context.Context, clusterName string, provi
 	}
 }
 
+// WaitForDataImageAttachedInput is the input for WaitForDataImageAttached.
+type WaitForDataImageAttachedInput struct {
+	Client      client.Client
+	Name        string
+	Namespace   string
+	ExpectedURL string
+}
+
+// WaitForDataImageAttached waits until the DataImage's attached image URL matches the expected URL.
+func WaitForDataImageAttached(ctx context.Context, input WaitForDataImageAttachedInput, intervals ...interface{}) {
+	Eventually(func(g Gomega) {
+		di := metal3api.DataImage{}
+		key := types.NamespacedName{Namespace: input.Namespace, Name: input.Name}
+		g.Expect(input.Client.Get(ctx, key, &di)).To(Succeed())
+		g.Expect(di.Status.AttachedImage.URL).To(Equal(input.ExpectedURL))
+	}, intervals...).Should(Succeed())
+}
+
 // ContainCondition is a Gomega matcher for Kubernetes conditions.
 func ContainCondition(conditionType string, conditionStatus metav1.ConditionStatus) gomegatypes.GomegaMatcher {
 	return ContainElement(

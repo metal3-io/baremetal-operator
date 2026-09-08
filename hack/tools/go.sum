@@ -161,8 +161,8 @@ k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a h1:xCeOEAOoGYl2jnJoHkC3hk
 k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a/go.mod h1:uGBT7iTA6c6MvqUvSXIaYZo9ukscABYi2btjhvgKGZ0=
 k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 h1:AZYQSJemyQB5eRxqcPky+/7EdBj0xi3g0ZcxxJ7vbWU=
 k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2/go.mod h1:xDxuJ0whA3d0I4mf/C4ppKHxXynQ+fxnkmQH0vTHnuk=
-sigs.k8s.io/cluster-api/test v1.14.0 h1:LYvJN8oM0vk6dv6ciceaCS0sAy62Lrf5IGsyNJ04g+U=
-sigs.k8s.io/cluster-api/test v1.14.0/go.mod h1:a2kjTDNIhfTfsV68fIHMF4nAg256Dhny4276LNtWmPo=
+sigs.k8s.io/cluster-api/test v1.14.1 h1:BA5S1enLDCGU6O5ucvtUJakFq/kc9y09kJ3bUBXutkA=
+sigs.k8s.io/cluster-api/test v1.14.1/go.mod h1:aFsaeAVfuwzuyACGhYjK5DmGa9Atp9/kGNsx2gtf8tY=
 sigs.k8s.io/controller-tools v0.16.5 h1:5k9FNRqziBPwqr17AMEPPV/En39ZBplLAdOwwQHruP4=
 sigs.k8s.io/controller-tools v0.16.5/go.mod h1:8vztuRVzs8IuuJqKqbXCSlXcw+lkAv/M2sTpg55qjMY=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=

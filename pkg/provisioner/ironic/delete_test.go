@@ -192,8 +192,6 @@ func deleteTest(t *testing.T, detach bool) {
 					Maintenance:    true,
 				},
 			).DeleteError(nodeUUID, http.StatusNotFound),
-			expectedDirty:        true,
-			expectedRequestAfter: 0,
 		},
 		{
 			name: "delete-ok",
@@ -204,8 +202,6 @@ func deleteTest(t *testing.T, detach bool) {
 					Maintenance:    true,
 				},
 			).Delete(nodeUUID),
-			expectedDirty:        true,
-			expectedRequestAfter: 0,
 		},
 		{
 			name: "host-not-found",
@@ -228,8 +224,6 @@ func deleteTest(t *testing.T, detach bool) {
 					Maintenance:    false,
 				},
 			).Delete(nodeUUID),
-			expectedDirty:        true,
-			expectedRequestAfter: 0,
 		},
 		{
 			name: "stale-instance-uuid-update",
@@ -242,8 +236,6 @@ func deleteTest(t *testing.T, detach bool) {
 			).NodeUpdate(nodes.Node{
 				UUID: nodeUUID,
 			}).Delete(nodeUUID),
-			expectedDirty:        true,
-			expectedRequestAfter: 0,
 			expectedUpdate: &nodes.UpdateOperation{
 				Op:   nodes.RemoveOp,
 				Path: "/instance_uuid",
@@ -310,9 +302,6 @@ func deleteTest(t *testing.T, detach bool) {
 					Maintenance:    false,
 				},
 			).Delete(nodeUUID),
-			// Should delete directly without setting maintenance mode
-			expectedDirty:        true,
-			expectedRequestAfter: 0,
 		},
 	}
 

@@ -12,6 +12,14 @@ on:
       ginkgo-focus:
         type: string
         default: ""
+      # Lets a lane select a different provisioner, which needs its own BMO
+      # deployment and therefore its own config. Relative to the repo root.
+      e2e-conf-file:
+        type: string
+        default: ""
+      artifact-suffix:
+        type: string
+        default: ""
       ref:
         type: string
         default: ${{ github.ref }}
@@ -49,6 +57,7 @@ jobs:
       env:
         BMC_PROTOCOL: ${{ inputs.bmc-protocol }}
         GINKGO_FOCUS: "${{ inputs.ginkgo-focus }}"
+        E2E_CONF_FILE: ${{ inputs.e2e-conf-file && format('{0}/{1}', github.workspace, inputs.e2e-conf-file) || '' }}
       # We need a new shell to pick up the new group. That is why we do the sudo -s -u $USER ...
       # Remove the pre-installed go version. We install the exact version we need.
       run: |
@@ -60,7 +69,7 @@ jobs:
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
-        name: artifacts-${{ inputs.bmc-protocol }}.tar.gz
+        name: artifacts-${{ inputs.bmc-protocol }}${{ inputs.artifact-suffix }}.tar.gz
         path: test/e2e/_artifacts
         if-no-files-found: error
         overwrite: false

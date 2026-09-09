@@ -106,7 +106,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not load dataImage, %w", err)
+		return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not load dataImage, %w", err)
 	}
 
 	// If a corresponding BareMetalHost is missing, keep retrying
@@ -117,7 +117,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			reqLogger.Info("bareMetalHost not found for the dataImage, remove finalizer if it exists")
 			if controllerutil.RemoveFinalizer(di, metal3api.DataImageFinalizer) {
 				if err = r.Update(ctx, di); err != nil {
-					return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
+					return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
 				}
 			} else {
 				reqLogger.Info("finalizer already removed, no update needed")
@@ -126,7 +126,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// Error reading the object - requeue the request.
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not load baremetalhost, %w", err)
+		return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not load baremetalhost, %w", err)
 	}
 
 	info := &rdiInfo{log: reqLogger, request: req, di: di, bmh: bmh}
@@ -135,19 +135,19 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	annotations := bmh.GetAnnotations()
 	if _, ok := annotations[metal3api.PausedAnnotation]; ok {
 		reqLogger.Info("host associated with dataImage is paused, no work to do")
-		return ctrl.Result{Requeue: false}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// If DataImage exists, add its ownerReference
 	if !ownerReferenceExists(bmh, di) {
 		if err := controllerutil.SetOwnerReference(bmh, di, r.Scheme()); err != nil {
-			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not set bmh as controller, %w", err)
+			return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("could not set bmh as controller, %w", err)
 		}
 		if err := r.Update(ctx, di); err != nil {
-			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failure updating dataImage status, %w", err)
+			return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failure updating dataImage status, %w", err)
 		}
 
-		return ctrl.Result{Requeue: true}, nil
+		return simpleRequeue(), nil
 	}
 
 	// Add finalizer for newly created DataImage
@@ -160,7 +160,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			return ctrl.Result{RequeueAfter: dataImageUpdateDelay}, fmt.Errorf("failed to update resource after add finalizer, %w", err)
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return simpleRequeue(), nil
 	}
 
 	if hasDetachedAnnotation(bmh) {
@@ -170,7 +170,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			reqLogger.Info("dataImage deletion requested in detached state, removing finalizer")
 			if controllerutil.RemoveFinalizer(di, metal3api.DataImageFinalizer) {
 				if err := r.Update(ctx, di); err != nil {
-					return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
+					return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
 				}
 			}
 			return ctrl.Result{}, nil
@@ -178,7 +178,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		// If the associated BMH is detached, keep requeuing till the annotation is removed
 		reqLogger.Info("the host is detached, not running reconciler")
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageUnmanagedRetryDelay}, nil
+		return ctrl.Result{RequeueAfter: dataImageUnmanagedRetryDelay}, nil
 	}
 
 	// Create a provisioner that can access Ironic API
@@ -205,11 +205,11 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			// Update dataImage status and requeue
 			if err := r.updateStatus(ctx, info); err != nil {
-				return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource status, %w", err)
+				return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource status, %w", err)
 			}
 		}
 
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageUpdateDelay}, nil
+		return ctrl.Result{RequeueAfter: dataImageUpdateDelay}, nil
 	}
 	di.Status.Error.Message = ""
 	di.Status.Error.Count = 0
@@ -221,12 +221,12 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		if isImageAttached {
 			reqLogger.Info("Wait for DataImage to detach before removing finalizer, requeueing")
-			return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, nil
+			return ctrl.Result{RequeueAfter: dataImageRetryDelay}, nil
 		}
 
 		if controllerutil.RemoveFinalizer(di, metal3api.DataImageFinalizer) {
 			if err := r.Update(ctx, di); err != nil {
-				return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
+				return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
 			}
 		}
 		return ctrl.Result{}, nil
@@ -234,7 +234,7 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Update the latest status fetched from the Node
 	if err := r.updateStatus(ctx, info); err != nil {
-		return ctrl.Result{Requeue: true, RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource statu, %w", err)
+		return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource statu, %w", err)
 	}
 
 	for _, e := range info.events {

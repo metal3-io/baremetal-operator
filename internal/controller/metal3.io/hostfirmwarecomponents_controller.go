@@ -107,12 +107,12 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 			return ctrl.Result{}, nil
 		}
 		reqLogger.Error(err, "could not get baremetal host, not running hostfirmwarecomponents reconciler")
-		return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, err
+		return ctrl.Result{RequeueAfter: resourceNotAvailableRetryDelay}, err
 	}
 
 	if skipReconcileSubresource(bmh, reqLogger) {
 		// We'll get notified on BMH changes, no need to reconcile soon
-		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
+		return ctrl.Result{RequeueAfter: unmanagedRetryDelay}, nil
 	}
 
 	// Fetch the HostFirmwareComponents
@@ -149,7 +149,7 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 		reqLogger.Info("provisioner returns error",
 			LogFieldError, err.Error(),
 			LogFieldRequeueAfter, provisionerRetryDelay)
-		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
+		return ctrl.Result{RequeueAfter: provisionerRetryDelay}, nil
 	}
 
 	if err = r.updateHostFirmware(ctx, info, components); err != nil {
@@ -163,9 +163,9 @@ func (r *HostFirmwareComponentsReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	if meta.IsStatusConditionTrue(info.hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsChangeDetected)) {
-		return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected}, nil
+		return ctrl.Result{RequeueAfter: reconcilerRequeueDelayChangeDetected}, nil
 	}
-	return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelay}, nil
+	return ctrl.Result{RequeueAfter: reconcilerRequeueDelay}, nil
 }
 
 // Update the HostFirmwareComponents resource using the components from provisioner.

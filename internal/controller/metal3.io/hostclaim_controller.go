@@ -196,7 +196,7 @@ func checkHostClaimError(err error, errMessage string) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 	if ok, delay := hostclaimManager.IsRequeueAfterError(err); ok {
-		return ctrl.Result{Requeue: true, RequeueAfter: delay}, nil
+		return ctrl.Result{RequeueAfter: delay}, nil
 	}
 	return ctrl.Result{}, fmt.Errorf("%s: %w", errMessage, err)
 }

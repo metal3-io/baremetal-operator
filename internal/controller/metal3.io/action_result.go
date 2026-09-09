@@ -20,6 +20,12 @@ const (
 
 var tinyDelay = 10 * time.Millisecond
 
+func simpleRequeue() reconcile.Result {
+	return reconcile.Result{
+		RequeueAfter: tinyDelay,
+	}
+}
+
 // actionResult is an interface that encapsulates the result of a Reconcile
 // call, as returned by the action corresponding to the current state.
 type actionResult interface {
@@ -75,8 +81,7 @@ type actionComplete struct {
 }
 
 func (r actionComplete) Result() (result reconcile.Result, err error) {
-	result.RequeueAfter = tinyDelay
-	return
+	return simpleRequeue(), nil
 }
 
 func (r actionComplete) Dirty() bool {

@@ -125,12 +125,12 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
+		return ctrl.Result{RequeueAfter: resourceNotAvailableRetryDelay}, nil
 	}
 
 	if skipReconcileSubresource(bmh, reqLogger) {
 		// We'll get notified on BMH changes, no need to reconcile soon
-		return ctrl.Result{Requeue: true, RequeueAfter: unmanagedRetryDelay}, nil
+		return ctrl.Result{RequeueAfter: unmanagedRetryDelay}, nil
 	}
 
 	// Fetch the HostFirmwareSettings
@@ -140,7 +140,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		// The HFS resource may have been deleted
 		if k8serrors.IsNotFound(err) {
 			reqLogger.V(VerbosityLevelDebug).Info("hostFirmwareSettings not found")
-			return ctrl.Result{Requeue: true, RequeueAfter: resourceNotAvailableRetryDelay}, nil
+			return ctrl.Result{RequeueAfter: resourceNotAvailableRetryDelay}, nil
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, fmt.Errorf("could not load hostFirmwareSettings: %w", err)
@@ -167,7 +167,7 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 		reqLogger.Info("provisioner returns error",
 			LogFieldError, err.Error(),
 			LogFieldRequeueAfter, provisionerRetryDelay)
-		return ctrl.Result{Requeue: true, RequeueAfter: provisionerRetryDelay}, nil
+		return ctrl.Result{RequeueAfter: provisionerRetryDelay}, nil
 	}
 
 	if err = r.updateHostFirmwareSettings(ctx, currentSettings, schema, info); err != nil {
@@ -181,9 +181,9 @@ func (r *HostFirmwareSettingsReconciler) Reconcile(ctx context.Context, req ctrl
 	// requeue to run again after delay
 	if meta.IsStatusConditionTrue(info.hfs.Status.Conditions, string(metal3api.FirmwareSettingsChangeDetected)) {
 		// If there is a difference between Spec and Status shorten the query from Ironic so that the Status is updated when cleaning completes
-		return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelayChangeDetected}, nil
+		return ctrl.Result{RequeueAfter: reconcilerRequeueDelayChangeDetected}, nil
 	}
-	return ctrl.Result{Requeue: true, RequeueAfter: reconcilerRequeueDelay}, nil
+	return ctrl.Result{RequeueAfter: reconcilerRequeueDelay}, nil
 }
 
 // Get the firmware settings from the provisioner and update hostFirmwareSettings.

@@ -150,6 +150,14 @@ verify-e2e-prerequisites: ## Check that required tools exist for e2e tests
 	@echo "Ensure the local environment is ready for e2e tests..."
 	VERIFY_ONLY=1 ./hack/e2e/ensure_e2e_prerequisites.sh
 
+.PHONY: update-e2e-checksums
+update-e2e-checksums: ## Refresh all SHA-256 checksums in hack/e2e/checksums.sh
+	./hack/e2e/update-checksums.sh
+
+.PHONY: verify-e2e-checksums
+verify-e2e-checksums: ## Verify hack/e2e/checksums.sh is up to date with upstream
+	./hack/e2e/verify-checksums.sh
+
 .PHONY: test-e2e
 test-e2e: $(GINKGO) ## Run the end-to-end tests
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \

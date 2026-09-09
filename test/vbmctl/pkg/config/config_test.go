@@ -60,7 +60,7 @@ spec:
   - name: "baremetal-e2e"
     bridge: "metal3"
     address: "192.168.222.1"
-    netmask: "255.255.255.0"
+    netmask: 24
   vethPairs:
   - link1: "metal3"
     link2: "kind-bridge"
@@ -168,8 +168,8 @@ spec:
 		t.Errorf("expected libvirt network address '192.168.222.1', got %s", cfg.Spec.Networks[0].Address)
 	}
 
-	if cfg.Spec.Networks[0].Netmask != "255.255.255.0" {
-		t.Errorf("expected libvirt network netmask '255.255.255.0', got %s", cfg.Spec.Networks[0].Netmask)
+	if cfg.Spec.Networks[0].Netmask != 24 {
+		t.Errorf("expected libvirt network netmask '24', got %d", cfg.Spec.Networks[0].Netmask)
 	}
 
 	// vethPairs tests
@@ -597,13 +597,26 @@ func TestValidate(t *testing.T) {
 		},
 
 		{
-			name: "valid libvirt network config",
+			name: "valid libvirt network config with v4 address",
 			modify: func(c *Config) {
 				c.Spec.Networks = []vbmctlapi.NetworkConfig{{
 					Name:    "baremetal-e2e",
 					Bridge:  "metal3",
 					Address: "192.168.222.1",
-					Netmask: "255.255.255.0",
+					Netmask: 24,
+				}}
+			},
+			wantErr: false,
+		},
+
+		{
+			name: "valid libvirt network config with v6 address",
+			modify: func(c *Config) {
+				c.Spec.Networks = []vbmctlapi.NetworkConfig{{
+					Name:    "baremetal-e2e",
+					Bridge:  "metal3",
+					Address: "2001:db8:a0b:12f0::8b6e",
+					Netmask: 112,
 				}}
 			},
 			wantErr: false,
@@ -620,10 +633,23 @@ func TestValidate(t *testing.T) {
 		},
 
 		{
-			name: "invalid libvirt network config - malformed netmask",
+			// The address defaults to v4 address
+			name: "invalid libvirt network config - too large netmask for v4 address",
 			modify: func(c *Config) {
 				c.Spec.Networks = []vbmctlapi.NetworkConfig{{
-					Netmask: "tsubadubaduu",
+					Address: "192.168.222.1",
+					Netmask: 64,
+				}}
+			},
+			wantErr: true,
+		},
+
+		{
+			name: "invalid libvirt network config - invalid netmask for v6 address",
+			modify: func(c *Config) {
+				c.Spec.Networks = []vbmctlapi.NetworkConfig{{
+					Address: "2001:db8:a0b:12f0::8b6e",
+					Netmask: 129,
 				}}
 			},
 			wantErr: true,

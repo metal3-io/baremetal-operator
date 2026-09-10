@@ -27,6 +27,7 @@ configMapGenerator:
   namespace: baremetal-operator-system
   behavior: create
   envs:
+  - features.env
   - ironic.env
 
 patches:

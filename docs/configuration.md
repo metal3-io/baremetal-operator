@@ -85,10 +85,18 @@ Defaults to `/plugins`. See [Provisioner plugins](plugin-provisioners.md).
 `DIRECT_DEPLOY_FORCE_PERSISTENT_BOOT_DEVICE` -- (`Default`, `Always`,
 `Never`) Controls persistent boot device for direct-deploy images.
 
-The `-hostclaims` manager flag enables the HostClaim controller.
-That feature is under development and is not ready for use.
 PreprovisioningImage integration is enabled with
 `-build-preprov-image`.
+
+`HostClaims` -- A feature gate, disabled by default. The HostClaims are
+under development and are not ready for use.
+To experiment with it, set `FEATURE_GATES=HostClaims=true` or pass
+`--feature-gates=HostClaims=true` to enable it.
+The gate controls the launch of the controller
+and the webhook: if the gate is not enabled, the API server rejects any
+attempt to create a HostClaim.
+The HostClaim controller is enabled by default when the HostClaims feature
+gate is on, and can be turned off at startup with -hostclaims=false.
 
 `IronicNetworking` -- A feature gate, disabled by default. Set
 `FEATURE_GATES=IronicNetworking=true` or pass

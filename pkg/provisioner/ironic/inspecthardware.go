@@ -2,6 +2,8 @@ package ironic
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -135,24 +137,51 @@ func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisione
 		return result, started, details, err
 	}
 
-	p.log.Info("getting hardware details from inspection")
-	response := nodes.GetInventory(ctx, p.client, ironicNode.UUID)
-	introData, err := response.Extract()
-	if err != nil {
-		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-			// The node has just been enrolled, inspection hasn't been started yet.
-			result, started, err = p.startInspection(ctx, data, ironicNode)
-			return result, started, details, err
-		}
-		result, err = transientError(fmt.Errorf("failed to retrieve hardware introspection data: %w", err))
+	inventoryData, result, err := p.getInventory(ctx, ironicNode)
+	if result.Dirty || result.ErrorMessage != "" || err != nil {
+		return result, started, details, err
+	} else if inventoryData == nil {
+		// The node has just been enrolled, inspection hasn't been started yet.
+		result, started, err = p.startInspection(ctx, data, ironicNode)
 		return result, started, details, err
 	}
 
-	// Introspection is done
-	p.log.Info("inspection finished successfully", "data", response.Body)
-
-	details = hardwaredetails.GetHardwareDetails(introData, ironicNode.Properties, p.log)
+	details = hardwaredetails.GetHardwareDetails(inventoryData, ironicNode.Properties, p.log)
 	p.publisher("InspectionComplete", "Hardware inspection completed")
 	result, err = operationComplete()
 	return result, started, details, err
+}
+
+// getInventory fetches inventory data from Ironic. It returns nil when data is
+// not present, a non-empty result on a permanent failure, and an error on a
+// transient error. Partial data may be returned even on failure.
+func (p *ironicProvisioner) getInventory(ctx context.Context, ironicNode *nodes.Node) (inventoryData *nodes.InventoryData, result provisioner.Result, err error) {
+	p.log.Info("getting hardware details from inspection")
+	response := nodes.GetInventory(ctx, p.client, ironicNode.UUID)
+	if response.Err != nil {
+		if gophercloud.ResponseCodeIs(response.Err, http.StatusNotFound) {
+			// Not a failure, the data is simply not there.
+			return nil, result, nil
+		}
+		result, err = transientError(fmt.Errorf("failed to retrieve hardware introspection data: %w", response.Err))
+		return nil, result, err
+	}
+
+	inventoryData = new(nodes.InventoryData)
+	err = response.ExtractInto(inventoryData)
+	unmarshalTypeError := &json.UnmarshalTypeError{}
+	if errors.As(err, &unmarshalTypeError) {
+		// TODO(dtantsur): at this point, introData may be partially constructed and contain useful information.
+		// We need to decide if that's good enough to declare success (and how to communicate the error).
+		p.log.Error(err, "unable to parse inventory JSON as InventoryData; it can be a bug in Ironic or GopherCloud")
+		result, err = operationFailed("Unable to parse inventory JSON, cannot finish inspection")
+		return inventoryData, result, err
+	} else if err != nil {
+		result, err = transientError(fmt.Errorf("failed to parse hardware introspection data: %w", err))
+		return nil, result, err
+	}
+
+	p.log.Info("inspection finished successfully", "data", response.Body)
+	result, err = operationComplete()
+	return inventoryData, result, err
 }

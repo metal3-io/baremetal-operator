@@ -196,6 +196,31 @@ func TestInspectHardware(t *testing.T) {
 			expectedDetailsHost: "node-0",
 			expectedPublish:     "InspectionComplete Hardware inspection completed",
 		},
+		{
+			name: "inspection-syntax-error-inventory",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.Manageable),
+			}).WithInventoryText(nodeUUID, "<html>"),
+
+			// NOTE(dtantsur): not hardcoding the exact error since it comes from stdlib
+			expectedError: "failed to retrieve hardware introspection data: .*",
+		},
+		{
+			name: "inspection-type-error-inventory",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				UUID:           nodeUUID,
+				ProvisionState: string(nodes.Manageable),
+			}).WithInventoryText(nodeUUID, `{
+			    "inventory": {
+				"cpu": {
+				    "count": "banana"
+				}
+			    }
+			}`),
+
+			expectedResultError: "Unable to parse inventory JSON, cannot finish inspection",
+		},
 	}
 
 	for _, tc := range cases {

@@ -516,3 +516,9 @@ func (m *IronicMock) WithInventoryFailed(nodeUUID string, errorCode int) *Ironic
 	m.ErrorResponse(v1node+nodeUUID+"/inventory", errorCode)
 	return m
 }
+
+// WithInventory configures the server with an arbitrary response for /v1/nodes/<node>/inventory.
+func (m *IronicMock) WithInventoryText(nodeUUID string, data string) *IronicMock {
+	m.ResponseWithCode(v1node+nodeUUID+"/inventory", data, http.StatusOK)
+	return m
+}

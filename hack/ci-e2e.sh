@@ -236,9 +236,9 @@ export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
 # Generate credentials
 BMO_OVERLAYS=(
   "${REPO_ROOT}/config/overlays/e2e"
-  "${REPO_ROOT}/config/overlays/e2e-release-0.11"
   "${REPO_ROOT}/config/overlays/e2e-release-0.12"
   "${REPO_ROOT}/config/overlays/e2e-release-0.13"
+  "${REPO_ROOT}/config/overlays/e2e-release-0.14"
 )
 
 IRONIC_USERNAME="$(uuidgen)"

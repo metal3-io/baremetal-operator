@@ -64,6 +64,7 @@ intervals:
   default/wait-power-state: [ "5s", "10ms" ]
   default/wait-externally-provisioned: [ "1m", "10ms" ]
   baremetalswitch/wait-secret-updated: [ "30s", "500ms" ]
+  default/wait-dataimage-attached: [ "1m", "1s" ]
 
 bmoUpgradeSpecs:
 - deployIronic: false

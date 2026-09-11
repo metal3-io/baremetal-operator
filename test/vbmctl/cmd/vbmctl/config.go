@@ -86,6 +86,14 @@ func newConfigViewCmd() *cobra.Command {
 					cfg.Spec.ImageServer.ContainerPort,
 					cfg.Spec.ImageServer.DataDir,
 					cfg.Spec.ImageServer.ContainerName)
+				for _, m := range cfg.Spec.ImageServer.ExtraMounts {
+					//nolint:forbidigo // CLI output is intentional
+					fmt.Printf("  Extra Mount: %s -> %s (readOnly: %t)\n", m.HostPath, m.ContainerPath, m.ReadOnly)
+				}
+				for _, p := range cfg.Spec.ImageServer.ExtraPorts {
+					//nolint:forbidigo // CLI output is intentional
+					fmt.Printf("  Extra Port: %d -> %d\n", p.HostPort, p.ContainerPort)
+				}
 			}
 
 			if cfg.Spec.BMCEmulator != nil {

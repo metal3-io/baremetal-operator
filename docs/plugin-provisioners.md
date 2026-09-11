@@ -71,7 +71,8 @@ Build (output filename must follow the `<name>-provisioner.so` convention so
 the manager can resolve `-provisioner=<name>`):
 
 ```sh
-CGO_ENABLED=1 go build -buildmode=plugin -o foobar-provisioner.so ./path/to/plugin
+CGO_ENABLED=1 go build -buildmode=plugin -trimpath -o foobar-provisioner.so ./path/to/plugin
+# building against a BMO checkout instead of a release? see Source paths below
 ```
 
 ## Plugin configuration
@@ -158,9 +159,73 @@ For an out-of-tree plugin maintained in its own repo:
   Makefile):
 
   ```sh
-  CGO_ENABLED=1 go build -buildmode=plugin -o foobar-provisioner.so ./plugin
+  CGO_ENABLED=1 go build -buildmode=plugin -trimpath -o foobar-provisioner.so ./plugin
   ```
 
 - If `plugin.Open` reports a mismatch on a specific package, align it in
-  your `go.mod` (`replace` or `go get <pkg>@<ver>`) to the version used by
-  the BMO release, then rebuild.
+  your `go.mod` to the version the BMO release uses, then rebuild. Use
+  `go get <pkg>@<ver>`, or `exclude` the higher one: under `-trimpath` the
+  recorded path carries the module's selected version, so a
+  `replace <pkg> vX => <pkg> vY` does not align it.
+
+### Source paths
+
+Recorded source paths are part of a package's fingerprint too. `-trimpath`
+removes them, but it records a bare import path for the main module and
+`module@version` for a dependency, and BMO is the main module when the released
+binary is built while it is a dependency when your plugin is built. Released
+images therefore record BMO's own packages in the dependency form, using the
+release tag (see `hack/plugin-build-flags.sh`).
+
+So build with `-trimpath` and pin BMO at the release you target. Let BMO's
+`go.mod` decide the versions of `apis` and `pkg/hardwareutils` rather than
+requiring them yourself, since the release recorded whatever it resolves.
+
+```sh
+go get github.com/metal3-io/baremetal-operator@vX.Y.Z
+CGO_ENABLED=1 go build -buildmode=plugin -trimpath -o foobar-provisioner.so ./plugin
+```
+
+The directory you build in no longer matters, the version does. Only tagged
+releases carry one, so an image built from a branch records no version and
+takes plugins built the same way. A `replace` pointing at a local BMO checkout
+also records something else, and needs the same rewrite applied to your own
+build, which the next section spells out.
+
+### When the release requires older submodules
+
+The recipe above assumes the release requires `apis` and `pkg/hardwareutils` at
+its own version, so resolving them hands you the source that release was built
+from. Releases have shipped without that bump, so check what you resolved:
+
+```sh
+go list -m -f '{{.Version}}' github.com/metal3-io/baremetal-operator/apis
+```
+
+A version older than the release you pinned means the requirement was never
+bumped, and resolving it gives submodule source the release does not contain.
+Usually it will not compile against `pkg/provisioner` at all, and where it
+does, the package contents still differ from the manager's, so `plugin.Open`
+rejects the plugin.
+
+Build against a checkout of the release instead. The replaces supply the
+source the release actually contains, while the rewrite keeps recording the
+versions its `go.mod` names, which is what the manager recorded:
+
+```sh
+git clone --depth 1 --branch vX.Y.Z \
+    https://github.com/metal3-io/baremetal-operator /tmp/bmo
+go mod edit \
+    -replace github.com/metal3-io/baremetal-operator=/tmp/bmo \
+    -replace github.com/metal3-io/baremetal-operator/apis=/tmp/bmo/apis \
+    -replace github.com/metal3-io/baremetal-operator/pkg/hardwareutils=/tmp/bmo/pkg/hardwareutils
+go mod tidy
+CGO_ENABLED=1 go build -buildmode=plugin \
+    $(/tmp/bmo/hack/plugin-build-flags.sh /tmp/bmo vX.Y.Z) \
+    -o foobar-provisioner.so ./plugin
+```
+
+Leave the flags unquoted, they expand to two arguments. Pass the release tag
+rather than a version of your own, since that is what the image recorded.
+`Dockerfile.plugin-test` is a worked example, and CI builds it, so this path
+stays exercised rather than becoming folklore.

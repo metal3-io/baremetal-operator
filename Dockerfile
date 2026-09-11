@@ -8,6 +8,12 @@ ARG BASE_IMAGE=gcr.io/distroless/base-debian13:nonroot@sha256:a557d784ac275c287d
 # this image to guarantee toolchain and module-version parity with BMO.
 FROM $BUILD_IMAGE AS sdk
 
+# Record our own packages as module@version, the form a dependency gets, so an
+# out-of-tree plugin can be built from any directory. Must match the Makefile.
+# See docs/plugin-provisioners.md.
+ARG MODULE_VERSION=v0.0.0-dev
+ENV MODULE_VERSION=${MODULE_VERSION}
+
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
@@ -26,14 +32,14 @@ FROM sdk AS builder
 ARG ARCH=amd64
 ARG LDFLAGS=-s -w
 RUN GOOS=linux GOARCH=${ARCH} \
-    go build -a -ldflags "${LDFLAGS}" -o baremetal-operator main.go
+    go build -a $(./hack/plugin-build-flags.sh /workspace "${MODULE_VERSION}") -ldflags "${LDFLAGS}" -o baremetal-operator main.go
 
 # Build the ironic provisioner plugin
 FROM sdk AS ironic-plugin-builder
 ARG ARCH=amd64
 ARG LDFLAGS=-s -w
 RUN GOOS=linux GOARCH=${ARCH} \
-    go build -buildmode=plugin -ldflags "${LDFLAGS}" \
+    go build -buildmode=plugin $(./hack/plugin-build-flags.sh /workspace "${MODULE_VERSION}") -ldflags "${LDFLAGS}" \
     -o ironic-provisioner.so ./pkg/provisioner/ironic/plugin/
 
 # Build the demo provisioner plugin
@@ -41,7 +47,7 @@ FROM sdk AS demo-plugin-builder
 ARG ARCH=amd64
 ARG LDFLAGS=-s -w
 RUN GOOS=linux GOARCH=${ARCH} \
-    go build -buildmode=plugin -ldflags "${LDFLAGS}" \
+    go build -buildmode=plugin $(./hack/plugin-build-flags.sh /workspace "${MODULE_VERSION}") -ldflags "${LDFLAGS}" \
     -o demo-provisioner.so ./pkg/provisioner/demo/plugin/
 
 # Runtime image. Uses distroless/base (not static) because Go plugins need glibc.

@@ -7,9 +7,11 @@ on:
     - 'main'
     - 'release-*'
     paths:
+    - 'Dockerfile'
     - 'Dockerfile.plugin-test'
     - 'Makefile'
     - 'cmd/plugin-load-test/**'
+    - 'hack/plugin-build-flags.sh'
     - 'hack/plugin-test/**'
     - 'pkg/provisioner/**'
     - 'go.mod'

@@ -8,8 +8,8 @@ require (
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/google/uuid v1.6.0
 	github.com/gophercloud/gophercloud/v2 v2.14.0
-	github.com/metal3-io/baremetal-operator/apis v0.5.1
-	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
+	github.com/metal3-io/baremetal-operator/apis v0.14.0
+	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.14.0
 	github.com/metal3-io/ironic-standalone-operator/api v0.11.0
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.43.0

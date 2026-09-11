@@ -79,6 +79,19 @@ declare -a git_nonexisting_tags=(
     "hack/tools/v${VERSION}"
 )
 
+# modules released from this repository, which the root and test modules have
+# to require at the release version. See docs/releasing.md
+declare -a submodule_requirements=(
+    "github.com/metal3-io/baremetal-operator/apis"
+    "github.com/metal3-io/baremetal-operator/pkg/hardwareutils"
+)
+
+# go.mod files that carry those requirements
+declare -a submodule_requirement_files=(
+    "go.mod"
+    "test/go.mod"
+)
+
 # release notes should have these strings
 declare -a release_note_strings=(
     ":recycle:"
@@ -511,6 +524,16 @@ _module_get_version()
         | grep -v "//\s*indirect" | head -1 | awk '{print $2;}'
 }
 
+_submodule_get_required_version()
+{
+    # get the required version of a submodule from one go.mod, matching the
+    # require block only so the module line and the replaces stay out of it
+    local file="$1"
+    local module="$2"
+
+    grep -hE "^[[:space:]]+${module} v" "${file}" | head -1 | awk '{print $2;}'
+}
+
 _module_get_latest_patch_release()
 {
     # get latest patch release from given version
@@ -620,6 +643,32 @@ verify_module_releases()
     echo -e "Done\n"
 }
 
+verify_submodule_requirements()
+{
+    # the release tags the root module and the submodules from one commit, so
+    # requiring this version is what makes a consumer resolve the tagged source
+    local file module version
+
+    echo "Verify apis and pkg/hardwareutils are required at the release version ..."
+
+    for file in "${submodule_requirement_files[@]}"; do
+        for module in "${submodule_requirements[@]}"; do
+            # shellcheck disable=SC2311
+            version="$(_submodule_get_required_version "${file}" "${module}")"
+
+            if [[ -z "${version}" ]]; then
+                echo "ERROR: ${file} does not require ${module}"
+            elif [[ "${version}" != "v${VERSION}" ]]; then
+                echo "ERROR: ${file} requires ${module} ${version}, expected v${VERSION}"
+                echo "       bump it before tagging, otherwise the release points"
+                echo "       consumers at submodule source it does not contain"
+            fi
+        done
+    done
+
+    echo -e "Done\n"
+}
+
 verify_vulnerabilities()
 {
     # run osv-scanner to verify if we have open vulnerabilities in deps
@@ -669,4 +718,5 @@ verify_container_base_image
 verify_module_versions
 verify_module_group_versions
 verify_module_releases
+verify_submodule_requirements
 verify_vulnerabilities

@@ -271,7 +271,7 @@ func (m *VMManager) List(_ context.Context) ([]*vbmctlapi.VM, error) {
 			// Safe conversion: Memory and NrVirtCpu are always reasonable values
 			// from libvirt that fit well within int range
 			memoryMB = int(info.Memory / kiBPerMB) //nolint:gosec // memory in KiB from libvirt is always reasonable
-			vcpus = int(info.NrVirtCpu)            //nolint:gosec // vCPU count from libvirt is always reasonable
+			vcpus = int(info.NrVirtCpu)            //nolint:gosec // G115: vCPU count from libvirt is always a small value
 		}
 
 		vms = append(vms, &vbmctlapi.VM{

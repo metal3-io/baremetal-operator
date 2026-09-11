@@ -280,7 +280,7 @@ func (m *Manager) pickHost(availableHosts []*metal3api.BareMetalHost) (*metal3ap
 	// When failureDomain is set, create a list from available hosts in failureDomain
 	if m.HostClaim.Spec.FailureDomain != "" {
 		labelSelector := labels.NewSelector()
-		var reqs labels.Requirements
+		reqs := make(labels.Requirements, 0, 1)
 		var r *labels.Requirement
 		r, err := labels.NewRequirement(FailureDomainLabelName, selection.Equals, []string{m.HostClaim.Spec.FailureDomain})
 

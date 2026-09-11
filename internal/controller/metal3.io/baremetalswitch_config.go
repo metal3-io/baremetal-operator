@@ -112,7 +112,7 @@ type switchConfigData struct {
 	DeviceType    string
 	Insecure      bool
 	Username      string
-	Password      string //nolint: gosec
+	Password      string //nolint:gosec // G117: intentional credential field
 	KeyFile       string
 	AdminPassword string
 }

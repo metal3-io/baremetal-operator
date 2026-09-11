@@ -69,3 +69,7 @@ config/overlays/temp
 
 # ai stuff
 .claude
+
+# Alloy runtime files (created by run-alloy.sh / stop-alloy.sh)
+/hack/alloy/alloy-data/
+/hack/alloy/alloy.pid

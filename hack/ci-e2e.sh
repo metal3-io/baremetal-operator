@@ -265,9 +265,16 @@ SSH_PUB_KEY_CONTENT="${pub_ssh_key}" envsubst '${SSH_PUB_KEY_CONTENT}' < \
 # We need to gather artifacts/logs before exiting also if there are errors
 set +e
 
+# Start streaming e2e logs to the CI log collector (no-op if not configured).
+"${REPO_ROOT}/hack/alloy/run-alloy.sh" || true
+
 # Run the e2e tests
 make test-e2e
 test_status="$?"
+
+# Confirm logs were shipped, then stop streaming (flushes remaining lines).
+"${REPO_ROOT}/hack/alloy/verify.sh" || true
+"${REPO_ROOT}/hack/alloy/stop-alloy.sh" || true
 
 LOGS_DIR="${REPO_ROOT}/test/e2e/_artifacts/logs"
 mkdir -p "${LOGS_DIR}/qemu"

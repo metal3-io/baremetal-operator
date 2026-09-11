@@ -56,30 +56,39 @@
 //
 // For the "vbmc" type, only the Image field is required.
 //
-//	err := containers.CreateBMCEmulatorInstance(ctx, &api.BMCEmulatorConfig{
+//	emulatorConfig := &api.BMCEmulatorConfig{
 //	    Type:          "vbmc",
 //	    Image:         "my-vbmc:latest",
-//	})
+//	}
+//	// Empty configuration would also be assumed if not set
+//	emulatorConfig.VBMCConfig = api.VBMCConfig{}
+//	err := containers.CreateBMCEmulatorInstance(ctx, emulatorConfig)
 //
 // For the "sushy-tools" type, ConfigFile must point to a Sushy-tools configuration
 // file that already exists on the host in which case the configuration file will be
 // bind-mounted into the container.
 //
-//	err := containers.CreateBMCEmulatorInstance(ctx, &api.BMCEmulatorConfig{
+//	emulatorConfig := &api.BMCEmulatorConfig{
 //	    Type:          "sushy-tools",
 //	    Image:         "my-sushy-tools:latest",
+//	}
+//	emulatorConfig.SushyToolsConfig = api.SushyToolsConfig{
 //	    ConfigFile:    "/path/to/existing/config/file",
-//	})
+//	}
+//	err := containers.CreateBMCEmulatorInstance(ctx, emulatorConfig)
 //
 // Alternatively, if ConfigFile is not specified for the "sushy-tools" type, the
 // ListenAddress and ListenPort fields can be used for configuration.
 //
-//	err := containers.CreateBMCEmulatorInstance(ctx, &api.BMCEmulatorConfig{
+//	emulatorConfig := &api.BMCEmulatorConfig{
 //	    Type:          "sushy-tools",
 //	    Image:         "my-sushy-tools:latest",
+//	}
+//	emulatorConfig.SushyToolsConfig = api.SushyToolsConfig{
 //	    ListenAddress: "1.2.3.4",
 //	    ListenPort:    1234,
-//	})
+//	}
+//	err := containers.CreateBMCEmulatorInstance(ctx, emulatorConfig)
 //
 // It should be noted that if using command line arguments to configure
 // sushy-tools, the listen address and listen port defaults will be applied if

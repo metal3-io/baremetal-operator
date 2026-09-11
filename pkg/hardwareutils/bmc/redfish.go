@@ -155,7 +155,7 @@ func (a *redfishiDracAccessDetails) Driver() string {
 }
 
 func (a *redfishiDracAccessDetails) BIOSInterface() string {
-	return idracRedfish
+	return redfish
 }
 
 func (a *redfishiDracAccessDetails) BootInterface() string {
@@ -176,7 +176,7 @@ func (a *redfishiDracAccessDetails) ManagementInterface() string {
 }
 
 func (a *redfishiDracAccessDetails) PowerInterface() string {
-	return idracRedfish
+	return redfish
 }
 
 func (a *redfishiDracAccessDetails) RAIDInterface() string {
@@ -184,6 +184,5 @@ func (a *redfishiDracAccessDetails) RAIDInterface() string {
 }
 
 func (a *redfishiDracAccessDetails) VendorInterface() string {
-	// NOTE(dtantsur): the idrac hardware type defaults to WSMAN vendor, we need to use the Redfish implementation.
-	return idracRedfish
+	return redfish
 }

@@ -128,3 +128,5 @@ When an external Ironic is used, the following requirements must be met:
   a newer microversion, BMO negotiates up to 1.110 (deployment abort),
   also using 1.93 (virtual media GET), 1.95 (disable power off), and
   1.109 (health API) as they become available.
+- For the iDRAC driver, Ironic 26.1 (2024.2 "Dalmatian" release cycle) or newer
+  must be used.

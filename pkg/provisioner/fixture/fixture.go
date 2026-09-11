@@ -73,6 +73,7 @@ type HostFirmwareSettingsMock struct {
 
 type HostFirmwareComponentsMock struct {
 	Components []metal3api.FirmwareComponentStatus
+	Error      error
 }
 
 // Fixture contains persistent state for a particular host.
@@ -416,7 +417,7 @@ func (p *fixtureProvisioner) RemoveBMCEventSubscriptionForNode(_ context.Context
 
 func (p *fixtureProvisioner) GetFirmwareComponents(_ context.Context) (components []metal3api.FirmwareComponentStatus, err error) {
 	p.log.Info("getting Firmware components")
-	return p.state.HostFirmwareComponents.Components, nil
+	return p.state.HostFirmwareComponents.Components, p.state.HostFirmwareComponents.Error
 }
 
 func (p *fixtureProvisioner) GetDataImageStatus(_ context.Context) (isImageAttached bool, err error) {

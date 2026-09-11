@@ -20,8 +20,22 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/util/conditions"
 )
+
+// TestScheme builds a minimal scheme for tests.
+func TestScheme() *runtime.Scheme {
+	s := runtime.NewScheme()
+	if err := corev1.AddToScheme(s); err != nil {
+		panic(err)
+	}
+	if err := metal3api.AddToScheme(s); err != nil {
+		panic(err)
+	}
+	return s
+}
 
 // Namespace definitions.
 
@@ -110,6 +124,11 @@ func NewBaremetalhost(name, namespace string, state metal3api.ProvisioningState)
 			},
 		},
 	}
+}
+
+func (bb *BareMetalHostBuilder) SetUID(uid types.UID) *BareMetalHostBuilder {
+	bb.bmh.UID = uid
+	return bb
 }
 
 func (bb *BareMetalHostBuilder) Build() *metal3api.BareMetalHost {

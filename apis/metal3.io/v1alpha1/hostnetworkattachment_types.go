@@ -22,8 +22,10 @@ import (
 // HostNetworkAttachmentRef references a HostNetworkAttachment for interface configuration.
 type HostNetworkAttachmentRef struct {
 	// Name of the HostNetworkAttachment resource
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// Namespace of the HostNetworkAttachment (defaults to BMH namespace)
 	// +optional

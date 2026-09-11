@@ -277,7 +277,7 @@ func TestDeprovision(t *testing.T) {
 				ProvisionState: string(nodes.Active),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 0,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -286,7 +286,7 @@ func TestDeprovision(t *testing.T) {
 				ProvisionState: string(nodes.DeployFail),
 				UUID:           nodeUUID,
 			}),
-			expectedRequestAfter: 0,
+			expectedRequestAfter: 3,
 			expectedDirty:        true,
 		},
 		{
@@ -388,39 +388,34 @@ func TestDeprovisionSyncAutomatedClean(t *testing.T) {
 	automatedCleanFalse := false
 
 	cases := []struct {
-		name                     string
-		automatedCleaningMode    metal3api.AutomatedCleaningMode
-		nodeAutomatedClean       *bool
-		expectSync               bool
-		expectProvisionStateCall bool
+		name                  string
+		automatedCleaningMode metal3api.AutomatedCleaningMode
+		nodeAutomatedClean    *bool
+		expectSync            bool
 	}{
 		{
-			name:                     "sync needed - disable cleaning",
-			automatedCleaningMode:    metal3api.CleaningModeDisabled,
-			nodeAutomatedClean:       &automatedCleanTrue,
-			expectSync:               true,
-			expectProvisionStateCall: false, // Should requeue before sending TargetDeleted
+			name:                  "sync needed - disable cleaning",
+			automatedCleaningMode: metal3api.CleaningModeDisabled,
+			nodeAutomatedClean:    &automatedCleanTrue,
+			expectSync:            true,
 		},
 		{
-			name:                     "sync needed - enable cleaning",
-			automatedCleaningMode:    metal3api.CleaningModeMetadata,
-			nodeAutomatedClean:       &automatedCleanFalse,
-			expectSync:               true,
-			expectProvisionStateCall: false, // Should requeue before sending TargetDeleted
+			name:                  "sync needed - enable cleaning",
+			automatedCleaningMode: metal3api.CleaningModeMetadata,
+			nodeAutomatedClean:    &automatedCleanFalse,
+			expectSync:            true,
 		},
 		{
-			name:                     "already synced - cleaning disabled",
-			automatedCleaningMode:    metal3api.CleaningModeDisabled,
-			nodeAutomatedClean:       &automatedCleanFalse,
-			expectSync:               false,
-			expectProvisionStateCall: true, // Should proceed with TargetDeleted
+			name:                  "already synced - cleaning disabled",
+			automatedCleaningMode: metal3api.CleaningModeDisabled,
+			nodeAutomatedClean:    &automatedCleanFalse,
+			expectSync:            false,
 		},
 		{
-			name:                     "already synced - cleaning enabled",
-			automatedCleaningMode:    metal3api.CleaningModeMetadata,
-			nodeAutomatedClean:       &automatedCleanTrue,
-			expectSync:               false,
-			expectProvisionStateCall: true, // Should proceed with TargetDeleted
+			name:                  "already synced - cleaning enabled",
+			automatedCleaningMode: metal3api.CleaningModeMetadata,
+			nodeAutomatedClean:    &automatedCleanTrue,
+			expectSync:            false,
 		},
 	}
 
@@ -447,9 +442,7 @@ func TestDeprovisionSyncAutomatedClean(t *testing.T) {
 			// Check if automated_clean was updated
 			updates := ironic.GetLastNodeUpdateRequestFor(nodeUUID)
 			if tc.expectSync {
-				// Should have updated automated_clean and requeued
-				assert.True(t, result.Dirty, "should be dirty to requeue after sync")
-				assert.Equal(t, time.Duration(0), result.RequeueAfter)
+				// Should have updated automated_clean
 				require.NotNil(t, updates, "should have called Update API")
 				// Verify the automated_clean field was updated
 				found := false
@@ -469,13 +462,10 @@ func TestDeprovisionSyncAutomatedClean(t *testing.T) {
 
 			// Check if provision state change was called
 			stateUpdate := ironic.GetLastNodeStatesProvisionUpdateRequestFor(nodeUUID)
-			if tc.expectProvisionStateCall {
-				assert.NotEmpty(t, stateUpdate.Target, "should have called provision state API")
-				assert.Equal(t, nodes.TargetDeleted, stateUpdate.Target)
-			} else if tc.expectSync {
-				// If sync was needed, should not have called provision state yet
-				assert.Empty(t, stateUpdate.Target, "should not call provision state if sync was needed")
-			}
+			assert.True(t, result.Dirty, "should be dirty to requeue")
+			assert.Equal(t, time.Second*3, result.RequeueAfter)
+			assert.NotEmpty(t, stateUpdate.Target, "should have called provision state API")
+			assert.Equal(t, nodes.TargetDeleted, stateUpdate.Target)
 		})
 	}
 }

@@ -18,6 +18,14 @@ const (
 	defaultBackoff  = 0.5
 )
 
+var tinyDelay = 10 * time.Millisecond
+
+func simpleRequeue() reconcile.Result {
+	return reconcile.Result{
+		RequeueAfter: tinyDelay,
+	}
+}
+
 // actionResult is an interface that encapsulates the result of a Reconcile
 // call, as returned by the action corresponding to the current state.
 type actionResult interface {
@@ -33,9 +41,11 @@ type actionContinue struct {
 }
 
 func (r actionContinue) Result() (result reconcile.Result, err error) {
-	result.RequeueAfter = r.delay
-	// Set Requeue true as well as RequeueAfter in case the delay is 0.
-	result.Requeue = true
+	if r.delay == 0 {
+		result.RequeueAfter = tinyDelay
+	} else {
+		result.RequeueAfter = r.delay
+	}
 	return
 }
 
@@ -62,7 +72,6 @@ type actionDelayed struct {
 
 func (r actionDelayed) Result() (result reconcile.Result, err error) {
 	result.RequeueAfter = calculateBackoff(1)
-	result.Requeue = true
 	return
 }
 
@@ -72,8 +81,7 @@ type actionComplete struct {
 }
 
 func (r actionComplete) Result() (result reconcile.Result, err error) {
-	result.Requeue = true
-	return
+	return simpleRequeue(), nil
 }
 
 func (r actionComplete) Dirty() bool {

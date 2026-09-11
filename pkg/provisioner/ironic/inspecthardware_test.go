@@ -196,6 +196,8 @@ func TestInspectHardware(t *testing.T) {
 			expectedDetailsHost: "node-0",
 			expectedPublish:     "InspectionComplete Hardware inspection completed",
 		},
+		// Receiving complete gibberish from Ironic together with HTTP 200 is very unlikely
+		// This test differentiates it from the actually possible case of type mismatch in the inventory
 		{
 			name: "inspection-syntax-error-inventory",
 			ironic: testserver.NewIronic(t).Node(nodes.Node{
@@ -206,6 +208,7 @@ func TestInspectHardware(t *testing.T) {
 			// NOTE(dtantsur): not hardcoding the exact error since it comes from stdlib
 			expectedError: "failed to retrieve hardware introspection data: .*",
 		},
+		// If Ironic returns a valid JSON that we cannot interpret, it's useless to retry.
 		{
 			name: "inspection-type-error-inventory",
 			ironic: testserver.NewIronic(t).Node(nodes.Node{

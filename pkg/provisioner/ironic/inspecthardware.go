@@ -164,6 +164,8 @@ func (p *ironicProvisioner) getInventory(ctx context.Context, ironicNode *nodes.
 			// Not a failure, the data is simply not there.
 			return nil, result, nil
 		}
+		// This branch captures not just networking problems but also conditions like SyntaxError from the JSON library,
+		// when Ironic returns something that cannot be interpreted as JSON at all (which is hopefully transient).
 		result, err = transientError(fmt.Errorf("failed to retrieve hardware introspection data: %w", response.Err))
 		return nil, result, err
 	}
@@ -172,8 +174,10 @@ func (p *ironicProvisioner) getInventory(ctx context.Context, ironicNode *nodes.
 	err = response.ExtractInto(inventoryData)
 	unmarshalTypeError := &json.UnmarshalTypeError{}
 	if errors.As(err, &unmarshalTypeError) {
-		// TODO(dtantsur): at this point, introData may be partially constructed and contain useful information.
-		// We need to decide if that's good enough to declare success (and how to communicate the error).
+		// TODO(dtantsur): at this point, inventoryData may be partially constructed and contain useful information
+		// (see https://pkg.go.dev/encoding/json#Unmarshal for details on this behavior).
+		// Until we decide if that's good enough to declare success (and how to communicate the error),
+		// report a fatal failure since it's not going to improve on retry.
 		p.log.Error(err, "unable to parse inventory JSON as InventoryData; it can be a bug in Ironic or GopherCloud")
 		result, err = operationFailed("Unable to parse inventory JSON, cannot finish inspection")
 		return inventoryData, result, err

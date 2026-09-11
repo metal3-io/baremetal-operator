@@ -16,7 +16,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/hardwaredetails"
 )
 
-func (p *ironicProvisioner) abortInspection(ctx context.Context, ironicNode *nodes.Node) (result provisioner.Result, started bool, details *metal3api.HardwareDetails, err error) {
+func (p *ironicProvisioner) abortInspection(ctx context.Context, ironicNode *nodes.Node) (result provisioner.Result, started bool, err error) {
 	// Set started to let the controller know about the change
 	p.log.Info("aborting inspection to force reboot of preprovisioning image")
 	started, result, err = p.tryChangeNodeProvisionState(
@@ -101,7 +101,8 @@ func (p *ironicProvisioner) InspectHardware(ctx context.Context, data provisione
 		return result, started, details, err
 	case nodes.InspectWait:
 		if forceReboot {
-			return p.abortInspection(ctx, ironicNode)
+			result, started, err = p.abortInspection(ctx, ironicNode)
+			return result, started, details, err
 		}
 
 		fallthrough

@@ -54,7 +54,7 @@ export GOFLAGS=
 # Note that some tests may not make sense for fixture, so we skip them.
 GINKGO_FOCUS ?=
 GINKGO_SKIP ?=
-GINKGO_SKIP_LABELS ?= automated-cleaning
+GINKGO_SKIP_LABELS ?= (automated-cleaning || scalability)
 GINKGO_NODES ?= 2
 GINKGO_TIMEOUT ?= 3h
 GINKGO_POLL_PROGRESS_AFTER ?= 60m

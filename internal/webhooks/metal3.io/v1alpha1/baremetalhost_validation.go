@@ -176,8 +176,13 @@ func validateRAID(host *metal3api.BareMetalHost) []error {
 	var errs []error
 	r := host.Spec.RAID
 
+	if host.Spec.Image != nil && host.Spec.Image.RootFilesystemUUID != nil &&
+		(r == nil || len(r.SoftwareRAIDVolumes) == 0) {
+		errs = append(errs, errors.New("image.rootFilesystemUUID can only be set when softwareRAIDVolumes is configured"))
+	}
+
 	if r == nil {
-		return nil
+		return errs
 	}
 
 	// check if both hardware and software RAID are specified

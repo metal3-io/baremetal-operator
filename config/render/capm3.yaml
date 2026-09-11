@@ -3651,7 +3651,6 @@ spec:
       containers:
       - args:
         - --enable-leader-election
-        - --hostclaims
         command:
         - /baremetal-operator
         env:

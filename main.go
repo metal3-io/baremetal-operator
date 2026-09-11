@@ -207,7 +207,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&preprovImgEnable, "build-preprov-image", false, "enable integration with the PreprovisioningImage API")
-	flag.BoolVar(&hostClaimsEnable, "hostclaims", false, "enable HostClaims controller")
+	flag.BoolVar(&hostClaimsEnable, "hostclaims", true, "enable HostClaims controller (feature gate 'HostClaims' must be enabled)")
 	flag.BoolVar(&devLogging, "dev", false, "enable developer logging")
 	flag.StringVar(&provisionerName, "provisioner", defaultProvisionerName,
 		"Name of the provisioner plugin to load. Resolves to "+
@@ -480,7 +480,9 @@ func main() {
 		}
 	}
 
-	if hostClaimsEnable {
+	// No reason to run hostClaim controller unless the feature gate is enabled.
+	// If the feature gate is enabled then the default is to run the controller.
+	if hostClaimsEnable && features.CurrentFeatureGate.Enabled(features.FeatureHostClaims) {
 		if err = (&metal3iocontroller.HostClaimReconciler{
 			Client:              mgr.GetClient(),
 			Log:                 ctrl.Log.WithName("controllers").WithName("HostClaim"),

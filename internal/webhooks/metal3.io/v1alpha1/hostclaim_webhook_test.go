@@ -20,14 +20,17 @@ import (
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	featuregatetesting "k8s.io/component-base/featuregate/testing"
 )
 
 func TestHostClaimCreate(t *testing.T) {
 	tests := []struct {
-		name      string
-		hostclaim *metal3api.HostClaim
-		wantedErr string
+		name               string
+		hostclaim          *metal3api.HostClaim
+		featureGateEnabled bool
+		wantedErr          string
 	}{
 		{
 			name: "valid",
@@ -38,7 +41,8 @@ func TestHostClaimCreate(t *testing.T) {
 				Name:      "test",
 				Namespace: "test-namespace",
 			}, Spec: metal3api.HostClaimSpec{}},
-			wantedErr: "",
+			featureGateEnabled: true,
+			wantedErr:          "",
 		},
 		{
 			name: "invalid-bad-label-selector",
@@ -53,7 +57,20 @@ func TestHostClaimCreate(t *testing.T) {
 					MatchLabels: map[string]string{"-bad-key-": "v"},
 				},
 			}},
-			wantedErr: "-bad-key-=v: name part must consist",
+			featureGateEnabled: true,
+			wantedErr:          "-bad-key-=v: name part must consist",
+		},
+		{
+			name: "feature gate disabled",
+			hostclaim: &metal3api.HostClaim{TypeMeta: metav1.TypeMeta{
+				Kind:       "HostClaim",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.HostClaimSpec{}},
+			featureGateEnabled: false,
+			wantedErr:          "HostClaims are an experimental feature",
 		},
 	}
 
@@ -61,6 +78,7 @@ func TestHostClaimCreate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			webhook := &HostClaimWebhook{}
 			ctx := t.Context()
+			featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureHostClaims, tt.featureGateEnabled)
 			if _, err := webhook.ValidateCreate(ctx, tt.hostclaim); !errorContains(err, tt.wantedErr) {
 				t.Errorf("HostClaim.ValidateCreate() error = %v, wantErr %v", err, tt.wantedErr)
 			}
@@ -70,9 +88,10 @@ func TestHostClaimCreate(t *testing.T) {
 
 func TestHostClaimUpdate(t *testing.T) {
 	tests := []struct {
-		name      string
-		hostclaim *metal3api.HostClaim
-		wantedErr string
+		name               string
+		hostclaim          *metal3api.HostClaim
+		featureGateEnabled bool
+		wantedErr          string
 	}{
 		{
 			name: "valid",
@@ -83,7 +102,20 @@ func TestHostClaimUpdate(t *testing.T) {
 				Name:      "test",
 				Namespace: "test-namespace",
 			}, Spec: metal3api.HostClaimSpec{}},
-			wantedErr: "",
+			featureGateEnabled: true,
+			wantedErr:          "",
+		},
+		{
+			name: "feature gate not enabled",
+			hostclaim: &metal3api.HostClaim{TypeMeta: metav1.TypeMeta{
+				Kind:       "HostClaim",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.HostClaimSpec{}},
+			featureGateEnabled: false,
+			wantedErr:          "HostClaims are an experimental feature",
 		},
 	}
 
@@ -91,6 +123,7 @@ func TestHostClaimUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			webhook := &HostClaimWebhook{}
 			ctx := t.Context()
+			featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureHostClaims, tt.featureGateEnabled)
 			// We do not really test on oldObj as it is ignored
 			if _, err := webhook.ValidateUpdate(ctx, nil, tt.hostclaim); !errorContains(err, tt.wantedErr) {
 				t.Errorf("HostClaim.ValidateUpdate() error = %v, wantErr %v", err, tt.wantedErr)

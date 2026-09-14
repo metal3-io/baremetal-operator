@@ -153,10 +153,10 @@ func (r *BareMetalHostReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		}
 	}
 
-	hostData, hardwareData, err := r.reconcileHostData(ctx, host, request)
+	changed, hardwareData, err := r.reconcileHostData(ctx, host, request)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("could not reconcile host data: %w", err)
-	} else if hostData.Requeue {
+	} else if changed {
 		return simpleRequeue(), nil
 	}
 
@@ -2694,7 +2694,7 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 	return controller.Complete(r)
 }
 
-func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *metal3api.BareMetalHost, request ctrl.Request) (result ctrl.Result, hardwareData *metal3api.HardwareData, err error) {
+func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *metal3api.BareMetalHost, request ctrl.Request) (changed bool, hardwareData *metal3api.HardwareData, err error) {
 	reqLogger := r.Log.WithValues(LogFieldHost, request.NamespacedName)
 
 	// Fetch the HardwareData
@@ -2714,7 +2714,7 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 			controllerutil.RemoveFinalizer(hardwareData, hardwareDataFinalizer)
 			reqLogger.V(VerbosityLevelDebug).Info("removing finalizer from hardwareData")
 			if err := r.Update(ctx, hardwareData); err != nil {
-				return ctrl.Result{}, hardwareData, fmt.Errorf("failed to remove hardwareData finalizer: %w", err)
+				return false, hardwareData, fmt.Errorf("failed to remove hardwareData finalizer: %w", err)
 			}
 		}
 		reqLogger.V(VerbosityLevelDebug).Info("hardwareData is ready to be deleted")
@@ -2742,9 +2742,9 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 			}
 			errStatus := r.Status().Update(ctx, host)
 			if errStatus != nil {
-				return ctrl.Result{}, hardwareData, fmt.Errorf("could not restore status from annotation: %w", errStatus)
+				return false, hardwareData, fmt.Errorf("could not restore status from annotation: %w", errStatus)
 			}
-			return simpleRequeue(), hardwareData, nil
+			return true, hardwareData, nil
 		}
 		reqLogger.V(VerbosityLevelDebug).Info("no status cache found")
 	}
@@ -2755,10 +2755,10 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 		delete(annotations, metal3api.StatusAnnotation)
 		errStatus := r.Update(ctx, host)
 		if errStatus != nil {
-			return ctrl.Result{}, hardwareData, fmt.Errorf("could not delete status annotation: %w", errStatus)
+			return false, hardwareData, fmt.Errorf("could not delete status annotation: %w", errStatus)
 		}
 		reqLogger.V(VerbosityLevelDebug).Info("deleted status annotation")
-		return simpleRequeue(), hardwareData, nil
+		return true, hardwareData, nil
 	}
 
 	if host.Spec.Architecture == "" && hardwareData != nil && hardwareData.Spec.HardwareDetails != nil && hardwareData.Spec.HardwareDetails.CPU.Arch != "" {
@@ -2767,9 +2767,9 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 			"architecture", newArch)
 		host.Spec.Architecture = newArch
 		if err := r.Client.Update(ctx, host); err != nil {
-			return ctrl.Result{}, hardwareData, fmt.Errorf("failed to update architecture: %w", err)
+			return false, hardwareData, fmt.Errorf("failed to update architecture: %w", err)
 		}
-		return simpleRequeue(), hardwareData, nil
+		return true, hardwareData, nil
 	}
-	return ctrl.Result{}, hardwareData, nil
+	return false, hardwareData, nil
 }

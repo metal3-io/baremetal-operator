@@ -1,14 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- https://github.com/metal3-io/baremetal-operator/config/namespace?ref=release-0.11
-- https://github.com/metal3-io/baremetal-operator/config/default?ref=release-0.11
+- https://github.com/metal3-io/baremetal-operator/config/namespace?ref=release-0.14
+- https://github.com/metal3-io/baremetal-operator/config/default?ref=release-0.14
 patches:
 - patch: |
     # Enable test mode (fixture provider instead of ironic)
     - op: add
       path: /spec/template/spec/containers/0/args/-
-      value: --test-mode
+      value: -provisioner=fixture
     # Don't try to pull again the pre-loaded image
     - op: replace
       path: /spec/template/spec/containers/0/imagePullPolicy
@@ -18,4 +18,4 @@ patches:
     name: controller-manager
 images:
 - name: quay.io/metal3-io/baremetal-operator
-  newTag: release-0.11
+  newTag: release-0.14

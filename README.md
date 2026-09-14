@@ -54,15 +54,24 @@ For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
 **Main branch:**
 
 - **/test metal3-centos-e2e-integration-test-main** runs CAPM3 e2e integration
-  tests with CAPM3 main branch and BMO **main** branch on Centos
+  tests with CAPM3 main branch and BMO **main** branch on CentOS
 - **/test metal3-ubuntu-e2e-integration-test-main** runs ansible integration
   tests with CAPM3 main branch and BMO **main** branch on Ubuntu
+
+**Release-0.14 branch:**
+
+- **/test metal3-centos-e2e-integration-test-release-1-14** runs CAPM3 e2e
+  integration tests with CAPM3 release-1.14 branch and BMO **release-0.14**
+  branch on CentOS
+- **/test metal3-ubuntu-e2e-integration-test-release-1-14** runs ansible
+  integration tests with CAPM3 release-1.14 branch and BMO **release-0.14**
+  branch on Ubuntu
 
 **Release-0.13 branch:**
 
 - **/test metal3-centos-e2e-integration-test-release-1-13** runs CAPM3 e2e
   integration tests with CAPM3 release-1.13 branch and BMO **release-0.13**
-  branch on Centos
+  branch on CentOS
 - **/test metal3-ubuntu-e2e-integration-test-release-1-13** runs ansible
   integration tests with CAPM3 release-1.13 branch and BMO **release-0.13**
   branch on Ubuntu
@@ -71,18 +80,9 @@ For more details on the e2e tests, see [test/e2e/README.md](test/e2e/README.md).
 
 - **/test metal3-centos-e2e-integration-test-release-1-12** runs CAPM3 e2e
   integration tests with CAPM3 release-1.12 branch and BMO **release-0.12**
-  branch on Centos
+  branch on CentOS
 - **/test metal3-ubuntu-e2e-integration-test-release-1-12** runs ansible
   integration tests with CAPM3 release-1.12 branch and BMO **release-0.12**
-  branch on Ubuntu
-
-**Release-0.11 branch:**
-
-- **/test metal3-centos-e2e-integration-test-release-1-11** runs CAPM3 e2e
-  integration tests with CAPM3 release-1.11 branch and BMO **release-0.11**
-  branch on Centos
-- **/test metal3-ubuntu-e2e-integration-test-release-1-11** runs ansible
-  integration tests with CAPM3 release-1.11 branch and BMO **release-0.11**
   branch on Ubuntu
 
 ### Important Notes

@@ -18,7 +18,7 @@ jobs:
         - redfish
         - redfish-virtualmedia
         - ipmi
-    uses: ./.github/workflows/e2e-test.yml
+    uses: $/.github/workflows/e2e-test.yml
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}
     permissions:

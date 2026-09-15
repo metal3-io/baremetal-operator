@@ -712,6 +712,16 @@ type Image struct {
 	// as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
 	// Only used when Image.URL has the oci:// scheme.
 	OCIAuthSecretName *string `json:"ociAuthSecretName,omitempty"`
+
+	// RootFilesystemUUID identifies the root filesystem of a whole-disk
+	// image, by its filesystem UUID. Required when deploying a whole-disk
+	// image onto a host with software RAID configured, since the root
+	// filesystem is assembled from multiple disks and Ironic's deploy
+	// process needs this UUID to locate it and correctly reinstall a
+	// RAID-aware bootloader afterwards. Not needed for plain (non-RAID)
+	// deploys.
+	// +optional
+	RootFilesystemUUID *string `json:"rootFilesystemUUID,omitempty"`
 }
 
 func (image *Image) IsLiveISO() bool {

@@ -11,7 +11,9 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -163,6 +165,71 @@ func TestProvisioningCapacity(t *testing.T) {
 				}
 				assert.Greater(t, promutil.ToFloat64(counter), initialCounterValue)
 			}
+		})
+	}
+}
+
+func TestNetworkInterfacesProvisioningGate(t *testing.T) {
+	dummyNICs := []metal3api.NetworkInterface{{Name: "eno1"}}
+
+	testCases := []struct {
+		Scenario                  string
+		Host                      *metal3api.BareMetalHost
+		ExpectedProvisioningState metal3api.ProvisioningState
+	}{
+		{
+			Scenario:                  "no-network-interfaces-provisions",
+			Host:                      host(metal3api.StateAvailable).SaveHostProvisioningSettings().build(),
+			ExpectedProvisioningState: metal3api.StateProvisioning,
+		},
+		{
+			Scenario: "valid-condition-true-provisions",
+			Host: host(metal3api.StateAvailable).SaveHostProvisioningSettings().
+				SetNetworkInterfaces(dummyNICs).
+				SetHardwareDetails(&metal3api.HardwareDetails{
+					NIC: []metal3api.NIC{{Name: "eno1", MAC: "aa:bb:cc:dd:ee:ff"}},
+				}).
+				SetCondition(metal3api.NetworkInterfacesValidCondition, metav1.ConditionTrue,
+					"AllInterfacesValid", "All network interfaces and attachments are valid").
+				build(),
+			ExpectedProvisioningState: metal3api.StateProvisioning,
+		},
+		{
+			Scenario: "valid-condition-false-blocks",
+			Host: host(metal3api.StateAvailable).SaveHostProvisioningSettings().
+				SetNetworkInterfaces(dummyNICs).
+				SetCondition(metal3api.NetworkInterfacesValidCondition, metav1.ConditionFalse, "Invalid", "bad config").
+				build(),
+			ExpectedProvisioningState: metal3api.StateAvailable,
+		},
+		{
+			Scenario: "valid-condition-unknown-blocks",
+			Host: host(metal3api.StateAvailable).SaveHostProvisioningSettings().
+				SetNetworkInterfaces(dummyNICs).
+				SetCondition(metal3api.NetworkInterfacesValidCondition, metav1.ConditionUnknown, "Pending", "validating").
+				build(),
+			ExpectedProvisioningState: metal3api.StateAvailable,
+		},
+		{
+			Scenario: "missing-condition-blocks",
+			Host: host(metal3api.StateAvailable).SaveHostProvisioningSettings().
+				SetNetworkInterfaces(dummyNICs).
+				build(),
+			ExpectedProvisioningState: metal3api.StateAvailable,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			prov := newMockProvisioner()
+			prov.setHasCapacity(true)
+			reconciler := testNewReconciler(tc.Host)
+			hsm := newHostStateMachine(tc.Host, reconciler, prov, true)
+			info := makeDefaultReconcileInfo(tc.Host)
+
+			hsm.ReconcileState(t.Context(), info)
+
+			assert.Equal(t, tc.ExpectedProvisioningState, tc.Host.Status.Provisioning.State)
 		})
 	}
 }
@@ -1313,11 +1380,36 @@ func (hb *hostBuilder) setDetached(val string) *hostBuilder {
 	return hb
 }
 
+func (hb *hostBuilder) SetNetworkInterfaces(nics []metal3api.NetworkInterface) *hostBuilder {
+	hb.Spec.NetworkInterfaces = nics
+	return hb
+}
+
+func (hb *hostBuilder) SetHardwareDetails(details *metal3api.HardwareDetails) *hostBuilder {
+	hb.Status.HardwareDetails = details
+	return hb
+}
+
+func (hb *hostBuilder) SetCondition(condType string, status metav1.ConditionStatus, reason, message string) *hostBuilder {
+	meta.SetStatusCondition(&hb.Status.Conditions, metav1.Condition{
+		Type:    condType,
+		Status:  status,
+		Reason:  reason,
+		Message: message,
+	})
+	return hb
+}
+
 func makeDefaultReconcileInfo(host *metal3api.BareMetalHost) *reconcileInfo {
 	return &reconcileInfo{
 		log:     logf.Log.WithName("controllers").WithName("BareMetalHost").WithName("host_state_machine"),
 		host:    host,
 		request: ctrl.Request{},
+		hardwareData: &metal3api.HardwareData{
+			Spec: metal3api.HardwareDataSpec{
+				HardwareDetails: host.Status.HardwareDetails,
+			},
+		},
 		bmcCredsSecret: &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            host.Status.GoodCredentials.Reference.Name,
@@ -1463,6 +1555,41 @@ func (p *mockProvisioner) HasPowerFailure(_ context.Context) bool {
 
 func (p *mockProvisioner) GetHealth(_ context.Context) string {
 	return ""
+}
+
+func TestHandleAvailableBlocksProvisioningWhenNIInvalid(t *testing.T) {
+	theHost := host(metal3api.StateAvailable).build()
+
+	theHost.Spec.NetworkInterfaces = []metal3api.NetworkInterface{
+		{Name: "eth0", HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: "missing-hna"}},
+	}
+	theHost.Spec.Image = &metal3api.Image{URL: "http://example.com/image"}
+	theHost.Status.Provisioning.Image = metal3api.Image{}
+	theHost.Status.HardwareDetails = &metal3api.HardwareDetails{
+		NIC: []metal3api.NIC{
+			{Name: "eth0", MAC: "00:11:22:33:44:55"},
+		},
+	}
+	// Simulate state after initial Preparing cycle set the condition
+	theHost.Status.Conditions = append(theHost.Status.Conditions, metav1.Condition{
+		Type:   metal3api.NetworkInterfacesValidCondition,
+		Status: metav1.ConditionFalse,
+		Reason: "AttachmentNotFound",
+	})
+
+	prov := newMockProvisioner()
+	reconciler := testNewReconciler(theHost)
+	hsm := newHostStateMachine(theHost, reconciler, prov, true)
+	info := makeDefaultReconcileInfo(theHost)
+
+	hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateAvailable, hsm.NextState, "should remain in Available when NI validation is False")
+
+	cond := meta.FindStatusCondition(theHost.Status.Conditions, metal3api.NetworkInterfacesValidCondition)
+	require.NotNil(t, cond)
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, "AttachmentNotFound", cond.Reason)
 }
 
 func TestUpdateBootModeStatus(t *testing.T) {

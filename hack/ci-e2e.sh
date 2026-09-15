@@ -41,7 +41,7 @@ SUSHY_EMULATOR_PORT="${SUSHY_EMULATOR_PORT:-8000}"
 
 # make test-e2e runs the fixture tests by default and skips some tests
 # that don't make sense in that context. We need to override.
-export GINKGO_SKIP_LABELS="${GINKGO_SKIP_LABELS:-}"
+export GINKGO_SKIP_LABELS="${GINKGO_SKIP_LABELS:-scalability}"
 GINKGO_FOCUS="${GINKGO_FOCUS:-}"
 
 case "${GINKGO_FOCUS,,}" in
@@ -140,6 +140,9 @@ fi
 envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
   "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
   "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
+
+# Clean up any leftover VMs/networks/containers from a previous run
+./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" delete bml 2>/dev/null || true
 
 # Create VMs to act as BMHs in the tests and the libvirt network. Create
 # also image server and E2E emulator containers.

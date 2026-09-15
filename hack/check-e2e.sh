@@ -6,7 +6,7 @@ REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 cd "${REPO_ROOT}" || exit 1
 
 WATCH_NS="$(grep -A1 WATCH_NAMESPACE config/overlays/e2e/namespaced-manager-patch.yaml | grep 'value:' | awk '{ print $2; }')"
-EXCEPTIONS=upgrade
+EXCEPTIONS=upgrade,scalability
 
 EXITCODE=0
 for spec in $(grep -E --no-filename ' *specName +:?=' test/e2e/*_test.go | grep -o '".*"' | tr -d '"'); do

@@ -6,7 +6,9 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 
+	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	"github.com/spf13/cobra"
 )
@@ -89,13 +91,28 @@ func newConfigViewCmd() *cobra.Command {
 			}
 
 			if cfg.Spec.BMCEmulator != nil {
+				var sushyConfig *vbmctlapi.SushyToolsConfig
+
+				if cfg.Spec.BMCEmulator.Type == vbmctlapi.BMCEmulatorTypeSushyTools {
+					sushyConfig = &cfg.Spec.BMCEmulator.SushyToolsConfig
+				}
 				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("BMC Emulator:\n  Emulator Type: %s\n  Config File: %s\n  Image: %s\n  Listen Address: %s\n  Listen Port: %d\n",
+				fmt.Printf("BMC Emulator:\n  Emulator Type: %s\n  Image: %s\n",
 					cfg.Spec.BMCEmulator.Type,
-					cfg.Spec.BMCEmulator.ConfigFile,
-					cfg.Spec.BMCEmulator.Image,
-					cfg.Spec.BMCEmulator.ListenAddress,
-					cfg.Spec.BMCEmulator.ListenPort)
+					cfg.Spec.BMCEmulator.Image)
+
+				if sushyConfig != nil {
+					//nolint:forbidigo // CLI output is intentional
+					fmt.Printf("  Config File: %s\n  Listening: %s%s\n",
+						sushyConfig.ConfigFile,
+						sushyConfig.ListenAddress,
+						func() string {
+							if sushyConfig.ListenPort == 0 {
+								return ""
+							}
+							return ":" + strconv.FormatUint(uint64(sushyConfig.ListenPort), 10)
+						}())
+				}
 			}
 
 			return nil

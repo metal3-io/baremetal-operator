@@ -8,33 +8,35 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	bmclib "github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 )
 
 // BMC defines connection details for a baseboard management controller.
+// Tagged for json because the nested API types carry json tags only, and a
+// yaml.v2 decode lowercases untagged names, reading deviceName as empty.
 type BMC struct {
 	// User is the username for accessing the BMC.
-	User string `yaml:"user,omitempty"`
+	User string `json:"user,omitempty"`
 	// Password is the password for accessing the BMC.
-	Password string `yaml:"password,omitempty"`
+	Password string `json:"password,omitempty"`
 	// Address of the BMC, e.g. "redfish-virtualmedia+http://192.168.222.1:8000/redfish/v1/Systems/bmo-e2e-1".
-	Address string `yaml:"address,omitempty"`
+	Address string `json:"address,omitempty"`
 	// DisableCertificateVerification indicates whether to disable certificate verification for the BMC connection.
-	DisableCertificateVerification bool `yaml:"disableCertificateVerification,omitempty"`
+	DisableCertificateVerification bool `json:"disableCertificateVerification,omitempty"`
 	// BootMacAddress is the MAC address of the BMHs network interface.
-	BootMacAddress string `yaml:"bootMacAddress,omitempty"`
+	BootMacAddress string `json:"bootMacAddress,omitempty"`
 	// BootMode is the boot mode for the BareMetalHost, e.g. "UEFI" or "legacy".
-	BootMode metal3api.BootMode `yaml:"bootMode,omitempty"`
+	BootMode metal3api.BootMode `json:"bootMode,omitempty"`
 	// Name of the machine associated with this BMC.
-	Name string `yaml:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 	// IPAddress is a reserved IP address for the BMH managed through this BMC.
 	// This is used in tests that make ssh connections to the BMH.
 	// Example: 192.168.222.122
-	IPAddress string `yaml:"ipAddress,omitempty"`
+	IPAddress string `json:"ipAddress,omitempty"`
 	// RootDeviceHints provides guidance for where to write the disk image.
-	RootDeviceHints metal3api.RootDeviceHints `yaml:"rootDeviceHints,omitempty"`
-	// AccessDetails is a parsed version of Address.
-	AccessDetails bmclib.AccessDetails
+	RootDeviceHints metal3api.RootDeviceHints `json:"rootDeviceHints,omitempty"`
+	// AccessDetails is a parsed version of Address, never read from the file.
+	AccessDetails bmclib.AccessDetails `json:"-"`
 }
 
 func LoadBMCConfig(configPath string) ([]BMC, error) {

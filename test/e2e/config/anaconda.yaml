@@ -1,0 +1,57 @@
+images:
+# Built by "make docker" and then "make docker-build-anaconda-e2e"
+- name: quay.io/metal3-io/baremetal-operator:e2e-anaconda
+  loadBehavior: tryLoad
+- name: quay.io/jetstack/cert-manager-cainjector:v1.19.2
+  loadBehavior: tryLoad
+- name: quay.io/jetstack/cert-manager-webhook:v1.19.2
+  loadBehavior: tryLoad
+- name: quay.io/jetstack/cert-manager-controller:v1.19.2
+  loadBehavior: tryLoad
+
+# These variables can be overridden with environment variables.
+variables:
+  # Anaconda talks to the BMC over Redfish and needs no Ironic at all.
+  DEPLOY_IRONIC: "false"
+  DEPLOY_BMO: "true"
+  DEPLOY_CERT_MANAGER: "true"
+  BMO_KUSTOMIZATION: "../../config/overlays/anaconda"
+
+  # Upgrade tests do not apply to this lane, they are filtered out by focus.
+  UPGRADE_DEPLOY_CERT_MANAGER: "true"
+  UPGRADE_DEPLOY_IRSO: "false"
+  UPGRADE_USE_EXISTING_CLUSTER: "false"
+
+  # What the anaconda spec keys off. Without it the spec skips, which is how it
+  # stays inert in the ironic and fixture lanes.
+  PROVISIONER: "anaconda"
+  # Has to match ANACONDA_BASE_URL in config/overlays/anaconda
+  ANACONDA_BASE_URL: "http://baremetal-operator-anaconda.baremetal-operator-system.svc.cluster.local:9080"
+  # Path segment of the /ks/ route. Anaconda uses it only as the template name.
+  ANACONDA_KICKSTART_ID: "kickstart"
+
+  ISO_IMAGE_URL: "http://192.168.222.1/minimal_linux_live-v2.iso"
+  CERT_MANAGER_VERSION: "v1.19.2"
+  # No user data is delivered, so there is no key to log in with.
+  SSH_CHECK_PROVISIONED: "false"
+  FETCH_IRONIC_NODES: "false"
+  IRONIC_PROVISIONING_IP: "192.168.222.2"
+  # Boot mode can be legacy, UEFI or UEFISecureBoot
+  BOOT_MODE: "UEFI"
+
+  NAMESPACE_SCOPED: "false"
+
+intervals:
+  default/wait-registering: [ "2m", "5s" ]
+  default/wait-inspecting: [ "2m", "5s" ]
+  default/wait-deployment: [ "10m", "1s" ]
+  default/wait-namespace-deleted: [ "10m", "1s" ]
+  default/wait-available: [ "10m", "5s" ]
+  # Anaconda requeues power and media transitions every 15s
+  default/wait-provisioning: [ "5m", "5s" ]
+  # Covers the install timeout plus the shutdown, eject and boot back off disk
+  default/wait-provisioned: [ "15m", "5s" ]
+  default/wait-deprovisioning: [ "5m", "5s" ]
+  default/wait-deleted: [ "1m", "1s" ]
+  default/wait-bmh-deleted: [ "6m", "10s" ]
+  default/wait-secret-deletion: [ "1m", "1s" ]

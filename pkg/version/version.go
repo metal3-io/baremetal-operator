@@ -1,5 +1,5 @@
 // Package version includes the version information.
-package version //nolint:revive
+package version //nolint:revive // var-naming: version is the intended package name for this module
 
 var (
 	// Raw is the string representation of the version. This will be replaced

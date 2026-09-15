@@ -20,8 +20,14 @@ import (
 	"k8s.io/component-base/featuregate"
 )
 
+const (
+	FeatureHostClaims featuregate.Feature = "HostClaims"
+)
+
 var (
-	availableFeatures = map[featuregate.Feature]featuregate.FeatureSpec{}
+	availableFeatures = map[featuregate.Feature]featuregate.FeatureSpec{
+		FeatureHostClaims: {Default: false, PreRelease: featuregate.Alpha},
+	}
 
 	CurrentFeatureGate = featuregate.NewFeatureGate()
 )

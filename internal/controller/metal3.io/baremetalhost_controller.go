@@ -29,9 +29,12 @@ import (
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
+	"github.com/metal3-io/baremetal-operator/pkg/firmwarecomponents"
+	"github.com/metal3-io/baremetal-operator/pkg/firmwaresettings"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	. "github.com/metal3-io/baremetal-operator/pkg/logging"
+	"github.com/metal3-io/baremetal-operator/pkg/mgrutils"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	"github.com/prometheus/client_golang/prometheus"
@@ -1039,12 +1042,14 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 				firmwareComponents = nil
 			}
 
-			if err = r.createHostFirmwareSettings(ctx, info); err != nil {
+			fsm := firmwaresettings.NewManager(r.Client, r.Scheme(), info.log)
+			if err = fsm.EnsureSettings(ctx, info.host); err != nil {
 				info.log.Info("failed creating hostfirmwaresettings")
 				return actionError{fmt.Errorf("failed to create or update hostFirmwareSettings: %w", err)}
 			}
 			if len(firmwareComponents) > 0 {
-				if err = r.createHostFirmwareComponents(ctx, info); err != nil {
+				fcm := firmwarecomponents.NewManager(r.Client, r.Scheme(), prov, info.log)
+				if err = fcm.EnsureComponents(ctx, info.host); err != nil {
 					info.log.Info("failed creating hostfirmwarecomponents")
 					return actionError{fmt.Errorf("failed creating hostFirmwareComponents: %w", err)}
 				}
@@ -1279,22 +1284,6 @@ func (r *BareMetalHostReconciler) matchProfile(info *reconcileInfo) (dirty bool,
 	return
 }
 
-func getUpdatesDifference(specUpdates []metal3api.FirmwareUpdate, statusUpdates []metal3api.FirmwareUpdate) []metal3api.FirmwareUpdate {
-	diff := []metal3api.FirmwareUpdate{}
-	// Mapping already updated components
-	updated := make(map[string]string, len(statusUpdates))
-	for _, s := range statusUpdates {
-		updated[s.Component] = s.URL
-	}
-
-	for _, firmware := range specUpdates {
-		if _, ok := updated[firmware.Component]; !ok || firmware.URL != updated[firmware.Component] {
-			diff = append(diff, firmware)
-		}
-	}
-	return diff
-}
-
 func (r *BareMetalHostReconciler) actionPreparing(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.V(VerbosityLevelTrace).Info("actionPreparing started")
 
@@ -1315,10 +1304,13 @@ func (r *BareMetalHostReconciler) actionPreparing(ctx context.Context, prov prov
 		bmhDirty = true
 	}
 
+	fsm := firmwaresettings.NewManager(r.Client, r.Scheme(), info.log)
+	fcm := firmwarecomponents.NewManager(r.Client, r.Scheme(), prov, info.log)
+
 	// The hfsDirty flag is used to push the new settings to Ironic as part of the clean steps.
 	// The HFS Status field will be updated in the HostFirmwareSettingsReconciler when it reads the settings from Ironic.
 	// After manual cleaning is complete the HFS Spec should match the Status.
-	hfsDirty, hfs, err := r.getHostFirmwareSettings(ctx, info)
+	hfsDirty, hfs, err := fsm.GetSettingsChanges(ctx, info.host)
 
 	if err != nil {
 		// wait until hostFirmwareSettings are ready
@@ -1332,7 +1324,7 @@ func (r *BareMetalHostReconciler) actionPreparing(ctx context.Context, prov prov
 	// The hfcDirty flag is used to push the new versions of components to Ironic as part of the clean steps.
 	// The HFC Status field will be updated in the HostFirmwareComponentsReconciler when it reads the settings from Ironic.
 	// After manual cleaning is complete the HFC Spec should match the Status.
-	hfcDirty, hfc, err := r.getHostFirmwareComponents(ctx, info)
+	hfcDirty, hfc, err := fcm.GetComponentsChanges(ctx, info.host)
 
 	if err != nil {
 		// wait until hostFirmwareComponents are ready
@@ -1341,7 +1333,7 @@ func (r *BareMetalHostReconciler) actionPreparing(ctx context.Context, prov prov
 	if hfcDirty {
 		// Handle only Firmware Component that it is in hfc.Spec.Updates but not in hfc.Status.Updates.
 		if hfc.Status.Updates != nil {
-			prepareData.TargetFirmwareComponents = getUpdatesDifference(hfc.Spec.Updates, hfc.Status.Updates)
+			prepareData.TargetFirmwareComponents = firmwarecomponents.GetUpdatesDifference(hfc.Spec.Updates, hfc.Status.Updates)
 		} else {
 			prepareData.TargetFirmwareComponents = hfc.Spec.Updates
 		}
@@ -1359,28 +1351,14 @@ func (r *BareMetalHostReconciler) actionPreparing(ctx context.Context, prov prov
 			info.log.V(VerbosityLevelDebug).Info("handling cleaning error in controller")
 			clearHostProvisioningSettings(info.host)
 		}
-		if hfcDirty && hfc.Status.Updates != nil {
-			info.log.Info("handling cleaning error during firmware update")
-			hfc.Status.Updates = nil
-			if err := r.Status().Update(ctx, hfc); err != nil {
-				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
-			}
+		if err := fcm.ApplyError(ctx, hfc, hfcDirty); err != nil {
+			return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 		}
 		return recordActionFailure(info, metal3api.PreparationError, provResult.ErrorMessage)
 	}
 
-	if hfcDirty && started {
-		hfcStillDirty, err := r.saveHostFirmwareComponents(ctx, prov, info, hfc)
-		if err != nil {
-			return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
-		}
-
-		if hfcStillDirty {
-			info.log.V(VerbosityLevelDebug).Info("going to update the host firmware components")
-			if err := r.Status().Update(ctx, hfc); err != nil {
-				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
-			}
-		}
+	if err := fcm.ApplyResult(ctx, hfc, hfcDirty, started); err != nil {
+		return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
 	}
 
 	if bmhDirty && started {
@@ -1576,11 +1554,14 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 		liveFirmwareUpdatesAllowed = (hup.Spec.FirmwareUpdates == metal3api.HostUpdatePolicyOnReboot)
 	}
 
+	fsm := firmwaresettings.NewManager(r.Client, r.Scheme(), info.log)
+	fcm := firmwarecomponents.NewManager(r.Client, r.Scheme(), prov, info.log)
+
 	if liveFirmwareSettingsAllowed {
 		// handling HFS based FirmwareSettings here
 		var hfs *metal3api.HostFirmwareSettings
 		var err error
-		hfsDirty, hfs, err = r.getHostFirmwareSettings(ctx, info)
+		hfsDirty, hfs, err = fsm.GetSettingsChanges(ctx, info.host)
 		if err != nil {
 			return actionError{fmt.Errorf("could not determine updated settings: %w", err)}
 		}
@@ -1594,14 +1575,14 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 
 	if liveFirmwareUpdatesAllowed {
 		var err error
-		hfcDirty, hfc, err = r.getHostFirmwareComponents(ctx, info)
+		hfcDirty, hfc, err = fcm.GetComponentsChanges(ctx, info.host)
 		if err != nil {
 			return actionError{fmt.Errorf("could not determine firmware components: %w", err)}
 		}
 		if hfcDirty {
 			// Handle only Firmware Component that it is in hfc.Spec.Updates but not in hfc.Status.Updates.
 			if hfc.Status.Updates != nil {
-				servicingData.TargetFirmwareComponents = getUpdatesDifference(hfc.Spec.Updates, hfc.Status.Updates)
+				servicingData.TargetFirmwareComponents = firmwarecomponents.GetUpdatesDifference(hfc.Spec.Updates, hfc.Status.Updates)
 			} else {
 				servicingData.TargetFirmwareComponents = hfc.Spec.Updates
 			}
@@ -1636,11 +1617,8 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 	}
 	if provResult.ErrorMessage != "" {
 		info.host.Status.Provisioning.Firmware = nil
-		if hfcDirty && hfc.Status.Updates != nil {
-			hfc.Status.Updates = nil
-			if err = r.Status().Update(ctx, hfc); err != nil {
-				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
-			}
+		if err := fcm.ApplyError(ctx, hfc, hfcDirty); err != nil {
+			return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
 		}
 		result = recordActionFailure(info, metal3api.ServicingError, provResult.ErrorMessage)
 		return result
@@ -1648,17 +1626,8 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 
 	dirty := clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing)
 
-	if hfcDirty && started {
-		hfcDirty, err = r.saveHostFirmwareComponents(ctx, prov, info, hfc)
-		if err != nil {
-			return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
-		}
-
-		if hfcDirty {
-			if err := r.Status().Update(ctx, hfc); err != nil {
-				return actionError{fmt.Errorf("failed to update hostfirmwarecomponents status: %w", err)}
-			}
-		}
+	if err := fcm.ApplyResult(ctx, hfc, hfcDirty, started); err != nil {
+		return actionError{fmt.Errorf("could not save the host firmware components: %w", err)}
 	}
 
 	resultAction := actionContinue{delay: provResult.RequeueAfter}
@@ -1946,19 +1915,6 @@ func (r *BareMetalHostReconciler) handleDataImageActions(ctx context.Context, pr
 	return nil
 }
 
-func ownerReferenceExists(owner metav1.Object, resource metav1.Object) bool {
-	ownerReferences := resource.GetOwnerReferences()
-
-	for _, ownRef := range ownerReferences {
-		if ownRef.UID == owner.GetUID() {
-			// Owner reference exists
-			return true
-		}
-	}
-
-	return false
-}
-
 // Attach the DataImage to the BareMetalHost.
 func (r *BareMetalHostReconciler) attachDataImage(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) error {
 	info.log.V(VerbosityLevelTrace).Info("attachDataImage started")
@@ -2120,120 +2076,6 @@ func saveHostProvisioningSettings(host *metal3api.BareMetalHost, info *reconcile
 	return dirty, nil
 }
 
-func (r *BareMetalHostReconciler) saveHostFirmwareComponents(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, hfc *metal3api.HostFirmwareComponents) (dirty bool, err error) {
-	dirty = false
-	if reflect.DeepEqual(hfc.Status.Updates, hfc.Spec.Updates) {
-		info.log.V(VerbosityLevelDebug).Info("not saving hostFirmwareComponents information since it is not necessary")
-		return dirty, nil
-	}
-
-	info.log.V(VerbosityLevelDebug).Info("saving hostFirmwareComponents information",
-		"specUpdates", hfc.Spec.Updates,
-		"statusUpdates", hfc.Status.Updates)
-
-	hfc.Status.Updates = make([]metal3api.FirmwareUpdate, len(hfc.Spec.Updates))
-	hfc.Status.Updates = hfc.Spec.Updates
-
-	// Retrieve new information about the firmware components stored in ironic
-	components, err := prov.GetFirmwareComponents(ctx)
-	if err != nil {
-		info.log.Error(err, "failed to get new information for firmware components in ironic")
-		return dirty, err
-	}
-	dirty = true
-
-	if !reflect.DeepEqual(hfc.Status.Components, components) {
-		hfc.Status.Components = components
-		for _, fwc := range components {
-			r.Log.Info("firmware component added for host", "component", fwc.Component)
-		}
-	}
-
-	return dirty, nil
-}
-
-func (r *BareMetalHostReconciler) createHostFirmwareComponents(ctx context.Context, info *reconcileInfo) error {
-	// Check if HostFirmwareComponents already exists
-	hfc := &metal3api.HostFirmwareComponents{}
-	if err := r.Get(ctx, info.request.NamespacedName, hfc); err != nil {
-		if k8serrors.IsNotFound(err) {
-			// A resource doesn't exist, create one
-			hfc.ObjectMeta = metav1.ObjectMeta{
-				Name:      info.host.Name,
-				Namespace: info.host.Namespace}
-
-			hfc.Spec = metal3api.HostFirmwareComponentsSpec{
-				Updates: []metal3api.FirmwareUpdate{}}
-
-			// Set bmh as owner, this makes sure the resource is deleted when bmh is deleted
-			if err = controllerutil.SetOwnerReference(info.host, hfc, r.Scheme()); err != nil {
-				return fmt.Errorf("could not set bmh as owner for hostFirmwareComponents: %w", err)
-			}
-			if err = r.Create(ctx, hfc); err != nil {
-				return fmt.Errorf("failure creating hostFirmwareComponents resource: %w", err)
-			}
-
-			info.log.V(VerbosityLevelDebug).Info("created new hostFirmwareComponents resource")
-			return nil
-		}
-		// Error reading the object
-		return fmt.Errorf("could not load hostFirmwareComponents resource: %w", err)
-	}
-	// Necessary in case the CRD is created manually.
-
-	if !ownerReferenceExists(info.host, hfc) {
-		if err := controllerutil.SetOwnerReference(info.host, hfc, r.Scheme()); err != nil {
-			return fmt.Errorf("could not set bmh as owner for hostFirmwareComponents: %w", err)
-		}
-		if err := r.Update(ctx, hfc); err != nil {
-			return fmt.Errorf("failure updating hostFirmwareComponents resource: %w", err)
-		}
-
-		return nil
-	}
-
-	return nil
-}
-
-func (r *BareMetalHostReconciler) createHostFirmwareSettings(ctx context.Context, info *reconcileInfo) error {
-	// Check if HostFirmwareSettings already exists
-	hfs := &metal3api.HostFirmwareSettings{}
-	if err := r.Get(ctx, info.request.NamespacedName, hfs); err != nil {
-		if k8serrors.IsNotFound(err) {
-			// A resource doesn't exist, create one
-			hfs.ObjectMeta = metav1.ObjectMeta{
-				Name:      info.host.Name,
-				Namespace: info.host.Namespace}
-			hfs.Status.Settings = make(metal3api.SettingsMap)
-			hfs.Spec.Settings = make(metal3api.DesiredSettingsMap)
-
-			// Set bmh as owner, this makes sure the resource is deleted when bmh is deleted
-			if err = controllerutil.SetOwnerReference(info.host, hfs, r.Scheme()); err != nil {
-				return fmt.Errorf("could not set bmh as owner: %w", err)
-			}
-			if err = r.Create(ctx, hfs); err != nil {
-				return fmt.Errorf("failure creating hostFirmwareSettings resource: %w", err)
-			}
-
-			info.log.V(VerbosityLevelDebug).Info("created new hostFirmwareSettings resource")
-		} else {
-			// Error reading the object
-			return fmt.Errorf("could not load hostFirmwareSettings resource: %w", err)
-		}
-	}
-
-	if !ownerReferenceExists(info.host, hfs) {
-		if err := controllerutil.SetOwnerReference(info.host, hfs, r.Scheme()); err != nil {
-			return fmt.Errorf("could not set bmh as owner for hostFirmwareSettings: %w", err)
-		}
-		if err := r.Update(ctx, hfs); err != nil {
-			return fmt.Errorf("failure updating hostFirmwareSettings resource: %w", err)
-		}
-	}
-
-	return nil
-}
-
 func (r *BareMetalHostReconciler) acquireHostUpdatePolicy(ctx context.Context, info *reconcileInfo) (policy *metal3api.HostUpdatePolicy, err error) {
 	// NOTE(janders) the goal here is to ensure that the controller reads the hup resource and adds OwnerReference to it
 	hup := &metal3api.HostUpdatePolicy{}
@@ -2249,7 +2091,7 @@ func (r *BareMetalHostReconciler) acquireHostUpdatePolicy(ctx context.Context, i
 		// Error reading the object
 		return nil, fmt.Errorf("could not load hostUpdatePolicy resource due to %w", err)
 	}
-	if !ownerReferenceExists(info.host, hup) {
+	if !mgrutils.OwnerReferenceExists(info.host, hup) {
 		if err := controllerutil.SetOwnerReference(info.host, hup, r.Scheme()); err != nil {
 			return hup, fmt.Errorf("could not set bmh as owner for hostUpdatePolicy due to %w", err)
 		}
@@ -2261,109 +2103,6 @@ func (r *BareMetalHostReconciler) acquireHostUpdatePolicy(ctx context.Context, i
 	}
 
 	return hup, nil
-}
-
-// Check if an HFS/HFC has changes and is valid.
-func hostObjectHasChanges(conditions []metav1.Condition, changedCondition, validCondition string, expectedGeneration int64) (changed bool, valid bool, err error) {
-	readyCond := meta.FindStatusCondition(conditions, changedCondition)
-	if readyCond == nil {
-		return false, false, nil
-	}
-
-	// Check if the condition matches the current Generation to know if the data is not out of date.
-	if readyCond.ObservedGeneration != expectedGeneration {
-		// Retry, otherwise we may miss updates
-		return false, false, fmt.Errorf("generation %d != observed generation %d", expectedGeneration, readyCond.ObservedGeneration)
-	}
-
-	// Valid condition must be present and set to true.
-	if !meta.IsStatusConditionTrue(conditions, validCondition) {
-		return false, false, nil
-	}
-
-	if readyCond.Status == metav1.ConditionTrue {
-		return true, true, nil
-	}
-
-	return false, true, nil
-}
-
-// Get the stored firmware settings. Returns dirty=true if there are valid pending changes.
-// The hfs object is returned when available regardless of validity, so callers can inspect spec contents.
-func (r *BareMetalHostReconciler) getHostFirmwareSettings(ctx context.Context, info *reconcileInfo) (dirty bool, hfs *metal3api.HostFirmwareSettings, err error) {
-	hfs = &metal3api.HostFirmwareSettings{}
-	if err = r.Get(ctx, info.request.NamespacedName, hfs); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			// Error reading the object
-			return false, nil, fmt.Errorf("could not load host firmware settings: %w", err)
-		}
-
-		// Could not get settings, log it but don't return error as settings may not have been available at provisioner
-		info.log.V(VerbosityLevelDebug).Info("could not get hostFirmwareSettings",
-			LogFieldNamespace, info.request.NamespacedName)
-		return false, nil, nil
-	}
-
-	changed, valid, err := hostObjectHasChanges(hfs.Status.Conditions, string(metal3api.FirmwareSettingsChangeDetected), string(metal3api.FirmwareSettingsValid), hfs.GetGeneration())
-	if err != nil {
-		return false, nil, fmt.Errorf("hostFirmwareSettings not ready yet: %w", err)
-	}
-	if !valid {
-		info.log.Info("hostFirmwareSettings not valid",
-			LogFieldNamespace, info.request.NamespacedName)
-		return false, hfs, nil
-	}
-
-	if changed {
-		// Check if the status settings have been populated
-		if len(hfs.Status.Settings) == 0 {
-			return false, nil, errors.New("host firmware status settings not available")
-		}
-
-		info.log.Info("hostFirmwareSettings indicating ChangeDetected",
-			LogFieldNamespace, info.request.NamespacedName)
-		return true, hfs, nil
-	}
-
-	info.log.V(VerbosityLevelTrace).Info("hostFirmwareSettings no updates",
-		LogFieldNamespace, info.request.NamespacedName)
-	return false, hfs, nil
-}
-
-// Get the stored firmware components. Returns dirty=true if there are valid pending changes.
-// The hfc object is returned when available regardless of validity, so callers can inspect spec contents.
-func (r *BareMetalHostReconciler) getHostFirmwareComponents(ctx context.Context, info *reconcileInfo) (dirty bool, hfc *metal3api.HostFirmwareComponents, err error) {
-	hfc = &metal3api.HostFirmwareComponents{}
-	if err = r.Get(ctx, info.request.NamespacedName, hfc); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			// Error reading the object
-			return false, nil, fmt.Errorf("could not load host firmware components: %w", err)
-		}
-
-		// Could not get settings, log it but don't return error as settings may not have been available at provisioner
-		info.log.V(VerbosityLevelDebug).Info("could not get hostFirmwareComponents",
-			LogFieldNamespace, info.request.NamespacedName)
-		return false, nil, nil
-	}
-
-	changed, valid, err := hostObjectHasChanges(hfc.Status.Conditions, string(metal3api.HostFirmwareComponentsChangeDetected), string(metal3api.HostFirmwareComponentsValid), hfc.GetGeneration())
-	if err != nil {
-		return false, nil, fmt.Errorf("hostFirmwareComponents not ready yet: %w", err)
-	}
-	if !valid {
-		info.log.Info("hostFirmwareComponents not valid",
-			LogFieldNamespace, info.request.NamespacedName)
-		return false, hfc, nil
-	}
-	if changed {
-		info.log.Info("hostFirmwareComponents indicating ChangeDetected",
-			LogFieldNamespace, info.request.NamespacedName)
-		return true, hfc, nil
-	}
-
-	info.log.V(VerbosityLevelTrace).Info("hostFirmwareComponents no updates",
-		LogFieldNamespace, info.request.NamespacedName)
-	return false, hfc, nil
 }
 
 func setConditionTrue(host *metal3api.BareMetalHost, typ, reason string) {

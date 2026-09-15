@@ -58,6 +58,8 @@ type fixtureProvisioner struct {
 	provID string
 	// the bmc credentials
 	bmcCreds bmc.Credentials
+	// the boot MAC address
+	bootMAC string
 	// a logger configured for this host
 	log logr.Logger
 	// an event publisher for recording significant events
@@ -120,6 +122,7 @@ func (f *Fixture) NewProvisioner(_ context.Context, hostData provisioner.HostDat
 	p := &fixtureProvisioner{
 		provID:    hostData.ProvisionerID,
 		bmcCreds:  hostData.BMCCredentials,
+		bootMAC:   hostData.BootMACAddress,
 		log:       log.WithValues("host", hostData.ObjectMeta.Name),
 		publisher: publisher,
 		state:     f,
@@ -172,6 +175,10 @@ func (p *fixtureProvisioner) InspectHardware(_ context.Context, _ provisioner.In
 	// hardware details struct as part of a second pass.
 	if p.state.inspectionStarted {
 		p.log.Info("continuing inspection by setting details")
+		nic1MAC := p.bootMAC
+		if nic1MAC == "" {
+			nic1MAC = "ab:cd:12:34:56:78"
+		}
 		details =
 			&metal3api.HardwareDetails{
 				RAMMebibytes: DefaultRAMMebibytes * DefaultGB,
@@ -179,7 +186,7 @@ func (p *fixtureProvisioner) InspectHardware(_ context.Context, _ provisioner.In
 					{
 						Name:      "nic-1",
 						Model:     "virt-io",
-						MAC:       "ab:cd:12:34:56:78",
+						MAC:       nic1MAC,
 						IP:        "192.168.100.1",
 						SpeedGbps: 1,
 						PXE:       true,

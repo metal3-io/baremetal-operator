@@ -20,7 +20,7 @@ permissions: {}
 jobs:
 
   e2e-fixture-test:
-    uses: ./.github/workflows/e2e-fixture-test.yml
+    uses: $/.github/workflows/e2e-fixture-test.yml
 
   e2e-test:
     strategy:
@@ -30,6 +30,6 @@ jobs:
         bmc-protocol:
         - redfish-virtualmedia
         - ipmi
-    uses: ./.github/workflows/e2e-test.yml
+    uses: $/.github/workflows/e2e-test.yml
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}

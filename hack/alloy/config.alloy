@@ -1,0 +1,156 @@
+// -----------------------------------------------------------------------------
+// Description: Ships BMO e2e logs to the CI log collector (Loki) by tailing the
+//              log files as they are written during the test run. The CAPI test
+//              framework streams deployment logs to files live
+//              (WatchDeploymentLogs), and libvirt writes BMH serial consoles
+//              live, so tailing those files yields real-time streaming without
+//              any Kubernetes API or pod discovery.
+//              Started by hack/ci-e2e.sh alongside `make test-e2e`.
+//              Endpoint, credentials and correlation labels are supplied via
+//              environment variables so nothing instance-specific or secret is
+//              committed. The env-var interface matches the CAPM3 Alloy config
+//              so a single pipeline wiring feeds both jobs.
+// Usage:       Inputs (set by the Jenkins pipeline; see hack/alloy/run-alloy.sh
+//              for local defaults):
+//                LOKI_URL             Loki push endpoint (.../store/api/v1/push)
+//                LOKI_USERNAME        RW push username
+//                LOKI_PASSWORD        RW push password
+//                ALLOY_JOB            stream label 'job' (e.g. metal3ci)
+//                ALLOY_PIPELINE_ID    stream label 'pipeline_id' (^metal3[-_]...)
+//                ALLOY_BUILD_NUMBER   stream label 'build_number'
+//                BMO_ARTIFACTS_DIR    absolute path to test/e2e/_artifacts
+//              alloy run hack/alloy/config.alloy
+// -----------------------------------------------------------------------------
+
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// --- Sources -----------------------------------------------------------------
+
+// Container logs, streamed live to files by the framework. Two layouts exist;
+// the ** glob covers both:
+//   _artifacts/logs/<ns>/<deployment>/<pod>/<container>.log      (main suite)
+//   _artifacts/<spec>/logs/<deployment>/<pod>/<container>.log    (upgrade specs)
+// Serial consoles live under a qemu/ dir; they are handled by the serial source
+// below, so exclude them here to avoid double-collection.
+local.file_match "container" {
+  path_targets = [{
+    __path__         = sys.env("BMO_ARTIFACTS_DIR") + "/**/logs/**/*.log",
+    __path_exclude__ = sys.env("BMO_ARTIFACTS_DIR") + "/**/qemu/**",
+  }]
+  sync_period = "5s"
+}
+
+// BMH serial consoles, written live by libvirt.
+local.file_match "serial" {
+  path_targets = [{
+    __path__ = "/var/log/libvirt/qemu/*.log",
+  }]
+  sync_period = "5s"
+}
+
+loki.source.file "container" {
+  targets    = local.file_match.container.targets
+  forward_to = [loki.process.container.receiver]
+}
+
+loki.source.file "serial" {
+  targets    = local.file_match.serial.targets
+  forward_to = [loki.process.serial.receiver]
+}
+
+// --- Processing --------------------------------------------------------------
+// Correlation labels (job/pipeline_id/build_number/source) are applied centrally
+// in loki.write via external_labels. Here we only tag which collector produced
+// the line (a low-cardinality label) and derive per-line detail from the file
+// path as structured metadata. Structured controller logs carry a JSON "ts"
+// that we parse into the entry timestamp; other lines use their read time, which
+// approximates the event time when tailing files as they are written.
+
+loki.process "container" {
+  stage.static_labels {
+    values = {
+      collector = "container",
+    }
+  }
+
+  // Structured logs carry their own timestamp; parse it into the entry
+  // timestamp for accurate per-line times. JSON controller logs use a fractional
+  // Unix "ts"; some controllers log an RFC3339 prefix instead. action_on_failure
+  // = "skip" means lines with neither (shell traces, plain output) are left at
+  // their read time rather than being altered.
+  stage.json {
+    expressions = {
+      ts = "ts",
+    }
+  }
+  stage.timestamp {
+    source            = "ts"
+    format            = "Unix"
+    action_on_failure = "skip"
+  }
+  stage.regex {
+    expression = "^(?P<rfc3339_ts>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z)"
+  }
+  stage.timestamp {
+    source            = "rfc3339_ts"
+    format            = "RFC3339"
+    action_on_failure = "skip"
+  }
+
+  // .../<component>/<pod>/<container>.log
+  stage.regex {
+    expression = "/(?P<component>[^/]+)/(?P<pod>[^/]+)/(?P<container>[^/]+)\\.log$"
+    source     = "filename"
+  }
+  stage.structured_metadata {
+    values = {
+      component = "component",
+      pod       = "pod",
+      container = "container",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.process "serial" {
+  stage.static_labels {
+    values = {
+      collector = "serial",
+    }
+  }
+
+  // .../<machine>-serial0.log
+  stage.regex {
+    expression = "/(?P<machine>[^/]+)-serial\\d*\\.log$"
+    source     = "filename"
+  }
+  stage.structured_metadata {
+    values = {
+      machine = "machine",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// --- Sink --------------------------------------------------------------------
+
+loki.write "default" {
+  endpoint {
+    url = sys.env("LOKI_URL")
+    basic_auth {
+      username = sys.env("LOKI_USERNAME")
+      password = sys.env("LOKI_PASSWORD")
+    }
+  }
+  external_labels = {
+    job          = sys.env("ALLOY_JOB"),
+    pipeline_id  = sys.env("ALLOY_PIPELINE_ID"),
+    build_number = sys.env("ALLOY_BUILD_NUMBER"),
+    source       = "artifact",
+  }
+}

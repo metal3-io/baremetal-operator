@@ -145,51 +145,6 @@ envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PO
 # also image server and E2E emulator containers.
 ./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
 
-# Wait for the sushy-tools BMC emulator to become reachable on the provisioning
-# IP. sushy-tools may start before the provisioning bridge IP is assigned,
-# failing to bind ("Cannot assign requested address"). If Ironic later tries to
-# register a BMH before the emulator is listening it fails with
-# "Connection refused", which surfaces much later as an opaque BMH registration
-# error. Poll the Redfish endpoint, restarting the container if needed, and fail
-# loudly if it never comes up
-wait_for_sushy_tools() {
-  local redfish_url="http://${IP_ADDRESS}:${BMO_E2E_LISTEN_PORT}/redfish/v1/"
-  local container attempts=0 max_attempts=30
-
-  # Detect the sushy-tools container name (vbmctl may name it with or without an
-  # "-e2e" suffix depending on version), so the restart is not silently skipped.
-  for name in vbmctl-sushy-tools vbmctl-sushy-tools-e2e; do
-    if docker inspect "${name}" &>/dev/null; then
-      container="${name}"
-      break
-    fi
-  done
-  if [[ -z "${container:-}" ]]; then
-    echo "ERROR: sushy-tools BMC emulator container not found" >&2
-    docker ps -a --format '{{.Names}}' | grep -i sushy >&2 || true
-    return 1
-  fi
-
-  echo "Waiting for sushy-tools (${container}) to serve ${redfish_url}..."
-  while (( attempts < max_attempts )); do
-    if curl -sSf --connect-timeout 3 --max-time 5 "${redfish_url}" > /dev/null; then
-      echo "sushy-tools is reachable."
-      return 0
-    fi
-    # After every 5 attempts, restart to recover from the bind race.
-    attempts=$((attempts + 1))
-    if (( attempts < max_attempts && attempts % 5 == 0 )); then
-      echo "sushy-tools not reachable yet; restarting ${container} to pick up the bridge IP..."
-      docker restart "${container}" || true
-    fi
-    sleep 2
-  done
-
-  echo "ERROR: sushy-tools did not become reachable at ${redfish_url}" >&2
-  docker logs --tail 50 "${container}" >&2 || true
-  return 1
-}
-
 # Need to do some extra setup for the vbmc emulator
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   readarray -t BMCS < <(yq e -o=j -I=0 '.[]' "${E2E_BMCS_CONF_FILE}")
@@ -199,8 +154,6 @@ if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
     vbmc_port="${address##*:}"
     "${REPO_ROOT}/tools/bmh_test/vm2vbmc.sh" "${hostName}" "${vbmc_port}" "${IP_ADDRESS}"
   done
-elif [[ "${BMO_E2E_EMULATOR}" == "sushy-tools" ]]; then
-  wait_for_sushy_tools
 fi
 
 # Generate ssh key pair for verifying provisioned BMHs

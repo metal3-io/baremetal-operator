@@ -54,3 +54,16 @@ spec:
     port: 80
     dataDir: "${IMAGE_DIR}"
     containerName: "vbmctl-image-server-e2e"
+    extraMounts:
+    - hostPath: "${IMAGE_SERVER_TLS_CERT_FILE}"
+      containerPath: "/etc/nginx/certs/tls.crt"
+      readOnly: true
+    - hostPath: "${IMAGE_SERVER_TLS_KEY_FILE}"
+      containerPath: "/etc/nginx/certs/tls.key"
+      readOnly: true
+    - hostPath: "${IMAGE_SERVER_NGINX_CONF_FILE}"
+      containerPath: "/etc/nginx/conf.d/default.conf"
+      readOnly: true
+    extraPorts:
+    - hostPort: 443
+      containerPort: 8443

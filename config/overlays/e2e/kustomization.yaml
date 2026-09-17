@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../basic-auth_tls
+- ./anaconda-ops
 - ./automated-cleaning
 - ./baremetalswitch
 - ./basic-ops

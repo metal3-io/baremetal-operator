@@ -33,6 +33,7 @@ updates:
   - "/hack/tools"
   - "/pkg/hardwareutils"
   - "/test"
+  - "/test/anaconda"
   schedule:
     interval: "weekly"
     day: "sunday"

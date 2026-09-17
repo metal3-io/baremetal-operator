@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: baremetal-operator-anaconda
+  namespace: baremetal-operator-system
+spec:
+  ports:
+  - name: anaconda
+    port: 9080
+    targetPort: anaconda
+  selector:
+    control-plane: controller-manager

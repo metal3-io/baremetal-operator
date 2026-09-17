@@ -110,18 +110,12 @@ cache_image() {
     wget --no-verbose -P "${IMAGE_DIR}/" "$@"
 }
 
-ARTIFACTORY_ROOT=https://artifactory.nordix.org/artifactory
-
 ## Download disk images
 if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
-    if ! cache_image "${ARTIFACTORY_ROOT}/metal3/images/iso/${IMAGE_FILE}"; then
-        cache_image https://download.cirros-cloud.net/"${CIRROS_VERSION}/${IMAGE_FILE}"
-    fi
+    cache_image https://download.cirros-cloud.net/"${CIRROS_VERSION}/${IMAGE_FILE}"
 fi
 if [[ ! -f "${IMAGE_DIR}/${ISO_FILE}" ]]; then
-    if ! cache_image "${ARTIFACTORY_ROOT}/metal3/images/sysrescue/${ISO_FILE}"; then
-        wget --no-verbose -O "${IMAGE_DIR}/${ISO_FILE}" https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/"${SYSRESCUE_VERSION}"/"${ISO_FILE}"/download
-    fi
+    wget --no-verbose -O "${IMAGE_DIR}/${ISO_FILE}" https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/"${SYSRESCUE_VERSION}"/"${ISO_FILE}"/download
 fi
 
 ## Download IPA (Ironic Python Agent) image
@@ -129,11 +123,8 @@ fi
 # This saves time, especially during ironic upgrade tests and also
 # gives us early failure in case there is some issue downloading it.
 IPA_FILE="ipa-centos9-master.tar.gz"
-IPA_BASEURI="${ARTIFACTORY_ROOT}/openstack-remote/ironic-python-agent/dib/"
 if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
-    if ! cache_image "${IPA_BASEURI}/${IPA_FILE}"; then
-        cache_image https://tarballs.opendev.org/openstack/ironic-python-agent/dib/"${IPA_FILE}"
-    fi
+    cache_image https://tarballs.opendev.org/openstack/ironic-python-agent/dib/"${IPA_FILE}"
 fi
 
 # shellcheck disable=SC2016

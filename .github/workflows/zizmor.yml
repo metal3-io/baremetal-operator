@@ -7,9 +7,13 @@ on:
   push:
     branches:
     - main
+    - release-0.14
+    - release-0.13
   pull_request:
     branches:
     - main
+    - release-0.14
+    - release-0.13
 
 permissions: {}
 
@@ -28,9 +32,12 @@ jobs:
     - name: Run zizmor (SARIF)
       if: github.event_name == 'push'
       uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+      with:
+        config: .zizmor.yml
     # Block PRs with findings
     - name: Run zizmor (PR check)
       if: github.event_name == 'pull_request'
       uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
       with:
         advanced-security: false
+        config: .zizmor.yml

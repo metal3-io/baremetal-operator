@@ -7,7 +7,7 @@ require (
 	github.com/go-logr/logr v1.4.4
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/google/uuid v1.6.0
-	github.com/gophercloud/gophercloud/v2 v2.14.0
+	github.com/gophercloud/gophercloud/v2 v2.14.1-0.20260915013456-7c680e5b6b51
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
 	github.com/metal3-io/ironic-standalone-operator/api v0.11.0
@@ -114,3 +114,5 @@ require (
 replace github.com/metal3-io/baremetal-operator/apis => ./apis
 
 replace github.com/metal3-io/baremetal-operator/pkg/hardwareutils => ./pkg/hardwareutils
+
+replace github.com/gophercloud/gophercloud/v2 => github.com/dtantsur/gophercloud/v2 v2.0.0-20260917124901-c78ad6f7dfda

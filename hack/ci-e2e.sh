@@ -147,8 +147,8 @@ mkdir -p "${IMAGE_DIR}"
 
 ## Download disk images
 if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
-    wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/iso/"${IMAGE_FILE}"
-    wget --quiet -P "${IMAGE_DIR}/" https://artifactory.nordix.org/artifactory/metal3/images/sysrescue/systemrescue-11.00-amd64.iso
+    wget --quiet -P "${IMAGE_DIR}/" https://download.cirros-cloud.net/"${CIRROS_VERSION}"/"${IMAGE_FILE}"
+    wget --quiet -O "${IMAGE_DIR}/systemrescue-11.00-amd64.iso" https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/11.00/systemrescue-11.00-amd64.iso/download
 fi
 
 ## Download IPA (Ironic Python Agent) image
@@ -156,9 +156,8 @@ fi
 # This saves time, especially during ironic upgrade tests and also
 # gives us early failure in case there is some issue downloading it.
 IPA_FILE="ipa-centos9-master.tar.gz"
-IPA_BASEURI=https://artifactory.nordix.org/artifactory/openstack-remote/ironic-python-agent/dib/
 if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
-    wget --quiet -P "${IMAGE_DIR}/" "${IPA_BASEURI}/${IPA_FILE}"
+    wget --quiet -P "${IMAGE_DIR}/" https://tarballs.opendev.org/openstack/ironic-python-agent/dib/"${IPA_FILE}"
 fi
 
 ## Start the image server

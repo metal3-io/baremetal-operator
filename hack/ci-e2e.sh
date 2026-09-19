@@ -15,6 +15,9 @@ set -eux
 
 REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 
+# shellcheck source=hack/e2e/checksums.sh
+source "${REPO_ROOT}/hack/e2e/checksums.sh"
+
 cd "${REPO_ROOT}" || exit 1
 
 "${REPO_ROOT}"/hack/check-e2e.sh
@@ -97,25 +100,36 @@ else
 fi
 
 # Image server variables
-CIRROS_VERSION="0.6.2"
-SYSRESCUE_VERSION="11.00"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 ISO_FILE="systemrescue-${SYSRESCUE_VERSION}-amd64.iso"
-export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
+# URL and checksum consumed by the E2E tests (via e2eConfig.GetVariable).
+export IMAGE_CHECKSUM="${CIRROS_SHA256}"
 export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
 export IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 mkdir -p "${IMAGE_DIR}"
 
-cache_image() {
-    wget --no-verbose -P "${IMAGE_DIR}/" "$@"
-}
+## Download disk images with integrity verification
+# Checksums are pinned in hack/e2e/checksums.sh.
+CIRROS_BASEURI="https://download.cirros-cloud.net/${CIRROS_VERSION}/${IMAGE_FILE}"
+ISO_BASEURI="https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/${SYSRESCUE_VERSION}/${ISO_FILE}/download"
 
-## Download disk images
 if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
-    cache_image https://download.cirros-cloud.net/"${CIRROS_VERSION}/${IMAGE_FILE}"
+    safe_curl -o "${IMAGE_DIR}/${IMAGE_FILE}" "${CIRROS_BASEURI}/${IMAGE_FILE}"
+    checksum="$(sha256sum "${IMAGE_DIR}/${IMAGE_FILE}" | awk '{print $1;}')"
+    if [[ "${checksum}" != "${CIRROS_SHA256}" ]]; then
+        echo >&2 "fatal: ${IMAGE_FILE} checksum '${checksum}' differs from expected '${CIRROS_SHA256}'"
+        rm -f "${IMAGE_DIR}/${IMAGE_FILE}"
+        exit 1
+    fi
 fi
 if [[ ! -f "${IMAGE_DIR}/${ISO_FILE}" ]]; then
-    wget --no-verbose -O "${IMAGE_DIR}/${ISO_FILE}" https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/"${SYSRESCUE_VERSION}"/"${ISO_FILE}"/download
+    safe_curl -o "${IMAGE_DIR}/${ISO_FILE}" "${ISO_BASEURI}/${ISO_FILE}"
+    checksum="$(sha256sum "${IMAGE_DIR}/${ISO_FILE}" | awk '{print $1;}')"
+    if [[ "${checksum}" != "${SYSRESCUE_ISO_SHA256}" ]]; then
+        echo >&2 "fatal: ${ISO_FILE} checksum '${checksum}' differs from expected '${SYSRESCUE_ISO_SHA256}'"
+        rm -f "${IMAGE_DIR}/${ISO_FILE}"
+        exit 1
+    fi
 fi
 
 ## Download IPA (Ironic Python Agent) image
@@ -123,8 +137,9 @@ fi
 # This saves time, especially during ironic upgrade tests and also
 # gives us early failure in case there is some issue downloading it.
 IPA_FILE="ipa-centos9-master.tar.gz"
+IPA_BASEURI="https://tarballs.opendev.org/openstack/ironic-python-agent/dib"
 if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
-    cache_image https://tarballs.opendev.org/openstack/ironic-python-agent/dib/"${IPA_FILE}"
+  safe_curl -o "${IMAGE_DIR}/${IPA_FILE}" "${IPA_BASEURI}/${IPA_FILE}"
 fi
 
 # shellcheck disable=SC2016
@@ -203,9 +218,20 @@ pub_ssh_key=$(cut -d " " -f "1,2" "${IMAGE_DIR}/ssh_testkey.pub")
 # Build an ISO image with baked ssh key
 # See https://www.system-rescue.org/scripts/sysrescue-customize/
 # We use the systemrescue ISO and their script for customizing it.
+# Pin to a specific commit (version and checksum in hack/e2e/checksums.sh).
+#
+# To update these values run: make update-e2e-checksums
+# and update hack/e2e/checksums.sh.
 if [[ ! -f "${IMAGE_DIR}/sysrescue-out.iso" ]];then
     pushd "${IMAGE_DIR}"
-    wget --no-verbose -O sysrescue-customize https://gitlab.com/systemrescue/systemrescue-sources/-/raw/main/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false
+    safe_curl -o sysrescue-customize "https://gitlab.com/systemrescue/systemrescue-sources/-/raw/${SYSRESCUE_CUSTOMIZE_COMMIT}/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false"
+    checksum="$(sha256sum sysrescue-customize | awk '{print $1;}')"
+    if [[ "${checksum}" != "${SYSRESCUE_CUSTOMIZE_SHA256}" ]]; then
+        echo >&2 "fatal: sysrescue-customize checksum '${checksum}' differs from expected '${SYSRESCUE_CUSTOMIZE_SHA256}'"
+        rm -f sysrescue-customize
+        popd
+        exit 1
+    fi
     chmod +x sysrescue-customize
 
     mkdir -p recipe/iso_add/sysrescue.d

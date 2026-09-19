@@ -4,5 +4,8 @@ resources:
 - manifests.yaml
 - service_patch.yaml
 
+patches:
+- path: matchconditions_patch.yaml
+
 configurations:
 - kustomizeconfig.yaml

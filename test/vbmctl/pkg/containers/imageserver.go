@@ -30,30 +30,50 @@ func CreateImageServerInstance(ctx context.Context, cfg *vbmctlapi.ImageServerCo
 		return fmt.Errorf("image server data directory %q is not a directory", cfg.DataDir)
 	}
 
+	extraMounts, err := containerMounts(cfg.ExtraMounts)
+	if err != nil {
+		return err
+	}
+
+	exposedPorts := network.PortSet{
+		containerPort: struct{}{},
+	}
+	portBindings := network.PortMap{
+		containerPort: []network.PortBinding{
+			{
+				HostPort: strconv.FormatUint(uint64(cfg.Port), 10),
+			},
+		},
+	}
+	mounts := append([]mount.Mount{
+		{
+			Type:     mount.TypeBind,
+			Source:   cfg.DataDir,
+			Target:   cfg.ContainerDataDir,
+			ReadOnly: false,
+		},
+	}, extraMounts...)
+
+	for _, p := range cfg.ExtraPorts {
+		extraContainerPort, portErr := network.ParsePort(fmt.Sprintf("%d/tcp", p.ContainerPort))
+		if portErr != nil {
+			return fmt.Errorf("failed to parse extra container port %d: %w", p.ContainerPort, portErr)
+		}
+		exposedPorts[extraContainerPort] = struct{}{}
+		portBindings[extraContainerPort] = []network.PortBinding{
+			{HostPort: strconv.FormatUint(uint64(p.HostPort), 10)},
+		}
+	}
+
 	// Create the container
 	opts := client.ContainerCreateOptions{
 		Config: &container.Config{
-			Image: cfg.Image,
-			ExposedPorts: network.PortSet{
-				containerPort: struct{}{},
-			},
+			Image:        cfg.Image,
+			ExposedPorts: exposedPorts,
 		},
 		HostConfig: &container.HostConfig{
-			Mounts: []mount.Mount{
-				{
-					Type:     mount.TypeBind,
-					Source:   cfg.DataDir,
-					Target:   cfg.ContainerDataDir,
-					ReadOnly: false,
-				},
-			},
-			PortBindings: network.PortMap{
-				containerPort: []network.PortBinding{
-					{
-						HostPort: strconv.FormatUint(uint64(cfg.Port), 10),
-					},
-				},
-			},
+			Mounts:       mounts,
+			PortBindings: portBindings,
 		},
 		NetworkingConfig: nil,
 		Platform:         nil,
@@ -66,6 +86,24 @@ func CreateImageServerInstance(ctx context.Context, cfg *vbmctlapi.ImageServerCo
 	}
 
 	return nil
+}
+
+// containerMounts validates the host paths of the given extra mounts and
+// converts them to Docker bind mount specifications.
+func containerMounts(extra []vbmctlapi.ContainerMount) ([]mount.Mount, error) {
+	mounts := make([]mount.Mount, 0, len(extra))
+	for _, m := range extra {
+		if _, err := os.Stat(m.HostPath); err != nil {
+			return nil, fmt.Errorf("failed to access extra mount host path %q: %w", m.HostPath, err)
+		}
+		mounts = append(mounts, mount.Mount{
+			Type:     mount.TypeBind,
+			Source:   m.HostPath,
+			Target:   m.ContainerPath,
+			ReadOnly: m.ReadOnly,
+		})
+	}
+	return mounts, nil
 }
 
 func DeleteImageServerInstance(ctx context.Context, containerName string) error {

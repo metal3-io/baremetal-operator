@@ -86,6 +86,18 @@ linters:
   settings:
     exhaustive:
       default-signifies-exhaustive: true
+    goconst:
+      # Do not count occurrences in test files toward the threshold. Test
+      # fixtures routinely repeat literals and should not force production
+      # constants (test files are already excluded from goconst reporting).
+      ignore-tests: true
+      # Only flag longer, meaningful literals. Short tokens like "true",
+      # "bios" or "uuid" are not worth extracting into constants.
+      min-len: 5
+      # Require more repetitions before flagging to reduce low-value noise.
+      min-occurrences: 5
+      # Never flag boolean-like string literals.
+      ignore-strings: '^(true|false|boot_iso|image_source)$'
     gocritic:
       disabled-checks:
       - appendAssign

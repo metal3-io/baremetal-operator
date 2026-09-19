@@ -23,7 +23,7 @@ const (
 type AuthConfig struct {
 	Type     AuthType
 	Username string
-	Password string //nolint:gosec
+	Password string //nolint:gosec // G117: intentional credential field
 }
 
 func authRoot() string {

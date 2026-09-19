@@ -453,19 +453,20 @@ func newCreateBMCEmulatorCmd() *cobra.Command {
 			if image == "" {
 				if effective.Image != "" {
 					image = effective.Image
-				} else if emulatorType == config.BMCEmulatorTypeSushyTools {
+				} else if emulatorType == vbmctlapi.BMCEmulatorTypeSushyTools {
 					image = config.DefaultBMCEmulatorSushyToolsImage
 				} else {
 					image = config.DefaultBMCEmulatorVBMCImage
 				}
 			}
 
-			if emulatorType == config.BMCEmulatorTypeSushyTools {
+			if emulatorType == vbmctlapi.BMCEmulatorTypeSushyTools {
+				sushyConfig := &effective.SushyToolsConfig
 				if configFile == "" {
 					// There is no default config file for sushy-tools, so no
 					// need to check if the value from config file is empty
 					// before using it.
-					configFile = effective.ConfigFile
+					configFile = sushyConfig.ConfigFile
 				}
 
 				// If using command line arguments to configure sushy-tools, apply the
@@ -473,15 +474,15 @@ func newCreateBMCEmulatorCmd() *cobra.Command {
 				// explicitly set. In case a sushy-tools config file is specified,
 				// defaults are not applied.
 				if listenAddress == "" {
-					if effective.ListenAddress != "" {
-						listenAddress = effective.ListenAddress
+					if sushyConfig.ListenAddress != "" {
+						listenAddress = sushyConfig.ListenAddress
 					} else if configFile == "" {
 						listenAddress = config.DefaultNetworkAddress
 					}
 				}
 				if listenPort == 0 {
-					if effective.ListenPort != 0 {
-						listenPort = effective.ListenPort
+					if sushyConfig.ListenPort != 0 {
+						listenPort = sushyConfig.ListenPort
 					} else if configFile == "" {
 						listenPort = config.DefaultBMCEmulatorSushyToolsListenPort
 					}
@@ -491,27 +492,31 @@ func newCreateBMCEmulatorCmd() *cobra.Command {
 				fmt.Printf("Using storage pool '%s' and libvirt URI '%s' for sushy-tools BMC emulator\n", cfg.Spec.Pool.Name, cfg.Spec.Libvirt.URI)
 			}
 
-			// Note that storage pool and libvirt URI are only relevant for sushy-tools,
-			// but we set them for vbmc as well since they don't cause any issues and
-			// it simplifies the logic by not having to conditionally set them based
-			// on the emulator type.
-			return containers.CreateBMCEmulatorInstance(ctx, &vbmctlapi.BMCEmulatorConfig{
-				Type:          emulatorType,
-				Image:         image,
-				ConfigFile:    configFile,
-				StoragePool:   cfg.Spec.Pool.Name,
-				ListenAddress: listenAddress,
-				ListenPort:    listenPort,
-				LibvirtURI:    cfg.Spec.Libvirt.URI,
-			})
+			emulatorConfig := &vbmctlapi.BMCEmulatorConfig{
+				Type:  emulatorType,
+				Image: image,
+			}
+			switch emulatorType {
+			case vbmctlapi.BMCEmulatorTypeSushyTools:
+				emulatorConfig.SushyToolsConfig = vbmctlapi.SushyToolsConfig{
+					ConfigFile:    configFile,
+					StoragePool:   cfg.Spec.Pool.Name,
+					ListenAddress: listenAddress,
+					ListenPort:    listenPort,
+					LibvirtURI:    cfg.Spec.Libvirt.URI,
+				}
+			case vbmctlapi.BMCEmulatorTypeVBMC:
+				emulatorConfig.VBMCConfig = vbmctlapi.VBMCConfig{}
+			}
+			return containers.CreateBMCEmulatorInstance(ctx, emulatorConfig)
 		},
 	}
 
-	cmd.Flags().StringVar(&emulatorType, "emulator-type", "", "type of the BMC emulator (vbmc or sushy-tools, default is "+config.DefaultBMCEmulatorType+" if not set in config file)")
-	cmd.Flags().StringVar(&image, "image", "", "container image to use for the BMC emulator (default is "+config.DefaultBMCEmulatorVBMCImage+" or "+config.DefaultBMCEmulatorSushyToolsImage+" if not set in config file)")
+	cmd.Flags().StringVar(&emulatorType, "emulator-type", "", "type of the BMC emulator (vbmc or sushy-tools, default is "+config.DefaultBMCEmulatorType+" if not set in the VBMCTL config file)")
+	cmd.Flags().StringVar(&image, "image", "", "container image to use for the BMC emulator (default is "+config.DefaultBMCEmulatorVBMCImage+" or "+config.DefaultBMCEmulatorSushyToolsImage+" if not set in the VBMCTL config file)")
 	cmd.Flags().StringVar(&configFile, "config-file", "", "configuration file to use for the BMC emulator in case of sushy-tools (default is none)")
-	cmd.Flags().StringVar(&listenAddress, "listen-address", "", "address for the BMC emulator to listen on for incoming connections (only applicable for sushy-tools, default is "+config.DefaultNetworkAddress+" if not set in config file and no config file is used)")
-	cmd.Flags().Uint16Var(&listenPort, "listen-port", 0, "port for the BMC emulator to listen on for incoming connections (only applicable for sushy-tools, default is "+strconv.Itoa(int(config.DefaultBMCEmulatorSushyToolsListenPort))+" if not set in config file and no config file is used)")
+	cmd.Flags().StringVar(&listenAddress, "listen-address", "", "address for the BMC emulator to listen on for incoming connections (only applicable for sushy-tools, default is "+config.DefaultNetworkAddress+" if not set in the VBMCTL config file and no sushy-tools config file is specified)")
+	cmd.Flags().Uint16Var(&listenPort, "listen-port", 0, "port for the BMC emulator to listen on for incoming connections (only applicable for sushy-tools, default is "+strconv.Itoa(int(config.DefaultBMCEmulatorSushyToolsListenPort))+" if not set in the VBMCTL config file and no sushy-tools config file is specified)")
 
 	return cmd
 }

@@ -66,6 +66,8 @@ intervals:
   baremetalswitch/wait-secret-updated: [ "30s", "500ms" ]
   hostclaims/wait-associated: [ "10s", "1s" ]
   hostclaims/wait-deleted: [ "5s", "10ms" ]
+  hdp/wait-associated: [ "10s", "1s" ]
+  hdp/wait-deleted: [ "5s", "10ms" ]
 
 bmoUpgradeSpecs:
 - deployIronic: false

@@ -182,6 +182,51 @@ var _ = Describe("Inspection", Label("required", "inspection", "ironic"), func()
 			Expect(hwData.Spec.HardwareDetails.Hostname).To(BeEmpty())
 			Expect(hwData.Spec.HardwareDetails.NIC[0].IP).To(BeEmpty())
 		}
+
+		By("deleting HardwareData resource to test re-inspection")
+		oldInspectEnd := bmh.Status.OperationHistory.Inspect.End.Time
+		Expect(clusterProxy.GetClient().Delete(ctx, hwData)).To(Succeed())
+
+		By("starting a new inspection")
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.InspectAnnotationPrefix, new(""))
+
+		By("waiting for the BMH to be in inspecting state")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateInspecting,
+		}, e2eConfig.GetIntervals(specName, "wait-inspecting")...)
+
+		By("waiting for the BMH to become available")
+		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.StateAvailable,
+		}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+		By("checking that new inspection happened after old inspection")
+		Expect(clusterProxy.GetClient().Get(ctx, key, &bmh)).To(Succeed())
+
+		Expect(bmh.Status.OperationHistory.Inspect.Start.Time).To(BeTemporally(">", oldInspectEnd),
+			"New inspection must start after the old ended")
+		Expect(bmh.Status.OperationHistory.Inspect.End.Time).To(BeTemporally(">=", bmh.Status.OperationHistory.Inspect.Start.Time),
+			"Inspection end time must not be before start time")
+
+		By("checking that HardwareData resource was created")
+		Expect(clusterProxy.GetClient().Get(ctx, key, hwData)).To(Succeed())
+
+		Expect(hwData.Spec.HardwareDetails).NotTo(BeNil())
+		Expect(hwData.Spec.HardwareDetails.RAMMebibytes).To(BeNumerically(">", 0))
+		Expect(hwData.Spec.HardwareDetails.CPU.Count).To(BeNumerically(">", 0))
+		Expect(hwData.Spec.HardwareDetails.NIC).NotTo(BeEmpty())
+
+		if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+			By("checking that fast inspection did not populate a hostname or IP (no ramdisk was booted)")
+			Expect(bmh.Status.HardwareDetails.Hostname).To(BeEmpty())
+			Expect(bmh.Status.HardwareDetails.NIC[0].IP).To(BeEmpty())
+			Expect(hwData.Spec.HardwareDetails.Hostname).To(BeEmpty())
+			Expect(hwData.Spec.HardwareDetails.NIC[0].IP).To(BeEmpty())
+		}
 	})
 
 	It("should inspect a newly created BMH", func() {

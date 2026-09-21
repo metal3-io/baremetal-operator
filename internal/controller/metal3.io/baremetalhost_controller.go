@@ -62,6 +62,7 @@ const (
 	hardwareDataFinalizer         = metal3api.BareMetalHostFinalizer + "/hardwareData"
 	preprovisioningImageFinalizer = metal3api.BareMetalHostFinalizer + "/preprovisioningImage"
 	NotReady                      = "Not ready"
+	secretAccessEventReason       = "SecretAccessError" // Kubernetes event reason while a configuration Secret cannot be read.
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object.
@@ -377,6 +378,42 @@ func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, err
 	info.publishEvent(eventType, errorMessage)
 
 	return actionFailed{dirty: true, ErrorType: errorType, errorCount: info.host.Status.ErrorCount}
+}
+
+// recordRetryableSecretAccess surfaces a missing or inaccessible configuration
+// Secret and requeues without marking the failure fatal. recordActionFailure
+// would set a provisioning error that handleProvisioning treats as a signal to
+// deprovision the host on the next reconcile.
+//
+// ErrorCount is left unchanged and the requeue delay stays fixed, matching the
+// wait-for-Secret behavior used for a missing BMC credential Secret rather
+// than the exponential backoff used for fatal action failures.
+func recordRetryableSecretAccess(info *reconcileInfo, errorMessage string) actionResult {
+	dirty := info.host.SetOperationalStatus(metal3api.OperationalStatusError)
+	if info.host.Status.ErrorType != metal3api.ProvisioningError {
+		info.host.Status.ErrorType = metal3api.ProvisioningError
+		dirty = true
+	}
+	if info.host.Status.ErrorMessage != errorMessage {
+		info.host.Status.ErrorMessage = errorMessage
+		dirty = true
+		info.publishEvent(secretAccessEventReason, errorMessage)
+	}
+
+	continued := actionContinue{hostErrorRetryDelay}
+	if dirty {
+		return actionUpdate{continued}
+	}
+	return continued
+}
+
+// clearRetryableSecretAccessStatus removes a previously surfaced missing-Secret
+// condition. Fatal provisioning errors are left for recordActionFailure.
+func clearRetryableSecretAccessStatus(host *metal3api.BareMetalHost) bool {
+	if !isRetryableSecretAccessStatus(host) {
+		return false
+	}
+	return clearError(host)
 }
 
 func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState) actionResult {
@@ -1445,10 +1482,14 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 	if err != nil {
 		var secretErr SecretAccessError
 		if errors.As(err, &secretErr) {
-			return recordActionFailure(info, metal3api.ProvisioningError, secretErr.Error())
+			return recordRetryableSecretAccess(info, secretErr.Error())
 		}
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
 	}
+
+	// Configuration data was readable. Drop a status recorded while waiting
+	// for the Secret so a completed provision is not left in error.
+	secretAccessCleared := clearRetryableSecretAccessStatus(info.host)
 
 	if provResult.ErrorMessage != "" {
 		info.log.V(VerbosityLevelDebug).Info("handling provisioning error in controller")
@@ -1459,6 +1500,9 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		if err := r.Update(ctx, info.host); err != nil {
 			return actionError{fmt.Errorf("failed to remove reboot annotations from host: %w", err)}
 		}
+		if secretAccessCleared {
+			return actionUpdate{actionContinue{}}
+		}
 		return actionContinue{}
 	}
 
@@ -1467,7 +1511,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		// to return false, indicating that it has no more work to
 		// do.
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		if clearError(info.host) || secretAccessCleared {
 			return actionUpdate{result}
 		}
 		return result

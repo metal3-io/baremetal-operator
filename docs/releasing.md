@@ -69,6 +69,30 @@ by using following command `git remote -v`.
 - Fetch the remote (`metal3-io`): `git fetch upstream`
 This makes sure that all the tags are accessible.
 
+### Bumping the submodule requirements
+
+The root `go.mod` and `test/go.mod` require `apis` and `pkg/hardwareutils` at
+a version that their `replace` directives hide, so only consumers ever resolve
+it. Release tagging creates `v0.x.y`, `apis/v0.x.y`, `test/v0.x.y` and
+`pkg/hardwareutils/v0.x.y` from one commit, so both files have to require
+`v0.x.y` before the release notes are merged. Otherwise the released root
+module points consumers at submodule code that no released submodule version
+contains, and an out of tree plugin built against it hits a package
+fingerprint mismatch. See [plugin provisioners](plugin-provisioners.md).
+
+- Bump the two requirements in `go.mod` and `test/go.mod` to the version you
+   are about to release, in a pull request of its own, and merge it first. The
+   release notes commit has to contain the notes file and nothing else, so the
+   bump cannot ride along with it.
+
+- Until those tags exist, `hack/check-submodule-versions.sh` reports the
+   version as not tagged yet and skips its build check, so `make lint` stays
+   green on that pull request.
+
+- `hack/verify-release.sh` fails when the two files ask for anything other
+   than the version being released, so run it before tagging to catch a
+   forgotten bump while it can still be fixed.
+
 ### Creating Release Notes
 
 - Switch to the main branch: `git checkout main`

@@ -163,8 +163,7 @@ fi
 #
 # temporary files and cleanup trap
 #
-cleanup()
-{
+cleanup() {
     rm -rf "${TMP_DIR}"
 }
 
@@ -180,8 +179,7 @@ trap cleanup EXIT
 #
 # pre-requisites
 #
-_version_check()
-{
+_version_check() {
     # check version of the tool, return failure if smaller
     local min_version version
 
@@ -191,8 +189,7 @@ _version_check()
     [[ "${min_version}" == $(echo -e "${min_version}\n${version}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) ]]
 }
 
-check_tools()
-{
+check_tools() {
     # check that all tools are present, and pass version check too
     # TODO: if more tools need versioning, add the version info directly to the
     # array defining required tools
@@ -203,7 +200,7 @@ check_tools()
     for tool in "${required_tools[@]}"; do
         if ! type "${tool}" &>/dev/null; then
             echo "FATAL: need ${tool} to be installed"
-            if [[ "${tool}" = "osv-scanner" ]] || [[ "${tool}" = "gcrane" ]]; then
+            if [[ "${tool}" == "osv-scanner" ]] || [[ "${tool}" == "gcrane" ]]; then
                 echo "HINT: 'export CONTAINER_RUNTIME=<docker|podman>' to use containerized tools"
             fi
             exit 1
@@ -230,8 +227,7 @@ check_tools()
     echo -e "Done\n"
 }
 
-detect_remote()
-{
+detect_remote() {
     # we support origin (default) and upstrea (if cloned with "gh" CLI tool)
     echo "Detecting remote ..."
 
@@ -248,8 +244,7 @@ detect_remote()
     echo -e "Done\n"
 }
 
-check_input()
-{
+check_input() {
     echo "Checking input ..."
 
     # check version is input without leading v, since we have extra annotated
@@ -268,8 +263,7 @@ check_input()
     echo -e "Done\n"
 }
 
-check_tag()
-{
+check_tag() {
     echo "Checking if tag exists ..."
 
     # is there even a tag
@@ -283,8 +277,7 @@ check_tag()
     echo -e "Done\n"
 }
 
-check_commit()
-{
+check_commit() {
     # check the tag commit and local commit are the same, and not dirty,
     # so we are verifying the right content
     local local_commit tag_commit repo_status
@@ -306,8 +299,7 @@ check_commit()
     echo -e "Done\n"
 }
 
-download_release_information()
-{
+download_release_information() {
     # download release information json, requires GITHUB_TOKEN
     echo "Downloading release information ..."
     local release_id
@@ -341,8 +333,7 @@ download_release_information()
 #
 # verification functions
 #
-verify_git_tags()
-{
+verify_git_tags() {
     # check tags exist in remote, ie. are not just local but pushed
     echo "Verifying Git tags ..."
 
@@ -355,8 +346,7 @@ verify_git_tags()
     echo -e "Done\n"
 }
 
-verify_git_tag_types()
-{
+verify_git_tag_types() {
     # check tags are annotated or lightweight as expected
     # and also that no extra tags are pushed by accident
     echo "Verifying Git tag types ..."
@@ -382,8 +372,7 @@ verify_git_tag_types()
     echo -e "Done\n"
 }
 
-verify_release_notes()
-{
+verify_release_notes() {
     # check release note content
     echo "Verifying release notes ..."
 
@@ -406,8 +395,7 @@ verify_release_notes()
     echo -e "Done\n"
 }
 
-verify_release_artifacts()
-{
+verify_release_artifacts() {
     # check that the release json lists all artifacts as present
     echo "Verifying release artifacts ..."
 
@@ -421,8 +409,7 @@ verify_release_artifacts()
     echo -e "Done\n"
 }
 
-verify_container_images()
-{
+verify_container_images() {
     # check quay as built images successfully, and hence tag is present
     # if tag doesn't appear, the build trigger might've been disabled
     local image tag
@@ -447,8 +434,7 @@ verify_container_images()
     echo -e "Done\n"
 }
 
-verify_container_base_image()
-{
+verify_container_base_image() {
     # check if the golang used for container image build is latest of its minor
     local image tag tag_minor
 
@@ -479,16 +465,14 @@ verify_container_base_image()
 #
 # helper functions for module related checks
 #
-_module_direct_dependencies()
-{
+_module_direct_dependencies() {
     # get all required, direct dependencies, exclude hack/tools/go.mod
     sed -n '/^require (/,/^)/{/^require (/!{/^)/!p;};}' ./**/go.mod \
         | grep -v "//\s*indirect" | grep -v "^\s*$" \
         | awk '{print $1, $2;}' | sort | uniq
 }
 
-_module_counts_differ()
-{
+_module_counts_differ() {
     # return true if module with and without version differ
     # ie. there is mismatch in versions, false otherwise
     local module="$1"
@@ -502,8 +486,7 @@ _module_counts_differ()
     [[ "${mod_count}" -ne "${ver_count}" ]]
 }
 
-_module_get_version()
-{
+_module_get_version() {
     # get a version of given module, pick first match
     local module="$1"
 
@@ -511,8 +494,7 @@ _module_get_version()
         | grep -v "//\s*indirect" | head -1 | awk '{print $2;}'
 }
 
-_module_get_latest_patch_release()
-{
+_module_get_latest_patch_release() {
     # get latest patch release from given version
     # module needs to contain full module url
     # version is minor release prefix, like v1.4.
@@ -537,8 +519,7 @@ _module_get_latest_patch_release()
 #
 # pre-tag checks
 #
-verify_module_versions()
-{
+verify_module_versions() {
     # verify all dependencies are using the same version across all go.mod
     # in the repository. Ignore indirect ones.
     echo "Verify all go.mod direct dependencies are the same across go.mods ..."
@@ -562,8 +543,7 @@ verify_module_versions()
     echo -e "Done\n"
 }
 
-verify_module_group_versions()
-{
+verify_module_group_versions() {
     # verify certain important go.mod modules are correctly bumped
     # this checks all the modules are the same version per group
     local ver mod mod_count ver_count
@@ -597,8 +577,7 @@ verify_module_group_versions()
     echo -e "Done\n"
 }
 
-verify_module_releases()
-{
+verify_module_releases() {
     # verify certain modules are using latest patch versions of their respecive
     # releases, so we have remembered to bump them
     echo "Verify modules are using latest patch releases ..."
@@ -620,8 +599,7 @@ verify_module_releases()
     echo -e "Done\n"
 }
 
-verify_vulnerabilities()
-{
+verify_vulnerabilities() {
     # run osv-scanner to verify if we have open vulnerabilities in deps
     local go_version config_file=".osv-scanner.toml"
 

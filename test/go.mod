@@ -3,7 +3,7 @@ module github.com/metal3-io/baremetal-operator/test
 go 1.26.0
 
 require (
-	github.com/cert-manager/cert-manager v1.20.3
+	github.com/cert-manager/cert-manager v1.20.4
 	github.com/gophercloud/gophercloud/v2 v2.13.0
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1

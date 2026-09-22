@@ -5,7 +5,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
@@ -89,41 +88,44 @@ func newDeleteBMLCmd() *cobra.Command {
 				return err
 			}
 
-			if len(cfg.Spec.VMs) == 0 {
-				return errors.New("no VMs defined in configuration (spec.vms is empty)")
-			}
-
 			conn, err := libvirtgo.NewConnect(cfg.Spec.Libvirt.URI)
 			if err != nil {
 				return fmt.Errorf("failed to connect to libvirt: %w", err)
 			}
 			defer func() { _, _ = conn.Close() }()
 
-			vmManager, err := libvirt.NewVMManager(conn, libvirt.VMManagerOptions{
-				PoolName: cfg.Spec.Pool.Name,
-				PoolPath: cfg.Spec.Pool.Path,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to create VM manager: %w", err)
-			}
-
-			names := make([]string, len(cfg.Spec.VMs))
-			for i, vm := range cfg.Spec.VMs {
-				names[i] = vm.Name
-			}
-
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleting bare metal lab (%d VMs)...\n", len(names))
-			err = vmManager.DeleteAll(ctx, names, true)
-			if err != nil {
-				return err
-			}
-
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Deleted VMs (and their volumes):")
-			for _, name := range names {
+			if len(cfg.Spec.VMs) == 0 {
 				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - %s\n", name)
+				fmt.Println("No VMs defined in configuration, skipping VM deletion.")
+			} else {
+				var vmManager *libvirt.VMManager
+
+				vmManager, err = libvirt.NewVMManager(conn, libvirt.VMManagerOptions{
+					PoolName: cfg.Spec.Pool.Name,
+					PoolPath: cfg.Spec.Pool.Path,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to create VM manager: %w", err)
+				}
+
+				names := make([]string, len(cfg.Spec.VMs))
+				for i, vm := range cfg.Spec.VMs {
+					names[i] = vm.Name
+				}
+
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Printf("Deleting bare metal lab (%d VMs)...\n", len(names))
+				err = vmManager.DeleteAll(ctx, names, true)
+				if err != nil {
+					return err
+				}
+
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Println("Deleted VMs (and their volumes):")
+				for _, name := range names {
+					//nolint:forbidigo // CLI output is intentional
+					fmt.Printf("  - %s\n", name)
+				}
 			}
 
 			// Delete veth pairs

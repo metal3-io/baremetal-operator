@@ -50,6 +50,39 @@ type ImageServerConfig struct {
 
 	// ContainerName is the name of the container to create for the image server.
 	ContainerName string `json:"containerName" yaml:"containerName"`
+
+	// ExtraMounts is a list of additional host-to-container bind mounts for the
+	// image server container. This is a generic mechanism that can, for example,
+	// be used to mount a TLS certificate/key and a custom server configuration
+	// file in order to serve HTTPS.
+	ExtraMounts []ContainerMount `json:"extraMounts,omitempty" yaml:"extraMounts,omitempty"`
+
+	// ExtraPorts is a list of additional host-to-container TCP port mappings to
+	// expose on the image server container, e.g. to publish an HTTPS listener
+	// configured via ExtraMounts.
+	ExtraPorts []PortMapping `json:"extraPorts,omitempty" yaml:"extraPorts,omitempty"`
+}
+
+// ContainerMount represents a single host-to-container bind mount for a
+// vbmctl-managed container.
+type ContainerMount struct {
+	// HostPath is the path on the host to mount.
+	HostPath string `json:"hostPath" yaml:"hostPath"`
+
+	// ContainerPath is the path inside the container to mount to.
+	ContainerPath string `json:"containerPath" yaml:"containerPath"`
+
+	// ReadOnly indicates whether the mount should be read-only inside the container.
+	ReadOnly bool `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
+}
+
+// PortMapping represents a single host-to-container TCP port mapping.
+type PortMapping struct {
+	// HostPort is the port on the host to bind to.
+	HostPort uint16 `json:"hostPort" yaml:"hostPort"`
+
+	// ContainerPort is the port inside the container to bind to.
+	ContainerPort uint16 `json:"containerPort" yaml:"containerPort"`
 }
 
 // VolumeMount represents a single host-to-container volume binding.

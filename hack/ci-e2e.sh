@@ -39,20 +39,19 @@ VBMC_IMAGE="${VBMC_IMAGE:-quay.io/metal3-io/vbmc}"
 SUSHY_EMULATOR_IMAGE="${SUSHY_EMULATOR_IMAGE:-quay.io/metal3-io/sushy-tools:latest}"
 SUSHY_EMULATOR_PORT="${SUSHY_EMULATOR_PORT:-8000}"
 
-# make test-e2e runs the fixture tests by default and skips some tests
-# that don't make sense in that context. We need to override.
-export GINKGO_SKIP_LABELS="${GINKGO_SKIP_LABELS:-}"
-GINKGO_FOCUS="${GINKGO_FOCUS:-}"
+# Default to the required tests.
+export GINKGO_LABEL_FILTER="${GINKGO_LABEL_FILTER:-required}"
 
+# TODO: Get rid of this by passing GINKGO_LABEL_FILTER straight from project-infra.
+GINKGO_FOCUS="${GINKGO_FOCUS:-}"
 case "${GINKGO_FOCUS,,}" in
   *upgrade*)
+    export GINKGO_LABEL_FILTER="optional"
+    unset GINKGO_FOCUS
     export DEPLOY_IRONIC="false"
     export DEPLOY_BMO="false"
     export DEPLOY_CERT_MANAGER="false"
     export GINKGO_NODES=1
-    ;;
-  *)
-    export GINKGO_SKIP="${GINKGO_SKIP:-upgrade}"
     ;;
 esac
 

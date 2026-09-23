@@ -9,7 +9,7 @@ on:
       runner:
         type: string
         default: "oracle-vm-4cpu-16gb-x86-64"
-      ginkgo-focus:
+      ginkgo-label-filter:
         type: string
         default: ""
       ref:
@@ -48,7 +48,7 @@ jobs:
     - name: Run BMO e2e Tests
       env:
         BMC_PROTOCOL: ${{ inputs.bmc-protocol }}
-        GINKGO_FOCUS: "${{ inputs.ginkgo-focus }}"
+        GINKGO_LABEL_FILTER: "${{ inputs.ginkgo-label-filter }}"
       # We need a new shell to pick up the new group. That is why we do the sudo -s -u $USER ...
       # Remove the pre-installed go version. We install the exact version we need.
       run: |

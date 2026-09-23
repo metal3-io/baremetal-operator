@@ -34,6 +34,8 @@ var (
 	longRetryDelay = time.Second * 10
 
 	softPowerOffTimeout = time.Second * 180
+
+	imageTypeWholeDisk = "whole-disk"
 )
 
 const (
@@ -576,6 +578,7 @@ func (p *ironicProvisioner) setLiveIsoUpdateOptsForNode(ironicNode *nodes.Node, 
 
 		// remove any image_source or checksum options
 		"image_source":        nil,
+		"image_type":          nil,
 		"image_os_hash_value": nil,
 		"image_os_hash_algo":  nil,
 		"image_checksum":      nil,
@@ -604,7 +607,11 @@ func (p *ironicProvisioner) setDirectDeployUpdateOptsForNode(ironicNode *nodes.N
 		// Remove any boot_iso field
 		"boot_iso":          nil,
 		"image_source":      imageData.URL,
+		"image_type":        nil,
 		"image_disk_format": imageData.DiskFormat,
+	}
+	if !imageData.IsOCI() {
+		optValues["image_type"] = imageTypeWholeDisk
 	}
 
 	// Set or clear image pull secret (clear removes a previously-set secret on reprovision)
@@ -656,6 +663,7 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 				"boot_iso":            nil,
 				"image_checksum":      nil,
 				"image_source":        imageData.URL,
+				"image_type":          nil,
 				"image_os_hash_algo":  checksumType,
 				"image_os_hash_value": checksum,
 				"image_disk_format":   imageData.DiskFormat,
@@ -665,10 +673,14 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 				"boot_iso":            nil,
 				"image_checksum":      nil,
 				"image_source":        imageData.URL,
+				"image_type":          nil,
 				"image_os_hash_algo":  nil,
 				"image_os_hash_value": nil,
 				"image_disk_format":   imageData.DiskFormat,
 			}
+		}
+		if !imageData.IsOCI() {
+			optValues["image_type"] = imageTypeWholeDisk
 		}
 		// Set or clear image pull secret (clear removes a previously-set secret on reprovision)
 		if imagePullSecret != "" {
@@ -682,6 +694,7 @@ func (p *ironicProvisioner) setCustomDeployUpdateOptsForNode(ironicNode *nodes.N
 			"boot_iso":            nil,
 			"image_checksum":      nil,
 			"image_source":        nil,
+			"image_type":          nil,
 			"image_os_hash_algo":  nil,
 			"image_os_hash_value": nil,
 			"image_disk_format":   nil,

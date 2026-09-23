@@ -42,7 +42,17 @@ updates:
     kubernetes:
       patterns: [ "k8s.io/*" ]
     capi:
-      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/api", "sigs.k8s.io/cluster-api/test" ]
+      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/*" ]
+    controller-runtime:
+      patterns: [ "sigs.k8s.io/controller-runtime" ]
+    kustomize:
+      patterns: [ "sigs.k8s.io/kustomize/*" ]
+    onsi:
+      patterns: [ "github.com/onsi/*" ]
+    golang-x:
+      patterns: [ "golang.org/x/*" ]
+    ironic-standalone-operator:
+      patterns: [ "github.com/metal3-io/ironic-standalone-operator/*" ]
   ignore:
   # Ignore controller-runtime major and minor bumps as its upgraded manually.
   - dependency-name: "sigs.k8s.io/controller-runtime"
@@ -99,11 +109,16 @@ updates:
     kubernetes:
       patterns: [ "k8s.io/*" ]
     capi:
-      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test" ]
+      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/*" ]
+    controller-runtime:
+      patterns: [ "sigs.k8s.io/controller-runtime" ]
+    kustomize:
+      patterns: [ "sigs.k8s.io/kustomize/*" ]
+    onsi:
+      patterns: [ "github.com/onsi/*" ]
+    ironic-standalone-operator:
+      patterns: [ "github.com/metal3-io/ironic-standalone-operator/*" ]
   ignore:
-  # golang.org/x/* only releases minors no patches, so minors have to be allowed
-  - dependency-name: "golang.org/x/*"
-    update-types: [ "version-update:semver-major" ]
   - dependency-name: "*"
     update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   commit-message:
@@ -154,11 +169,16 @@ updates:
     kubernetes:
       patterns: [ "k8s.io/*" ]
     capi:
-      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test" ]
+      patterns: [ "sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/*" ]
+    controller-runtime:
+      patterns: [ "sigs.k8s.io/controller-runtime" ]
+    kustomize:
+      patterns: [ "sigs.k8s.io/kustomize/*" ]
+    onsi:
+      patterns: [ "github.com/onsi/*" ]
+    ironic-standalone-operator:
+      patterns: [ "github.com/metal3-io/ironic-standalone-operator/*" ]
   ignore:
-  # golang.org/x/* only releases minors no patches, so minors have to be allowed
-  - dependency-name: "golang.org/x/*"
-    update-types: [ "version-update:semver-major" ]
   - dependency-name: "*"
     update-types: [ "version-update:semver-major", "version-update:semver-minor" ]
   commit-message:

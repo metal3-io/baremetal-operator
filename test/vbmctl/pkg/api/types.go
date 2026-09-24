@@ -54,16 +54,6 @@ type ImageServerConfig struct {
 	ContainerName string `json:"containerName" yaml:"containerName"`
 }
 
-// VolumeMount represents a single host-to-container volume binding.
-type VolumeMount struct {
-	// HostPath is the path on the host to mount.
-	HostPath string
-
-	// BindSpec is the container-side bind specification, e.g.
-	// "/container/path" or "/container/path:Z".
-	BindSpec string
-}
-
 // BMCEmulatorConfig represents the configuration for the BMC emulator.
 type BMCEmulatorConfig struct {
 	// BMC Emulator type.
@@ -77,18 +67,6 @@ type BMCEmulatorConfig struct {
 
 	// Image is the container image to use for the BMC emulator.
 	Image string `json:"image" yaml:"image"`
-
-	// Cmd is an internal runtime command for the BMC emulator container.
-	Cmd []string `json:"-" yaml:"-"`
-
-	// Env contains internal runtime environment variables for the emulator container.
-	Env map[string]string `json:"-" yaml:"-"`
-
-	// ContainerName is an internal runtime container name for the BMC emulator.
-	ContainerName string `json:"-" yaml:"-"`
-
-	// VolumeMounts is an internal runtime list of host-to-container volume bindings.
-	VolumeMounts []VolumeMount `json:"-" yaml:"-"`
 }
 
 // BMC emulator types.

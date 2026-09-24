@@ -15,14 +15,41 @@ import (
 	"github.com/moby/moby/client"
 )
 
+type bmcEmulatorInstance struct {
+	// Image is the container image to use for the BMC emulator.
+	image string
+
+	// Command for the BMC emulator container.
+	cmd []string
+
+	// Environment variables for the emulator container.
+	env map[string]string
+
+	// Container name for the BMC emulator.
+	containerName string
+
+	// List of host-to-container volume bindings.
+	volumeMounts []volumeMount
+}
+
+// VolumeMount represents a single host-to-container volume binding.
+type volumeMount struct {
+	// HostPath is the path on the host to mount.
+	hostPath string
+
+	// BindSpec is the container-side bind specification, e.g.
+	// "/container/path" or "/container/path:Z".
+	bindSpec string
+}
+
 // volumeMountsToBinds converts a slice of VolumeMount to Docker bind strings in the form "hostPath:bindSpec".
-func volumeMountsToBinds(mounts []vbmctlapi.VolumeMount) []string {
+func volumeMountsToBinds(mounts []volumeMount) []string {
 	if len(mounts) == 0 {
 		return nil
 	}
 	binds := make([]string, 0, len(mounts))
 	for _, m := range mounts {
-		binds = append(binds, fmt.Sprintf("%s:%s", m.HostPath, m.BindSpec))
+		binds = append(binds, fmt.Sprintf("%s:%s", m.hostPath, m.bindSpec))
 	}
 	return binds
 }
@@ -39,21 +66,21 @@ func envMapToSlice(envMap map[string]string) []string {
 	return envSlice
 }
 
-func createEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorConfig) error {
+func createEmulatorInstance(ctx context.Context, instance *bmcEmulatorInstance) error {
 	// Create the container
 	opts := client.ContainerCreateOptions{
 		Config: &container.Config{
-			Image: cfg.Image,
-			Env:   envMapToSlice(cfg.Env),
-			Cmd:   cfg.Cmd,
+			Image: instance.image,
+			Env:   envMapToSlice(instance.env),
+			Cmd:   instance.cmd,
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: "host",
-			Binds:       volumeMountsToBinds(cfg.VolumeMounts),
+			Binds:       volumeMountsToBinds(instance.volumeMounts),
 		},
 		NetworkingConfig: nil,
 		Platform:         nil,
-		Name:             cfg.ContainerName,
+		Name:             instance.containerName,
 	}
 
 	err := CreateRunningContainer(ctx, "BMC emulator", &opts)
@@ -70,15 +97,18 @@ func deleteEmulatorInstance(ctx context.Context, containerName string) error {
 
 func createVBMCEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorConfig) error {
 	// Fill in configuration
-	cfg.ContainerName = ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeVBMC)
-	cfg.VolumeMounts = []vbmctlapi.VolumeMount{
-		{HostPath: "/var/run/libvirt/libvirt-sock", BindSpec: "/var/run/libvirt/libvirt-sock"},
-		{HostPath: "/var/run/libvirt/libvirt-sock-ro", BindSpec: "/var/run/libvirt/libvirt-sock-ro"},
+	instance := &bmcEmulatorInstance{
+		image:         cfg.Image,
+		containerName: ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeVBMC),
+		volumeMounts: []volumeMount{
+			{hostPath: "/var/run/libvirt/libvirt-sock", bindSpec: "/var/run/libvirt/libvirt-sock"},
+			{hostPath: "/var/run/libvirt/libvirt-sock-ro", bindSpec: "/var/run/libvirt/libvirt-sock-ro"},
+		},
+		env: map[string]string{},
+		cmd: nil,
 	}
-	cfg.Env = map[string]string{}
-	cfg.Cmd = nil
 
-	return createEmulatorInstance(ctx, cfg)
+	return createEmulatorInstance(ctx, instance)
 }
 
 func deleteVBMCEmulatorInstance(ctx context.Context) error {
@@ -102,35 +132,38 @@ func createSushyToolsEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmu
 	}
 
 	// Fill in configuration
-	cfg.ContainerName = ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeSushyTools)
-	cfg.VolumeMounts = []vbmctlapi.VolumeMount{
-		{HostPath: "/var/run/libvirt", BindSpec: "/var/run/libvirt:Z"},
+	instance := &bmcEmulatorInstance{
+		image:         cfg.Image,
+		containerName: ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeSushyTools),
+		volumeMounts: []volumeMount{
+			{hostPath: "/var/run/libvirt", bindSpec: "/var/run/libvirt:Z"},
+		},
+		env: map[string]string{},
+		cmd: []string{"sushy-emulator"},
 	}
-	cfg.Env = map[string]string{}
-	cfg.Cmd = []string{"sushy-emulator"}
 
 	// If a config file is specified, set the environment variable and volume mount for it.
 	// We use ":Z" in the bind spec to ensure proper SELinux labeling in case the host is
 	// running with SELinux enabled.
 	if sushyCfg.ConfigFile != "" {
-		cfg.Env["SUSHY_EMULATOR_CONFIG"] = "/etc/sushy/sushy-emulator.conf"
-		cfg.VolumeMounts = append(cfg.VolumeMounts, vbmctlapi.VolumeMount{HostPath: sushyCfg.ConfigFile, BindSpec: "/etc/sushy/sushy-emulator.conf:Z"})
+		instance.env["SUSHY_EMULATOR_CONFIG"] = "/etc/sushy/sushy-emulator.conf"
+		instance.volumeMounts = append(instance.volumeMounts, volumeMount{hostPath: sushyCfg.ConfigFile, bindSpec: "/etc/sushy/sushy-emulator.conf:Z"})
 	}
 
 	// Set command-line arguments for the emulator based on the provided configuration.
 	if sushyCfg.ListenAddress != "" {
-		cfg.Cmd = append(cfg.Cmd, "--interface", sushyCfg.ListenAddress)
+		instance.cmd = append(instance.cmd, "--interface", sushyCfg.ListenAddress)
 	}
 
 	if sushyCfg.ListenPort != 0 {
-		cfg.Cmd = append(cfg.Cmd, "--port", strconv.FormatUint(uint64(sushyCfg.ListenPort), 10))
+		instance.cmd = append(instance.cmd, "--port", strconv.FormatUint(uint64(sushyCfg.ListenPort), 10))
 	}
 
 	// Overwrite specific configuration with values provided by vbmctl
-	cfg.Cmd = append(cfg.Cmd, "--storage-pool", sushyCfg.StoragePool)
-	cfg.Cmd = append(cfg.Cmd, "--libvirt-uri", sushyCfg.LibvirtURI)
+	instance.cmd = append(instance.cmd, "--storage-pool", sushyCfg.StoragePool)
+	instance.cmd = append(instance.cmd, "--libvirt-uri", sushyCfg.LibvirtURI)
 
-	return createEmulatorInstance(ctx, cfg)
+	return createEmulatorInstance(ctx, instance)
 }
 
 func deleteSushyToolsEmulatorInstance(ctx context.Context) error {

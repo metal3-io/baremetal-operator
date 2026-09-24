@@ -17,11 +17,7 @@ images:
   loadBehavior: tryLoad
 - name: quay.io/jetstack/cert-manager-controller:v1.19.2
   loadBehavior: tryLoad
-- name: quay.io/metal3-io/ironic-standalone-operator:v0.7.2
-  loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic-standalone-operator:v0.9.0
-  loadBehavior: tryLoad
-- name: quay.io/metal3-io/ironic-standalone-operator:v0.10.0
   loadBehavior: tryLoad
 - name: quay.io/metal3-io/ironic-standalone-operator:v0.11.0
   loadBehavior: tryLoad
@@ -115,14 +111,14 @@ bmoUpgradeSpecs:
   initBMOKustomization: "../../config/overlays/e2e-release-0.12"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.7"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.11"
 # Upgrade BMO 0.13 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.13"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.9"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.11"
 # Upgrade BMO 0.14 -> main
 - deployIronic: true
   deployBMO: true

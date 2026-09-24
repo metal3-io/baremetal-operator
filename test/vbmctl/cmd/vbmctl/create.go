@@ -5,7 +5,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -178,10 +177,6 @@ Example configuration:
 				return err
 			}
 
-			if len(cfg.Spec.VMs) == 0 {
-				return errors.New("no VMs defined in configuration (spec.vms is empty)")
-			}
-
 			if cfg.Spec.ImageServer != nil {
 				err = containers.CreateImageServerInstance(ctx, cfg.Spec.ImageServer)
 				if err != nil {
@@ -245,6 +240,12 @@ Example configuration:
 			} else {
 				//nolint:forbidigo // CLI output is intentional
 				fmt.Println("No BMC emulator configuration found in the config file.")
+			}
+
+			if len(cfg.Spec.VMs) == 0 {
+				//nolint:forbidigo // CLI output is intentional
+				fmt.Println("No VMs defined in configuration, skipping VM creation.")
+				return nil
 			}
 
 			vmManager, err := libvirt.NewVMManager(conn, libvirt.VMManagerOptions{

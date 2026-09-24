@@ -82,6 +82,77 @@ spec:
             type: object
         type: object
     served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: HostDeployPolicy is the Schema for the hostdeploypolicies API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HostDeployPolicySpec defines the desired state of HostDeployPolicy.
+            properties:
+              hostClaimNamespaces:
+                description: |-
+                  HostClaimNamespaces constrains the namespaces of the HostClaims allowed
+                  to bind the BareMetalHosts in the same namespace as the HostDeployPolicy
+                properties:
+                  hasLabels:
+                    description: |-
+                      HasLabels is a list of label names and their associated value.
+                      The namespace should have all of those labels. If the value
+                      is specified, it must also match.
+                    items:
+                      properties:
+                        name:
+                          description: Name of the expected label.
+                          type: string
+                        value:
+                          description: If specified, expected value of the label.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  nameMatches:
+                    description: |-
+                      NameMatches is a regular expression that is matched against
+                      the entire namespace name of the HostClaim. NOTE:
+                      "prod" matches "prod", "production", "not-prod" and "reproduce".
+                      Use "^prod$" to match exactly "prod", "^prod.*" to match namespaces
+                      starting with "prod" etc.
+                    type: string
+                  names:
+                    description: Namespaces is a list of namespace names where the
+                      hostClaim is authorized to reside in.
+                    items:
+                      type: string
+                    type: array
+                type: object
+            type: object
+          status:
+            description: HostDeployPolicyStatus defines the observed state of HostDeployPolicy.
+            type: object
+        type: object
+    served: true
     storage: true
     subresources:
       status: {}

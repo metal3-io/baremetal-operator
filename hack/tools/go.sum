@@ -155,6 +155,10 @@ k8s.io/apiextensions-apiserver v0.36.4 h1:SfvCVt+4CqKWvzuVytYDT5g9hyb9MztoiYELIk
 k8s.io/apiextensions-apiserver v0.36.4/go.mod h1:JT9V2Ju7ys1FY4zbSpmX9XOvKB3/BwsODc4hFQEa+Xo=
 k8s.io/apimachinery v0.36.4 h1:PT2UzkupGuAx/+xT5XjiMJ1WGpY3fn9/hdAvjweRet4=
 k8s.io/apimachinery v0.36.4/go.mod h1:p2I2dipt7JHG+quVwQ1d02d28O4GdDi77RByQ13MTpk=
+k8s.io/code-generator v0.36.4 h1:KNW2Alv5LVoGiooEYh1GY982CGyg53u1inHu6Zi4bIA=
+k8s.io/code-generator v0.36.4/go.mod h1:JmRrlYwTOn2glEuGOfNnlXTGbz3FfMg7t7Dq/8lHcc4=
+k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b h1:gMplByicHV/TJBizHd9aVEsTYoJBnnUAT5MHlTkbjhQ=
+k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b/go.mod h1:CgujABENc3KuTrcsdpGmrrASjtQsWCT7R99mEV4U/fM=
 k8s.io/klog/v2 v2.140.0 h1:Tf+J3AH7xnUzZyVVXhTgGhEKnFqye14aadWv7bzXdzc=
 k8s.io/klog/v2 v2.140.0/go.mod h1:o+/RWfJ6PwpnFn7OyAG3QnO47BFsymfEfrz6XyYSSp0=
 k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a h1:xCeOEAOoGYl2jnJoHkC3hkbPJgdATINPMAxaynU2Ovg=

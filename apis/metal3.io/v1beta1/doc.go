@@ -13,9 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1alpha1 contains API Schema definitions for the metal3.io v1alpha1 API group
+// Package v1beta1 contains API Schema definitions for the metal3.io v1beta1 API group
 // +kubebuilder:object:generate=true
 // +k8s:openapi-gen=true
-// +k8s:conversion-gen=github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1
 // +groupName=metal3.io
-package v1alpha1
+package v1beta1

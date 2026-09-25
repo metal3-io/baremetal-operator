@@ -155,6 +155,7 @@ jobs:
       image-name: 'baremetal-operator'
       pushImage: true
       ref: ${{ needs.push_release_tags.outputs.release_tag }}
+      image-build-args: MODULE_VERSION=${{ needs.push_release_tags.outputs.release_tag }}
       generate-sbom: true
       sign-image: true
     secrets:

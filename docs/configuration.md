@@ -101,6 +101,29 @@ That feature is under development and is not ready for use.
 PreprovisioningImage integration is enabled with
 `-build-preprov-image`.
 
+`IRONIC_NETWORKING_ENABLED` -- ("true", "false") Set to `true` to enable
+switch port configuration management via HostNetworkAttachment resources.
+When enabled, BMO will configure Ironic port `extra.switchport` attributes
+based on the host's `spec.networkInterfaces` and their referenced
+HostNetworkAttachments. Defaults to `false`.
+
+`IRONIC_NETWORK_INTERFACE` -- The Ironic network interface driver to use
+when `IRONIC_NETWORKING_ENABLED` is `true`. Defaults to `ironic-networking`.
+Override to `noop` for test environments without a virtual switch.
+
+`IRONIC_SWITCH_CONFIGS_SECRET` -- The name of the Secret to be populated with
+switch configuration data used by the Ironic standalone networking
+implementation. Required when `IRONIC_NETWORKING_ENABLED` is `true`.
+
+`IRONIC_SWITCH_CREDENTIALS_SECRET` -- The name of the Secret to be populated
+with switch credentials used by the Ironic standalone networking
+implementation. Required when `IRONIC_NETWORKING_ENABLED` is `true`.
+
+`IRONIC_SWITCH_CREDENTIALS_PATH` -- Contains the path where switch credential
+secrets are mounted in the Ironic pod so that configuration data can be written
+to include this as a prefix for any referenced files. Required when
+`IRONIC_NETWORKING_ENABLED` is `true`.
+
 [IronicCR]: https://github.com/metal3-io/ironic-standalone-operator/blob/main/docs/api.md#ironic
 
 Kustomization Configuration

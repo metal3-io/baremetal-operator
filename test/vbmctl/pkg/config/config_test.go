@@ -509,6 +509,129 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "valid image server config with extra mounts and ports",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+					ExtraMounts: []vbmctlapi.ContainerMount{
+						{HostPath: "/tmp/tls.crt", ContainerPath: "/etc/nginx/certs/tls.crt", ReadOnly: true},
+					},
+					ExtraPorts: []vbmctlapi.PortMapping{
+						{HostPort: 443, ContainerPort: 8443},
+					},
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid image server config - extra mount missing hostPath",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+					ExtraMounts: []vbmctlapi.ContainerMount{
+						{ContainerPath: "/etc/nginx/certs/tls.crt"},
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - extra mount missing containerPath",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+					ExtraMounts: []vbmctlapi.ContainerMount{
+						{HostPath: "/tmp/tls.crt"},
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - extra port missing hostPort",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+					ExtraPorts: []vbmctlapi.PortMapping{
+						{ContainerPort: 8443},
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - extra port missing containerPort",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+					ExtraPorts: []vbmctlapi.PortMapping{
+						{HostPort: 443},
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - extra port duplicates the primary container port",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+					ExtraPorts: []vbmctlapi.PortMapping{
+						{HostPort: 8080, ContainerPort: 8080},
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid image server config - duplicate extra container ports",
+			modify: func(c *Config) {
+				c.Spec.ImageServer = &vbmctlapi.ImageServerConfig{
+					Image:            "test/image-server:latest",
+					Port:             80,
+					ContainerPort:    8080,
+					DataDir:          "/var/lib/vbmctl/images-test",
+					ContainerDataDir: "/var/lib/vbmctl/images-test",
+					ContainerName:    "vbmctl-image-server",
+					ExtraPorts: []vbmctlapi.PortMapping{
+						{HostPort: 443, ContainerPort: 8443},
+						{HostPort: 8443, ContainerPort: 8443},
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
 			name: "valid BMC emulator config (vbmc)",
 			modify: func(c *Config) {
 				c.Spec.BMCEmulator = &vbmctlapi.BMCEmulatorConfig{

@@ -105,6 +105,35 @@ fi
 # server endpoint, not ironic.
 export IP_ADDRESS="192.168.222.1"
 
+# Generate a self-signed TLS certificate for the image server using openssl.
+# Since the certificate is self-signed, the same file is used both as the
+# server certificate (by the image server) and as the trusted CA (by
+# Ironic's ramdisk-downloader init container), so that the IPA
+# kernel/ramdisk can be downloaded over HTTPS instead of plain HTTP.
+IMAGE_SERVER_CERTS_DIR="${REPO_ROOT}/test/e2e/certs"
+mkdir -p "${IMAGE_SERVER_CERTS_DIR}"
+export IMAGE_SERVER_TLS_CERT_FILE="${IMAGE_SERVER_CERTS_DIR}/tls.crt"
+export IMAGE_SERVER_TLS_KEY_FILE="${IMAGE_SERVER_CERTS_DIR}/tls.key"
+if [[ -f "${IMAGE_SERVER_TLS_CERT_FILE}" ]] && [[ -f "${IMAGE_SERVER_TLS_KEY_FILE}" ]]; then
+  echo "Reusing existing TLS certificate/key in ${IMAGE_SERVER_CERTS_DIR}"
+else
+  openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=${IP_ADDRESS}" \
+    -addext "subjectAltName = IP:${IP_ADDRESS}" \
+    -out "${IMAGE_SERVER_TLS_CERT_FILE}" -keyout "${IMAGE_SERVER_TLS_KEY_FILE}"
+  # chown the cert/key files to UID 101 (container user)
+  sudo chown 101 "${IMAGE_SERVER_TLS_KEY_FILE}"
+  sudo chown 101 "${IMAGE_SERVER_TLS_CERT_FILE}"
+fi
+
+# Static nginx configuration adding an HTTPS listener (see
+# test/e2e/config/nginx-tls.conf) alongside the default plain-HTTP one, mounted
+# into the image server container together with the certificate/key above via
+# spec.imageServer.extraMounts/extraPorts in vbmctl.yaml.tmpl.
+export IMAGE_SERVER_NGINX_CONF_FILE="${REPO_ROOT}/test/e2e/config/nginx-tls.conf"
+
+IRSO_TRUSTED_CA_DIR="${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/components/trusted-ca"
+cp "${IMAGE_SERVER_TLS_CERT_FILE}" "${IRSO_TRUSTED_CA_DIR}/ca.crt"
+
 # E2E emulator configuration variables
 if [[ "${BMO_E2E_EMULATOR}" == "vbmc" ]]; then
   export BMO_E2E_IMAGE="${VBMC_IMAGE}"
@@ -123,7 +152,7 @@ SYSRESCUE_VERSION="11.00"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 ISO_FILE="systemrescue-${SYSRESCUE_VERSION}-amd64.iso"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
-export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
+export IMAGE_URL="https://${IP_ADDRESS}/${IMAGE_FILE}"
 export IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
 mkdir -p "${IMAGE_DIR}"
 
@@ -150,7 +179,7 @@ fi
 
 if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
   # shellcheck disable=SC2016
-  envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
+  envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR},${IMAGE_SERVER_TLS_CERT_FILE},${IMAGE_SERVER_TLS_KEY_FILE},${IMAGE_SERVER_NGINX_CONF_FILE}' < \
     "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
     "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
 
@@ -245,7 +274,7 @@ EOF
   ./sysrescue-customize --auto --recipe-dir recipe --source "${ISO_FILE}" --dest=sysrescue-out.iso
   popd
 fi
-export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"
+export ISO_IMAGE_URL="https://${IP_ADDRESS}/sysrescue-out.iso"
 
 # Generate credentials
 BMO_OVERLAYS=(

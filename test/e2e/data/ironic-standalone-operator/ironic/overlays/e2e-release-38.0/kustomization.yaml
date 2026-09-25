@@ -9,6 +9,7 @@ components:
 - ../../../components/tls
 - ../../../components/basic-auth
 - ../../../components/upgrade-ip
+- ../../../components/trusted-ca
 
 patches:
 - target:

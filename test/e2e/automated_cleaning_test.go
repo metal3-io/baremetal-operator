@@ -28,6 +28,14 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning", "
 
 	BeforeEach(func() {
 		toCleanup = nil
+
+		// Automated cleaning actually wipes disks via Ironic, which fixture
+		// does not simulate, so this test doesn't make sense without a real
+		// Ironic deployment.
+		if !e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+			Skip("Automated cleaning tests rely on using Ironic to actually clean disks")
+		}
+
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 			Creator:             clusterProxy.GetClient(),
 			ClientSet:           clusterProxy.GetClientSet(),

@@ -7,7 +7,8 @@ cd "${REPO_ROOT}" || exit 1
 
 WATCH_NS="$(grep -A1 WATCH_NAMESPACE config/overlays/e2e/namespaced-manager-patch.yaml | grep 'value:' | awk '{ print $2; }')"
 # hostclaims requires two namespaces hostclaims-tenant for hostclaim and hostclaims-infra for bmh.
-EXCEPTIONS=upgrade,hostclaims
+# hdp requires four namespaces (two for tenants and two for bmh)
+EXCEPTIONS=upgrade,hostclaims,hdp
 
 EXITCODE=0
 for spec in $(grep -E --no-filename ' *specName +:?=' test/e2e/*_test.go | grep -o '".*"' | tr -d '"'); do

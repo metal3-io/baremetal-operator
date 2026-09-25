@@ -20,6 +20,9 @@ resources:
 - ./upgrade-ironic
 - ./hostclaims-infra
 - ./hostclaims-tenant
+- ./hdp-infra
+- ./hdp-tenanta
+- ./hdp-tenantb
 - ./cluster-role.yaml
 
 components:

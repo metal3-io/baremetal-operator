@@ -2,7 +2,9 @@
 // bare metal environments.
 package vbmctlapi
 
-import "k8s.io/utils/ptr"
+import (
+	"k8s.io/utils/ptr"
+)
 
 // VMConfig represents the configuration for a virtual machine.
 type VMConfig struct {
@@ -52,55 +54,50 @@ type ImageServerConfig struct {
 	ContainerName string `json:"containerName" yaml:"containerName"`
 }
 
-// VolumeMount represents a single host-to-container volume binding.
-type VolumeMount struct {
-	// HostPath is the path on the host to mount.
-	HostPath string
-
-	// BindSpec is the container-side bind specification, e.g.
-	// "/container/path" or "/container/path:Z".
-	BindSpec string
-}
-
 // BMCEmulatorConfig represents the configuration for the BMC emulator.
 type BMCEmulatorConfig struct {
-	// BMC Emulator type
+	// BMC Emulator type.
 	Type string `json:"type" yaml:"type"`
 
-	// ConfigFile is the path to the sushy-tools config file and is only
-	// applicable when Type is "sushy-tools".
-	ConfigFile string `json:"configFile" yaml:"configFile"`
+	// SushyToolsConfig. Required when Type is sushy-tools.
+	SushyToolsConfig SushyToolsConfig `json:"sushyToolsConfig" yaml:"sushyToolsConfig"`
 
-	// ListenAddress is the address that the BMC emulator listens on to
-	// use for sushy-tools when not using a config file.
-	ListenAddress string `json:"listenAddress" yaml:"listenAddress"`
-
-	// ListenPort is the port that the BMC emulator listens on to
-	// use for sushy-tools when not using a config file.
-	ListenPort uint16 `json:"listenPort" yaml:"listenPort"`
-
-	// StoragePool is the name of the libvirt storage pool to use for
-	// sushy-tools.
-	StoragePool string `json:"storagePool" yaml:"storagePool"`
-
-	// LibvirtURI is the libvirt URI that sushy-tools should connect to.
-	LibvirtURI string `json:"libvirtURI" yaml:"libvirtUri"`
+	// VBMCConfig. Required when Type is vbmc.
+	VBMCConfig VBMCConfig `json:"vbmcConfig" yaml:"vbmcConfig"`
 
 	// Image is the container image to use for the BMC emulator.
 	Image string `json:"image" yaml:"image"`
-
-	// Cmd is an internal runtime command for the BMC emulator container.
-	Cmd []string `json:"-" yaml:"-"`
-
-	// Env contains internal runtime environment variables for the emulator container.
-	Env map[string]string `json:"-" yaml:"-"`
-
-	// ContainerName is an internal runtime container name for the BMC emulator.
-	ContainerName string `json:"-" yaml:"-"`
-
-	// VolumeMounts is an internal runtime list of host-to-container volume bindings.
-	VolumeMounts []VolumeMount `json:"-" yaml:"-"`
 }
+
+// BMC emulator types.
+const (
+	// BMC emulator type: vbmc.
+	BMCEmulatorTypeVBMC = "vbmc"
+
+	// BMC emulator type: sushy-tools.
+	BMCEmulatorTypeSushyTools = "sushy-tools"
+)
+
+// SushyToolsConfig contains settings specific to the sushy-tools emulator.
+type SushyToolsConfig struct {
+	// ConfigFile is the path to the sushy-tools config file.
+	ConfigFile string `json:"configFile,omitempty" yaml:"configFile,omitempty"`
+
+	// ListenAddress is the address that the emulator listens on when not using a config file.
+	ListenAddress string `json:"listenAddress,omitempty" yaml:"listenAddress,omitempty"`
+
+	// ListenPort is the port that the emulator listens on when not using a config file.
+	ListenPort uint16 `json:"listenPort,omitempty" yaml:"listenPort,omitempty"`
+
+	// StoragePool is the name of the libvirt storage pool to use.
+	StoragePool string `json:"storagePool,omitempty" yaml:"storagePool,omitempty"`
+
+	// LibvirtURI is the libvirt URI that sushy-tools should connect to.
+	LibvirtURI string `json:"libvirtURI,omitempty" yaml:"libvirtUri,omitempty"`
+}
+
+// VBMCConfig contains settings specific to the vbmc emulator.
+type VBMCConfig struct{}
 
 // NetworkAttachment represents a network interface attached to a VM.
 type NetworkAttachment struct {
@@ -282,4 +279,66 @@ func (c DockerBridgeNetwork) Defaults() DockerBridgeNetwork {
 		cfg.IPv6 = ptr.To(false)
 	}
 	return cfg
+}
+
+// UnmarshalYAML populates the emulator-specific config fields from the legacy flat YAML shape.
+func (c *BMCEmulatorConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawBMCEmulatorConfig struct {
+		Type          string `yaml:"type"`
+		Image         string `yaml:"image"`
+		ConfigFile    string `yaml:"configFile"`
+		ListenAddress string `yaml:"listenAddress"`
+		ListenPort    uint16 `yaml:"listenPort"`
+		StoragePool   string `yaml:"storagePool"`
+		LibvirtURI    string `yaml:"libvirtUri"`
+	}
+
+	var raw rawBMCEmulatorConfig
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	c.Type = raw.Type
+	c.Image = raw.Image
+
+	switch c.Type {
+	case BMCEmulatorTypeSushyTools:
+		c.SushyToolsConfig = SushyToolsConfig{
+			ConfigFile:    raw.ConfigFile,
+			ListenAddress: raw.ListenAddress,
+			ListenPort:    raw.ListenPort,
+			StoragePool:   raw.StoragePool,
+			LibvirtURI:    raw.LibvirtURI,
+		}
+	case BMCEmulatorTypeVBMC:
+		c.VBMCConfig = VBMCConfig{}
+	}
+
+	return nil
+}
+
+// MarshalYAML flattens the emulator-specific config back into the legacy flat YAML shape.
+func (c BMCEmulatorConfig) MarshalYAML() (interface{}, error) {
+	type marshaledBMCEmulatorConfig struct {
+		Type          string `yaml:"type"`
+		Image         string `yaml:"image"`
+		ConfigFile    string `yaml:"configFile,omitempty"`
+		ListenAddress string `yaml:"listenAddress,omitempty"`
+		ListenPort    uint16 `yaml:"listenPort,omitempty"`
+		StoragePool   string `yaml:"storagePool,omitempty"`
+		LibvirtURI    string `yaml:"libvirtUri,omitempty"`
+	}
+
+	var marshaled marshaledBMCEmulatorConfig
+	marshaled.Type = c.Type
+	marshaled.Image = c.Image
+	if c.Type == BMCEmulatorTypeSushyTools {
+		marshaled.ConfigFile = c.SushyToolsConfig.ConfigFile
+		marshaled.ListenAddress = c.SushyToolsConfig.ListenAddress
+		marshaled.ListenPort = c.SushyToolsConfig.ListenPort
+		marshaled.StoragePool = c.SushyToolsConfig.StoragePool
+		marshaled.LibvirtURI = c.SushyToolsConfig.LibvirtURI
+	}
+
+	return marshaled, nil
 }

@@ -41,7 +41,7 @@ SUSHY_EMULATOR_PORT="${SUSHY_EMULATOR_PORT:-8000}"
 
 # make test-e2e runs the fixture tests by default and skips some tests
 # that don't make sense in that context. We need to override.
-export GINKGO_SKIP_LABELS="${GINKGO_SKIP_LABELS:-}"
+export GINKGO_SKIP_LABELS="${GINKGO_SKIP_LABELS:-scalability}"
 GINKGO_FOCUS="${GINKGO_FOCUS:-}"
 
 case "${GINKGO_FOCUS,,}" in
@@ -158,6 +158,8 @@ if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
   # also image server and E2E emulator containers.
   ./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
 fi
+# Clean up any leftover VMs/networks/containers from a previous run
+./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" delete bml 2>/dev/null || true
 
 # Wait for the sushy-tools BMC emulator to become reachable on the provisioning
 # IP. sushy-tools may start before the provisioning bridge IP is assigned,

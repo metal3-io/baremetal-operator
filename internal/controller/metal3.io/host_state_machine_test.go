@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -980,6 +983,166 @@ func TestErrorCountIncreasedOnActionFailure(t *testing.T) {
 	}
 }
 
+func secretAccessProvisionErr(secretName string) error {
+	return fmt.Errorf("could not retrieve user data: %w", SecretAccessError{
+		secret: secretName,
+		key:    "userData",
+		err:    errors.New("not found"),
+	})
+}
+
+func TestActionProvisioningSecretAccessErrorOnly(t *testing.T) {
+	secretErr := secretAccessProvisionErr("user-data")
+	var wrapped SecretAccessError
+	if !errors.As(secretErr, &wrapped) {
+		t.Fatal("test error must wrap SecretAccessError")
+	}
+
+	testCases := []struct {
+		name      string
+		err       error
+		wantEvent bool
+	}{
+		{
+			name:      "secret access",
+			err:       secretErr,
+			wantEvent: true,
+		},
+		{
+			name: "unrelated wrapped failure",
+			err:  fmt.Errorf("could not retrieve user data: %w", errors.New("timeout")),
+		},
+		{
+			name: "no data in secret",
+			err:  NoDataInSecretError{secret: "user-data", key: "userData"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := host(metal3api.StateProvisioning).build()
+			prov := newMockProvisioner()
+			prov.provisionErr = tc.err
+			reconciler := testNewReconciler(h)
+			info := makeDefaultReconcileInfo(h)
+
+			result := reconciler.actionProvisioning(t.Context(), prov, info)
+
+			if !tc.wantEvent {
+				_, isActionErr := result.(actionError)
+				assert.True(t, isActionErr)
+				assert.Empty(t, h.Status.ErrorType)
+				assert.Empty(t, h.Status.ErrorMessage)
+				assert.Equal(t, metal3api.OperationalStatusOK, h.Status.OperationalStatus)
+				assert.Empty(t, info.events)
+				return
+			}
+
+			_, isFailed := result.(actionFailed)
+			assert.False(t, isFailed)
+			assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
+			assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+			assert.Equal(t, metal3api.OperationalStatusError, h.Status.OperationalStatus)
+			assert.Equal(t, wrapped.Error(), h.Status.ErrorMessage)
+			assert.Equal(t, 0, h.Status.ErrorCount)
+			assert.Len(t, info.events, 1)
+			assert.Equal(t, secretAccessEventReason, info.events[0].Reason)
+			assert.Equal(t, wrapped.Error(), info.events[0].Message)
+
+			reconcileResult, resErr := result.Result()
+			require.NoError(t, resErr)
+			assert.Equal(t, hostErrorRetryDelay, reconcileResult.RequeueAfter)
+
+			// The same condition must not emit another event or become fatal.
+			info.events = nil
+			again := reconciler.actionProvisioning(t.Context(), prov, info)
+			assert.Empty(t, info.events)
+			assert.Equal(t, 0, h.Status.ErrorCount)
+			assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
+			againResult, againErr := again.Result()
+			require.NoError(t, againErr)
+			assert.Equal(t, hostErrorRetryDelay, againResult.RequeueAfter)
+		})
+	}
+}
+
+func TestProvisioningSecretAccessErrorRetriesWithoutDeprovision(t *testing.T) {
+	h := host(metal3api.StateProvisioning).build()
+	prov := newMockProvisioner()
+	prov.provisionErr = secretAccessProvisionErr("user-data")
+	reconciler := testNewReconciler(h)
+	hsm := newHostStateMachine(h, reconciler, prov, true)
+
+	info := makeDefaultReconcileInfo(h)
+	// Match the host key so later reconciles load subresources created on
+	// the first pass instead of trying to create them again.
+	info.request.Name = h.Name
+	info.request.Namespace = h.Namespace
+	result := hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
+	assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+	assert.Equal(t, metal3api.OperationalStatusError, h.Status.OperationalStatus)
+	assert.Contains(t, h.Status.ErrorMessage, `"user-data"`)
+	assert.Equal(t, 0, h.Status.ErrorCount)
+	assert.Equal(t, 1, prov.provisionCalls)
+	if assert.Len(t, info.events, 1) {
+		assert.Equal(t, secretAccessEventReason, info.events[0].Reason)
+		assert.Equal(t, h.Status.ErrorMessage, info.events[0].Message)
+	}
+	reconcileResult, resErr := result.Result()
+	require.NoError(t, resErr)
+	assert.Equal(t, hostErrorRetryDelay, reconcileResult.RequeueAfter)
+
+	// The next reconcile must keep provisioning. A fatal ErrorType would
+	// move the host to deprovisioning before Provision is called again.
+	prov.provisionErr = secretAccessProvisionErr("other-data")
+	info = makeDefaultReconcileInfo(h)
+	info.request.Name = h.Name
+	info.request.Namespace = h.Namespace
+	result = hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
+	assert.Contains(t, h.Status.ErrorMessage, `"other-data"`)
+	assert.Equal(t, 2, prov.provisionCalls)
+	assert.Equal(t, metal3api.OperationalStatusError, h.Status.OperationalStatus)
+	if assert.Len(t, info.events, 1) {
+		assert.Equal(t, secretAccessEventReason, info.events[0].Reason)
+	}
+	reconcileResult, resErr = result.Result()
+	require.NoError(t, resErr)
+	assert.Equal(t, hostErrorRetryDelay, reconcileResult.RequeueAfter)
+
+	prov.provisionErr = nil
+	info = makeDefaultReconcileInfo(h)
+	info.request.Name = h.Name
+	info.request.Namespace = h.Namespace
+	hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateProvisioned, h.Status.Provisioning.State)
+	assert.Empty(t, h.Status.ErrorType)
+	assert.Empty(t, h.Status.ErrorMessage)
+	assert.Equal(t, metal3api.OperationalStatusOK, h.Status.OperationalStatus)
+	assert.Equal(t, 0, h.Status.ErrorCount)
+}
+
+func TestProvisioningErrorDeprovisions(t *testing.T) {
+	h := host(metal3api.StateProvisioning).
+		SetStatusError(metal3api.OperationalStatusError, metal3api.ProvisioningError, "Image provisioning failed", 1).
+		build()
+	prov := newMockProvisioner()
+	reconciler := testNewReconciler(h)
+	hsm := newHostStateMachine(h, reconciler, prov, true)
+	info := makeDefaultReconcileInfo(h)
+
+	hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateDeprovisioning, h.Status.Provisioning.State)
+	assert.Equal(t, 0, prov.provisionCalls)
+	assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+	assert.Equal(t, "Image provisioning failed", h.Status.ErrorMessage)
+}
+
 func TestErrorCountClearedOnStateTransition(t *testing.T) {
 	tests := []struct {
 		Scenario                     string
@@ -1342,6 +1505,8 @@ type mockProvisioner struct {
 	callsNoError        map[string]bool
 	registerErr         error
 	preprovImageFormats []metal3api.ImageFormat
+	provisionErr        error
+	provisionCalls      int
 }
 
 func (m *mockProvisioner) getNextResultByMethod(name string) (result provisioner.Result) {
@@ -1405,7 +1570,11 @@ func (m *mockProvisioner) Adopt(_ context.Context, _ provisioner.AdoptData, _ bo
 }
 
 func (m *mockProvisioner) Provision(_ context.Context, _ provisioner.ProvisionData, _ bool) (result provisioner.Result, err error) {
-	return m.getNextResultByMethod("Provision"), err
+	m.provisionCalls++
+	if m.provisionErr != nil {
+		return provisioner.Result{}, m.provisionErr
+	}
+	return m.getNextResultByMethod("Provision"), nil
 }
 
 func (m *mockProvisioner) Deprovision(_ context.Context, _ bool, _ metal3api.AutomatedCleaningMode) (result provisioner.Result, err error) {

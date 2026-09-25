@@ -51,6 +51,13 @@ func (hcd *hostConfigData) getSecretDataWithFinalizer(ctx context.Context, name,
 
 	secret, err := hcd.secretManager.ObtainSecretWithFinalizer(ctx, key, addFinalizer)
 	if err != nil {
+		// Only a missing or inaccessible Secret is a SecretAccessError. Callers
+		// surface that on the host and retry provisioning in place. Other
+		// failures (for example a transient conflict while adding the finalizer)
+		// stay unwrapped and are retried as ordinary action errors.
+		if k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
+			return "", SecretAccessError{secret: name, key: dataKey, err: err}
+		}
 		return "", err
 	}
 

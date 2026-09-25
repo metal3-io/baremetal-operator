@@ -557,7 +557,10 @@ func (hsm *hostStateMachine) imageProvisioningCancelled() bool {
 }
 
 func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *reconcileInfo) actionResult {
-	if hsm.Host.Status.ErrorType != "" || hsm.provisioningCancelled() {
+	// Any recorded provisioning error normally aborts into deprovisioning.
+	// A missing configuration Secret is the exception: it is surfaced on the
+	// host and retried in place until the Secret exists.
+	if hsm.fatalProvisioningError() || hsm.provisioningCancelled() {
 		if hsm.Host.Status.ErrorType != "" {
 			hsm.Host.Status.ProvisioningFailCount++
 			info.log.Info("provisioning failed, incrementing fail count",
@@ -581,6 +584,15 @@ func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *recon
 		hsm.Host.Status.ProvisioningFailCount = 0
 	}
 	return actResult
+}
+
+// fatalProvisioningError reports whether the current status error should abort
+// provisioning. Empty means there is nothing to abort on.
+func (hsm *hostStateMachine) fatalProvisioningError() bool {
+	if hsm.Host.Status.ErrorType == "" {
+		return false
+	}
+	return !isRetryableSecretAccessStatus(hsm.Host)
 }
 
 func (hsm *hostStateMachine) handleProvisioned(ctx context.Context, info *reconcileInfo) actionResult {

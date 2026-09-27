@@ -15,7 +15,7 @@ require (
 	github.com/onsi/gomega v1.42.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/stretchr/testify v1.11.1
-	go.etcd.io/etcd/client/pkg/v3 v3.7.1
+	go.etcd.io/etcd/client/pkg/v3 v3.7.2
 	go.uber.org/zap v1.28.0
 	k8s.io/api v0.36.4
 	k8s.io/apimachinery v0.36.4

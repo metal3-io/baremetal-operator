@@ -1,6 +1,6 @@
 module github.com/metal3-io/baremetal-operator
 
-go 1.25.0
+go 1.26
 
 require (
 	github.com/cpuguy83/dockercfg v0.3.2
@@ -15,7 +15,7 @@ require (
 	github.com/onsi/gomega v1.40.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1
-	go.etcd.io/etcd/client/pkg/v3 v3.6.14
+	go.etcd.io/etcd/client/pkg/v3 v3.6.15
 	go.uber.org/zap v1.27.1
 	k8s.io/api v0.35.9
 	k8s.io/apimachinery v0.35.9

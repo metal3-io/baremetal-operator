@@ -85,44 +85,38 @@ Defaults to `/plugins`. See [Provisioner plugins](plugin-provisioners.md).
 `DIRECT_DEPLOY_FORCE_PERSISTENT_BOOT_DEVICE` -- (`Default`, `Always`,
 `Never`) Controls persistent boot device for direct-deploy images.
 
-`IRONIC_NETWORKING_ENABLED` -- Set to `true` to enable the
-BareMetalSwitch controller. When enabled, the following must also be
-set:
-
-- `IRONIC_SWITCH_CONFIGS_SECRET` -- Secret name written with generated
-  switch configuration
-- `IRONIC_SWITCH_CREDENTIALS_SECRET` -- Secret name that receives
-  switch credentials for Ironic
-- `IRONIC_SWITCH_CREDENTIALS_PATH` -- Filesystem path where switch
-  credentials are materialized
-
 The `-hostclaims` manager flag enables the HostClaim controller.
 That feature is under development and is not ready for use.
 PreprovisioningImage integration is enabled with
 `-build-preprov-image`.
 
-`IRONIC_NETWORKING_ENABLED` -- ("true", "false") Set to `true` to enable
-switch port configuration management via HostNetworkAttachment resources.
-When enabled, BMO will configure Ironic port `extra.switchport` attributes
-based on the host's `spec.networkInterfaces` and their referenced
-HostNetworkAttachments. Defaults to `false`.
+`IronicNetworking` -- A feature gate, disabled by default. Set
+`FEATURE_GATES=IronicNetworking=true` or pass
+`--feature-gates=IronicNetworking=true` to enable the BareMetalSwitch
+controller and switch port configuration management via
+HostNetworkAttachment resources. When enabled, BMO configures Ironic port
+`extra.switchport` attributes based on the host's `spec.networkInterfaces`
+and their referenced HostNetworkAttachments. The switch secret settings
+below are required when this gate is enabled. The validating webhooks reject
+new BareMetalSwitch and HostNetworkAttachment resources while the gate is
+disabled.
 
 `IRONIC_NETWORK_INTERFACE` -- The Ironic network interface driver to use
-when `IRONIC_NETWORKING_ENABLED` is `true`. Defaults to `ironic-networking`.
+when `IronicNetworking` is enabled. Defaults to `ironic-networking`.
 Override to `noop` for test environments without a virtual switch.
 
 `IRONIC_SWITCH_CONFIGS_SECRET` -- The name of the Secret to be populated with
 switch configuration data used by the Ironic standalone networking
-implementation. Required when `IRONIC_NETWORKING_ENABLED` is `true`.
+implementation. Required when `IronicNetworking` is enabled.
 
 `IRONIC_SWITCH_CREDENTIALS_SECRET` -- The name of the Secret to be populated
 with switch credentials used by the Ironic standalone networking
-implementation. Required when `IRONIC_NETWORKING_ENABLED` is `true`.
+implementation. Required when `IronicNetworking` is enabled.
 
 `IRONIC_SWITCH_CREDENTIALS_PATH` -- Contains the path where switch credential
 secrets are mounted in the Ironic pod so that configuration data can be written
 to include this as a prefix for any referenced files. Required when
-`IRONIC_NETWORKING_ENABLED` is `true`.
+`IronicNetworking` is enabled.
 
 [IronicCR]: https://github.com/metal3-io/ironic-standalone-operator/blob/main/docs/api.md#ironic
 

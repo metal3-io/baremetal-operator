@@ -3857,6 +3857,25 @@ webhooks:
     service:
       name: baremetal-operator-webhook-service
       namespace: baremetal-operator-system
+      path: /validate-metal3-io-v1alpha1-baremetalswitch
+  failurePolicy: Fail
+  name: baremetalswitch.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - baremetalswitches
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: baremetal-operator-webhook-service
+      namespace: baremetal-operator-system
       path: /validate-metal3-io-v1alpha1-bmceventsubscription
   failurePolicy: Fail
   name: bmceventsubscription.metal3.io

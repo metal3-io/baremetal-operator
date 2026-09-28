@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
@@ -104,8 +105,7 @@ func newCreateVMCmd() *cobra.Command {
 				return fmt.Errorf("failed to create VM: %w", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Created VM %s (UUID: %s)\n", vm.Config.Name, vm.UUID)
+			fmt.Fprintf(os.Stdout, "Created VM %s (UUID: %s)\n", vm.Config.Name, vm.UUID)
 			return nil
 		},
 	}
@@ -183,8 +183,7 @@ Example configuration:
 					return err
 				}
 			} else {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("No image server configuration found in the config file.")
+				fmt.Fprintln(os.Stdout, "No image server configuration found in the config file.")
 			}
 
 			conn, err := libvirtgo.NewConnect(cfg.Spec.Libvirt.URI)
@@ -202,22 +201,18 @@ Example configuration:
 			if err != nil {
 				return err
 			}
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Created networks:")
+			fmt.Fprintln(os.Stdout, "Created networks:")
 			for _, network := range networks {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - %s (UUID: %s)\n", network.Name, network.UUID)
+				fmt.Fprintf(os.Stdout, "  - %s (UUID: %s)\n", network.Name, network.UUID)
 			}
 
 			networkIDs, err := containers.CreateBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
 			if err != nil {
 				return err
 			}
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Created Docker networks:")
+			fmt.Fprintln(os.Stdout, "Created Docker networks:")
 			for _, id := range networkIDs {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - ID: %s\n", id)
+				fmt.Fprintf(os.Stdout, "  - ID: %s\n", id)
 			}
 
 			// Connect the specified networks
@@ -225,11 +220,9 @@ Example configuration:
 			if err != nil {
 				return fmt.Errorf("failed to create veth pairs: %w", err)
 			}
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Created veth pairs:")
+			fmt.Fprintln(os.Stdout, "Created veth pairs:")
 			for _, pair := range cfg.Spec.VethPairs {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - between %s and %s\n", pair.Link1, pair.Link2)
+				fmt.Fprintf(os.Stdout, "  - between %s and %s\n", pair.Link1, pair.Link2)
 			}
 
 			if cfg.Spec.BMCEmulator != nil {
@@ -238,13 +231,11 @@ Example configuration:
 					return err
 				}
 			} else {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("No BMC emulator configuration found in the config file.")
+				fmt.Fprintln(os.Stdout, "No BMC emulator configuration found in the config file.")
 			}
 
 			if len(cfg.Spec.VMs) == 0 {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("No VMs defined in configuration, skipping VM creation.")
+				fmt.Fprintln(os.Stdout, "No VMs defined in configuration, skipping VM creation.")
 				return nil
 			}
 
@@ -256,19 +247,16 @@ Example configuration:
 				return fmt.Errorf("failed to create VM manager: %w", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Creating bare metal lab with %d VM(s)...\n", len(cfg.Spec.VMs))
+			fmt.Fprintf(os.Stdout, "Creating bare metal lab with %d VM(s)...\n", len(cfg.Spec.VMs))
 
 			vms, err := vmManager.CreateAll(ctx, cfg.Spec.VMs)
 			if err != nil {
 				return err
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("\nCreated VMs:")
+			fmt.Fprintln(os.Stdout, "\nCreated VMs:")
 			for _, vm := range vms {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - %s (UUID: %s)\n", vm.Config.Name, vm.UUID)
+				fmt.Fprintf(os.Stdout, "  - %s (UUID: %s)\n", vm.Config.Name, vm.UUID)
 			}
 
 			return nil
@@ -321,8 +309,7 @@ func newCreateNetworkCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Created network: %s (UUID: %s)\n", network.Name, network.UUID)
+			fmt.Fprintf(os.Stdout, "Created network: %s (UUID: %s)\n", network.Name, network.UUID)
 			return nil
 		},
 	}
@@ -489,8 +476,7 @@ func newCreateBMCEmulatorCmd() *cobra.Command {
 					}
 				}
 
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Using storage pool '%s' and libvirt URI '%s' for sushy-tools BMC emulator\n", cfg.Spec.Pool.Name, cfg.Spec.Libvirt.URI)
+				fmt.Fprintf(os.Stdout, "Using storage pool '%s' and libvirt URI '%s' for sushy-tools BMC emulator\n", cfg.Spec.Pool.Name, cfg.Spec.Libvirt.URI)
 			}
 
 			emulatorConfig := &vbmctlapi.BMCEmulatorConfig{

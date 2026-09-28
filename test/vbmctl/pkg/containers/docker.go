@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"os"
 	"strings"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
@@ -53,8 +53,7 @@ func CreateRunningContainer(ctx context.Context, humanName string, opts *client.
 		return fmt.Errorf("failed to get status for container %q: %w", opts.Name, err)
 	}
 	if containerID != "" {
-		//nolint:forbidigo // CLI output is intentional
-		fmt.Printf("Found %s container: %s (id: %s) status: %s\n", humanName, opts.Name, containerID[:12], status)
+		fmt.Fprintf(os.Stdout, "Found %s container: %s (id: %s) status: %s\n", humanName, opts.Name, containerID[:12], status)
 		if status == "running" {
 			return nil
 		}
@@ -62,8 +61,7 @@ func CreateRunningContainer(ctx context.Context, humanName string, opts *client.
 	} else {
 		// Pull the image if it is not already present locally
 		if _, err := apiClient.ImageInspect(ctx, opts.Config.Image); err != nil {
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Pulling image %s ...\n", opts.Config.Image)
+			fmt.Fprintf(os.Stdout, "Pulling image %s ...\n", opts.Config.Image)
 			rc, err := apiClient.ImagePull(ctx, opts.Config.Image, client.ImagePullOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to pull image %q for %s container: %w", opts.Config.Image, humanName, err)
@@ -84,8 +82,7 @@ func CreateRunningContainer(ctx context.Context, humanName string, opts *client.
 	if _, err := apiClient.ContainerStart(ctx, containerID, client.ContainerStartOptions{}); err != nil {
 		return fmt.Errorf("failed to start the %s container: %w", humanName, err)
 	}
-	//nolint:forbidigo // CLI output is intentional
-	fmt.Printf("Started the %s container: %s (id: %s)\n", humanName, opts.Name, containerID[:12])
+	fmt.Fprintf(os.Stdout, "Started the %s container: %s (id: %s)\n", humanName, opts.Name, containerID[:12])
 
 	return nil
 }
@@ -100,8 +97,7 @@ func DeleteContainer(ctx context.Context, realName string, containerName string)
 	if _, err := apiClient.ContainerRemove(ctx, containerName, client.ContainerRemoveOptions{Force: true}); err != nil {
 		return fmt.Errorf("failed to delete %s container %q: %w", realName, containerName, err)
 	}
-	//nolint:forbidigo // CLI output is intentional
-	fmt.Printf("Deleted the %s container: %s\n", realName, containerName)
+	fmt.Fprintf(os.Stdout, "Deleted the %s container: %s\n", realName, containerName)
 
 	return nil
 }
@@ -170,7 +166,7 @@ func GetNetworkByName(ctx context.Context, networkName string) (string, error) {
 		return "", ErrNetworkNotFound
 	}
 	if len(networks.Items) > 1 {
-		log.Printf("Warning: found %d networks with name %s", len(networks.Items), networkName)
+		fmt.Fprintf(os.Stderr, "Warning: found %d networks with name %s\n", len(networks.Items), networkName)
 	}
 	return networks.Items[0].Network.ID, nil
 }

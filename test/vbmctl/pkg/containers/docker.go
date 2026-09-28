@@ -71,8 +71,7 @@ func pullImageIfMissing(ctx context.Context, apiClient dockerClient, humanName, 
 	if _, err := apiClient.ImageInspect(ctx, image); err == nil {
 		return nil
 	}
-	//nolint:forbidigo // CLI output is intentional
-	fmt.Printf("Pulling image %s ...\n", image)
+	log.Printf("Pulling image %s ...\n", image)
 	// ImagePull only starts the pull and returns its progress stream. Wait
 	// reads the stream until the pull ends and returns any error from it.
 	rc, err := apiClient.ImagePull(ctx, image, client.ImagePullOptions{})
@@ -126,8 +125,7 @@ func CreateRunningContainer(ctx context.Context, humanName string, opts *client.
 		}
 		return fmt.Errorf("failed to start the %s container: %w", humanName, err)
 	}
-	//nolint:forbidigo // CLI output is intentional
-	fmt.Printf("Started the %s container: %s (id: %s)\n", humanName, opts.Name, resp.ID[:12])
+	log.Printf("Started the %s container: %s (id: %s)\n", humanName, opts.Name, resp.ID[:12])
 
 	return nil
 }
@@ -142,8 +140,7 @@ func DeleteContainer(ctx context.Context, realName string, containerName string)
 	if _, err := apiClient.ContainerRemove(ctx, containerName, client.ContainerRemoveOptions{Force: true}); err != nil {
 		return fmt.Errorf("failed to delete %s container %q: %w", realName, containerName, err)
 	}
-	//nolint:forbidigo // CLI output is intentional
-	fmt.Printf("Deleted the %s container: %s\n", realName, containerName)
+	log.Printf("Deleted the %s container: %s\n", realName, containerName)
 
 	return nil
 }
@@ -212,7 +209,7 @@ func GetNetworkByName(ctx context.Context, networkName string) (string, error) {
 		return "", ErrNetworkNotFound
 	}
 	if len(networks.Items) > 1 {
-		log.Printf("Warning: found %d networks with name %s", len(networks.Items), networkName)
+		log.Printf("Warning: found %d networks with name %s\n", len(networks.Items), networkName)
 	}
 	return networks.Items[0].Network.ID, nil
 }

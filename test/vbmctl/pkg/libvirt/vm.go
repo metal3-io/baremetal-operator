@@ -101,7 +101,7 @@ func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctl
 		if err := m.pool.CreateVolume(ctx, m.opts.PoolName, volumeName, volCfg.Size); err != nil {
 			return nil, fmt.Errorf("failed to create volume %s: %w", volumeName, err)
 		}
-		log.Printf("Created volume %s\n", volumeName)
+		// PoolManager.CreateVolume reports success.
 	}
 
 	// Reserve IP addresses if specified
@@ -127,7 +127,8 @@ func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctl
 		return nil, fmt.Errorf("failed to get domain UUID: %w", err)
 	}
 
-	log.Printf("Created VM %s with UUID %s\n", cfg.Name, uuid)
+	// Note: the command layer reports successful VM creation to the user;
+	// do not print here to avoid duplicate output.
 
 	return &vbmctlapi.VM{
 		Config: cfg,
@@ -236,10 +237,9 @@ func (m *VMManager) deleteVMVolumes(ctx context.Context, vmName string) error {
 	prefix := vmName + "-"
 	for _, vol := range volumes {
 		if strings.HasPrefix(vol.Config.Name, prefix) {
+			// PoolManager.DeleteVolume already reports success; only surface failures here.
 			if err := m.pool.DeleteVolume(ctx, m.opts.PoolName, vol.Config.Name); err != nil {
 				log.Printf("Warning: failed to delete volume %s: %v\n", vol.Config.Name, err)
-			} else {
-				log.Printf("Deleted volume %s\n", vol.Config.Name)
 			}
 		}
 	}

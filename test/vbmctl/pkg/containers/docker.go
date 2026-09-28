@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -142,8 +142,7 @@ func DeleteContainer(ctx context.Context, realName string, containerName string)
 	if _, err := apiClient.ContainerRemove(ctx, containerName, client.ContainerRemoveOptions{Force: true}); err != nil {
 		return fmt.Errorf("failed to delete %s container %q: %w", realName, containerName, err)
 	}
-	//nolint:forbidigo // CLI output is intentional
-	fmt.Printf("Deleted the %s container: %s\n", realName, containerName)
+	fmt.Fprintf(os.Stdout, "Deleted the %s container: %s\n", realName, containerName)
 
 	return nil
 }
@@ -212,7 +211,7 @@ func GetNetworkByName(ctx context.Context, networkName string) (string, error) {
 		return "", ErrNetworkNotFound
 	}
 	if len(networks.Items) > 1 {
-		log.Printf("Warning: found %d networks with name %s", len(networks.Items), networkName)
+		fmt.Fprintf(os.Stderr, "Warning: found %d networks with name %s\n", len(networks.Items), networkName)
 	}
 	return networks.Items[0].Network.ID, nil
 }

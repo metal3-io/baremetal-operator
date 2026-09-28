@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"os"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"libvirt.org/go/libvirt"
@@ -116,10 +116,10 @@ func (m *NetworkManager) CreateNetworks(ctx context.Context, configs []vbmctlapi
 		network, err := m.CreateNetwork(ctx, cfg)
 		if err != nil {
 			// Clean up previously created networks
-			log.Printf("Failed to create network %s, cleaning up %d previously created network(s)\n", cfg.Name, len(networks))
+			fmt.Fprintf(os.Stderr, "Failed to create network %s, cleaning up %d previously created network(s)\n", cfg.Name, len(networks))
 			for _, created := range networks {
 				if delErr := m.DeleteNetwork(ctx, created.Name); delErr != nil {
-					log.Printf("Warning: failed to clean up network %s: %v\n", created.Name, delErr)
+					fmt.Fprintf(os.Stderr, "Warning: failed to clean up network %s: %v\n", created.Name, delErr)
 				}
 			}
 			return nil, fmt.Errorf("failed to create network %s: %w", cfg.Name, err)
@@ -132,7 +132,7 @@ func (m *NetworkManager) CreateNetworks(ctx context.Context, configs []vbmctlapi
 func (m *NetworkManager) DeleteNetwork(_ context.Context, name string) error {
 	network, err := m.conn.LookupNetworkByName(name)
 	if errors.Is(err, libvirt.ERR_NO_NETWORK) {
-		log.Printf("Cannot delete libvirt network %s, does not exist.\n", name)
+		fmt.Fprintf(os.Stderr, "Cannot delete libvirt network %s, does not exist.\n", name)
 		return nil
 	}
 	if err != nil {
@@ -154,7 +154,7 @@ func (m *NetworkManager) DeleteNetworks(ctx context.Context, names []string) err
 	var lastErr error
 	for _, name := range names {
 		if err := m.DeleteNetwork(ctx, name); err != nil {
-			log.Printf("Error deleting network %s: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Error deleting network %s: %v\n", name, err)
 			lastErr = err
 		}
 	}

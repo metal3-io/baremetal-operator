@@ -35,6 +35,7 @@ const bmhNetworkAttachmentIndexField = ".spec.networkInterfaces.hostNetworkAttac
 
 func (webhook *HostNetworkAttachment) SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	webhook.Client = mgr.GetClient()
+	webhook.APIReader = mgr.GetAPIReader()
 
 	// Register field indexer for efficient BMH reference lookups
 	// This allows us to quickly find all BMHs that reference a specific HostNetworkAttachment
@@ -74,7 +75,8 @@ func (webhook *HostNetworkAttachment) SetupWebhookWithManager(ctx context.Contex
 
 // HostNetworkAttachment implements a validation webhook for HostNetworkAttachment.
 type HostNetworkAttachment struct {
-	Client client.Client
+	Client    client.Client
+	APIReader client.Reader
 }
 
 var _ admission.Validator[*metal3api.HostNetworkAttachment] = &HostNetworkAttachment{}

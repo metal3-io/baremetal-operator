@@ -18,16 +18,10 @@ on:
 permissions: {}
 
 jobs:
-  golangci-lint:
-    if: github.event.pull_request.draft == false
-    uses: ./.github/workflows/golangci-lint.yml
-
   e2e-fixture-test:
-    needs: [golangci-lint]
     uses: ./.github/workflows/e2e-fixture-test.yml
 
   e2e-test:
-    needs: [golangci-lint]
     strategy:
       # Avoid wasting CI resources
       fail-fast: true

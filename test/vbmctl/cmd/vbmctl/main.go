@@ -39,8 +39,7 @@ test environments for the Bare Metal Operator (BMO) and CAPM3.`,
 		SilenceUsage: true,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			if showVersion {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("vbmctl version %s\n", config.Version)
+				fmt.Fprintf(os.Stdout, "vbmctl version %s\n", config.Version)
 				os.Exit(0)
 			}
 			return nil

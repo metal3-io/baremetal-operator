@@ -161,6 +161,10 @@ func setupWebhooks(ctx context.Context, mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HostNetworkAttachment")
 		os.Exit(1)
 	}
+	if err := (&webhooks.BareMetalSwitch{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalSwitch")
+		os.Exit(1)
+	}
 
 	if err := (&webhooks.DataImage{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DataImage")
@@ -540,28 +544,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	networkingEnabledValue := os.Getenv("IRONIC_NETWORKING_ENABLED")
-	networkingEnabled, err := strconv.ParseBool(networkingEnabledValue)
-	if err != nil && networkingEnabledValue != "" {
-		setupLog.Error(err, "invalid environment variable value", "name", "IRONIC_NETWORKING_ENABLED", "value", networkingEnabledValue)
-		os.Exit(1)
-	}
-	if networkingEnabled {
+	if features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking) {
 		switchConfigsSecretName := os.Getenv("IRONIC_SWITCH_CONFIGS_SECRET")
 		if switchConfigsSecretName == "" {
-			setupLog.Error(errors.New("IRONIC_SWITCH_CONFIGS_SECRET must be set when IRONIC_NETWORKING_ENABLED=true"), "missing required environment variable")
+			setupLog.Error(errors.New("IRONIC_SWITCH_CONFIGS_SECRET must be set when IronicNetworking is enabled"), "missing required environment variable")
 			os.Exit(1)
 		}
 
 		switchCredentialSecretName := os.Getenv("IRONIC_SWITCH_CREDENTIALS_SECRET")
 		if switchCredentialSecretName == "" {
-			setupLog.Error(errors.New("IRONIC_SWITCH_CREDENTIALS_SECRET must be set when IRONIC_NETWORKING_ENABLED=true"), "missing required environment variable")
+			setupLog.Error(errors.New("IRONIC_SWITCH_CREDENTIALS_SECRET must be set when IronicNetworking is enabled"), "missing required environment variable")
 			os.Exit(1)
 		}
 
 		switchCredentialPath := os.Getenv("IRONIC_SWITCH_CREDENTIALS_PATH")
 		if switchCredentialPath == "" {
-			setupLog.Error(errors.New("IRONIC_SWITCH_CREDENTIALS_PATH must be set when IRONIC_NETWORKING_ENABLED=true"), "missing required environment variable")
+			setupLog.Error(errors.New("IRONIC_SWITCH_CREDENTIALS_PATH must be set when IronicNetworking is enabled"), "missing required environment variable")
 			os.Exit(1)
 		}
 

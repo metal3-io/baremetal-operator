@@ -145,3 +145,128 @@ func TestNewNoBMCDetails(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, prov)
 }
+
+func TestRedactSensitiveURL(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "empty is unchanged",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "plain URL without secrets is unchanged",
+			in:   "https://example.com/images/image.qcow2",
+			want: "https://example.com/images/image.qcow2",
+		},
+		{
+			name: "benign query params are preserved as-is",
+			in:   "https://example.com/image.qcow2?version=2&format=qcow2",
+			want: "https://example.com/image.qcow2?version=2&format=qcow2",
+		},
+		{
+			name: "embedded userinfo credentials are removed",
+			in:   "https://user:pass@example.com/image.qcow2",
+			want: "https://example.com/image.qcow2",
+		},
+		{
+			name: "username-only userinfo is removed",
+			in:   "https://user@example.com/image.qcow2",
+			want: "https://example.com/image.qcow2",
+		},
+		{
+			name: "AWS signature query param is redacted",
+			in:   "https://example.com/image.qcow2?X-Amz-Signature=abc123&foo=bar",
+			want: "https://example.com/image.qcow2?X-Amz-Signature=REDACTED&foo=bar",
+		},
+		{
+			name: "token query param is redacted",
+			in:   "https://example.com/image.qcow2?token=supersecret",
+			want: "https://example.com/image.qcow2?token=REDACTED",
+		},
+		{
+			name: "access_token query param is redacted",
+			in:   "https://example.com/image.qcow2?access_token=supersecret",
+			want: "https://example.com/image.qcow2?access_token=REDACTED",
+		},
+		{
+			name: "redaction is case-insensitive on param name",
+			in:   "https://example.com/image.qcow2?Signature=abc",
+			want: "https://example.com/image.qcow2?Signature=REDACTED",
+		},
+		{
+			name: "both userinfo and signed params are handled",
+			in:   "https://user:pass@example.com/image.qcow2?sig=abc&keep=1",
+			want: "https://example.com/image.qcow2?keep=1&sig=REDACTED",
+		},
+		{
+			name: "GCS signed URL params are redacted",
+			in:   "https://storage.googleapis.com/bucket/image.qcow2?X-Goog-Signature=abc&X-Goog-Credential=def",
+			want: "https://storage.googleapis.com/bucket/image.qcow2?X-Goog-Credential=REDACTED&X-Goog-Signature=REDACTED",
+		},
+		{
+			name: "Swift temp_url_sig is redacted",
+			in:   "https://swift.example.com/v1/img.qcow2?temp_url_sig=abc&temp_url_expires=123",
+			want: "https://swift.example.com/v1/img.qcow2?temp_url_expires=123&temp_url_sig=REDACTED",
+		},
+		{
+			name: "unparseable input is returned unchanged",
+			in:   "://not a url",
+			want: "://not a url",
+		},
+		{
+			name: "malformed query is redacted wholesale",
+			in:   "https://example.com/image.qcow2?token=secret;evil=1",
+			want: "https://example.com/image.qcow2?REDACTED",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, redactSensitiveURL(tt.in))
+		})
+	}
+}
+
+func TestRedactSensitiveText(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "empty is unchanged",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "text without a URL is unchanged",
+			in:   "Deploy failed: could not connect to BMC",
+			want: "Deploy failed: could not connect to BMC",
+		},
+		{
+			name: "URL embedded in an error message is redacted",
+			in:   "failed to download image from https://example.com/image.qcow2?X-Amz-Signature=abc123 (404)",
+			want: "failed to download image from https://example.com/image.qcow2?X-Amz-Signature=REDACTED (404)",
+		},
+		{
+			name: "embedded userinfo is stripped",
+			in:   "error fetching https://user:pass@example.com/image.qcow2 for node",
+			want: "error fetching https://example.com/image.qcow2 for node",
+		},
+		{
+			name: "multiple URLs are each redacted",
+			in:   "primary https://example.com/a?token=one secondary https://example.com/b?sig=two",
+			want: "primary https://example.com/a?token=REDACTED secondary https://example.com/b?sig=REDACTED",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, redactSensitiveText(tt.in))
+		})
+	}
+}

@@ -36,12 +36,20 @@ the e2e Makefile target directly with `make test-e2e`, you may need to adjust yo
 
 Currently there are two sets of tests, which cannot be ran together in the same
 cluster. One is the "optional" set, currently consists of only the
-upgrade tests (`upgrade_*_test.go`), and the "main" set, which are the ones
-required to run in every BMO PR. One can switch between these sets by
-manipulating the `GINKGO_FOCUS` and `GINKGO_SKIP` env vars. In the default
-setting, the script sets `GINKGO_SKIP` to `upgrade`.
+upgrade tests (`upgrade_*_test.go`), and the "required" set, which are the ones
+required to run in every BMO PR. Every spec is labeled (via Ginkgo's
+`Label(...)`) with its tier (`required` or `optional`), plus additional area
+labels (e.g. `provision`, `inspection`, `firmware`).
 
-E.g. Here is how to run the E2E main tests:
+Which tier(s) run is controlled entirely by the `GINKGO_LABEL_FILTER` env var,
+a single [Ginkgo label-filter expression](https://onsi.github.io/ginkgo/#spec-labels)
+applied consistently whether you invoke `make test-e2e` directly or through
+`hack/ci-e2e.sh`. `hack/ci-e2e.sh` defaults `GINKGO_LABEL_FILTER` to
+`required` (the mandatory tier); `make test-e2e` on its own (e.g. for
+the fixture provider) defaults it to an empty filter, running the whole
+suite.
+
+E.g. Here is how to run the E2E required tests:
 
 ```bash
 ./hack/ci-e2e.sh
@@ -50,16 +58,19 @@ E.g. Here is how to run the E2E main tests:
 And here is how to run the E2E optional tests:
 
 ```bash
-export GINKGO_FOCUS="upgrade"
+export GINKGO_LABEL_FILTER="optional"
 ./hack/ci-e2e.sh
 ```
 
-`GINKGO_FOCUS` can be set manually to run specific tests. The options for these
-can be found as the first string value (formatting included) of the line with
-`Describe` or `It`. These can also be combined with other proceeding sections to
-match to even more specific test sections. The value `GINKGO_FOCUS` uses is a
-regexp that should match the description of the spec but not match the regexp
-specified in `GINKGO_SKIP`.
+`GINKGO_FOCUS` and `GINKGO_SKIP` are still available, but only intended for
+ad-hoc developer runs, not for tier selection. They are regex-based (as
+opposed to the label-based `GINKGO_LABEL_FILTER`) and match against the spec
+text. `GINKGO_FOCUS` can be set manually to run specific tests. The options
+for these can be found as the first string value (formatting included) of the
+line with `Describe` or `It`. These can also be combined with other
+proceeding sections to match to even more specific test sections. The value
+`GINKGO_FOCUS` uses is a regexp that should match the description of the spec
+but not match the regexp specified in `GINKGO_SKIP`.
 
 Example:
 

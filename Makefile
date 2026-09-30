@@ -51,10 +51,18 @@ export GOFLAGS=
 #
 # We default to fixture tests, since they are fast and require little
 # both in terms of resources and tooling.
-# Note that some tests may not make sense for fixture, so we skip them.
+#
+# GINKGO_FOCUS/GINKGO_SKIP are regex-based and kept only for ad-hoc developer
+# runs (see test/e2e/README.md). Tier selection (which specs run in a given
+# CI job) is controlled exclusively by GINKGO_LABEL_FILTER, a Ginkgo
+# label-filter expression. Left empty by default, so that `make test-e2e`
+# invoked directly (e.g. for the fixture provider) runs the whole suite.
+# Specs that don't make sense without a real Ironic (e.g. automated
+# cleaning) skip themselves via DEPLOY_IRONIC checks instead of being
+# filtered out here.
 GINKGO_FOCUS ?=
 GINKGO_SKIP ?=
-GINKGO_SKIP_LABELS ?= automated-cleaning
+GINKGO_LABEL_FILTER ?=
 GINKGO_NODES ?= 2
 GINKGO_TIMEOUT ?= 3h
 GINKGO_POLL_PROGRESS_AFTER ?= 60m
@@ -75,9 +83,9 @@ ifneq ($(strip $(GINKGO_SKIP)),)
 _SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
 endif
 
-# to set multiple ginkgo skip labels, if any
-ifneq ($(strip $(GINKGO_SKIP_LABELS)),)
-_SKIP_LABELS_ARGS := --label-filter="!$(GINKGO_SKIP_LABELS)"
+# single label-filter expression controlling which tier(s) run
+ifneq ($(strip $(GINKGO_LABEL_FILTER)),)
+_LABEL_FILTER_ARGS := --label-filter="$(GINKGO_LABEL_FILTER)"
 endif
 
 .PHONY: help
@@ -154,7 +162,7 @@ verify-e2e-prerequisites: ## Check that required tools exist for e2e tests
 test-e2e: $(GINKGO) ## Run the end-to-end tests
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \
 		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e,vbmctl --focus="$(GINKGO_FOCUS)" \
-		$(_SKIP_ARGS)  $(_SKIP_LABELS_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
+		$(_SKIP_ARGS) $(_LABEL_FILTER_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
 		--output-dir="$(ARTIFACTS)" --junit-report="junit.e2e_suite.1.xml" $(GINKGO_ARGS) test/e2e -- \
 		-e2e.config="$(E2E_CONF_FILE)" -e2e.bmcsConfig="$(E2E_BMCS_CONF_FILE)" \
 		-e2e.use-existing-cluster=$(USE_EXISTING_CLUSTER) \

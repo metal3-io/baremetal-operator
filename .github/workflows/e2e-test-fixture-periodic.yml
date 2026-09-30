@@ -1,0 +1,16 @@
+name: Periodic E2E Fixture Test
+
+on:
+  schedule:
+  # Run every day at 01:20 UTC (it is recommended to avoid running at the start of the hour)
+  - cron: '20 1 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  periodic-e2e-fixture-test:
+    if: github.repository == 'metal3-io/baremetal-operator'
+    uses: $/.github/workflows/e2e-fixture-test.yml
+    permissions:
+      contents: read

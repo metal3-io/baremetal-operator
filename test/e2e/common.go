@@ -1219,3 +1219,12 @@ func WaitForHostClaimCondition(ctx context.Context, input WaitForHostClaimCondit
 		g.Expect(hostclaim.Status.Conditions).To(ContainCondition(input.ConditionType, input.Status))
 	}, intervals...).Should(Succeed())
 }
+
+func WaitForHostClaimDeleted(ctx context.Context, cli client.Client, hostClaim *metal3api.HostClaim, intervals ...interface{}) {
+	Eventually(func(g Gomega) {
+		claim := &metal3api.HostClaim{}
+		key := types.NamespacedName{Namespace: hostClaim.Namespace, Name: hostClaim.Name}
+		err := cli.Get(ctx, key, claim)
+		g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+	}, intervals...).Should(Succeed())
+}

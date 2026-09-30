@@ -1,5 +1,20 @@
 # Fuzzing
 
+## Available Fuzz Tests
+
+- `FuzzGetParsedURL` (`bmc_fuzz_test.go`): Parses BMC access URLs across
+  supported protocols (IPMI, Redfish, iDRAC, iLO, and their
+  virtualmedia/http/https variants) to ensure parsing never panics.
+- `FuzzCredentialsValidate` (`credential_fuzz_test.go`): Validates BMC
+  username/password combinations, checking that empty fields are rejected and
+  non-empty credentials are accepted.
+- `FuzzMakeHintMap` (`devicehint_fuzz_test.go`): Converts `RootDeviceHints`
+  into the Ironic hint map, verifying device-name, size, and rotational
+  mapping invariants.
+- `TestMakeHintMapNil` (`devicehint_fuzz_test.go`): Regular regression test
+  ensuring `MakeHintMap` handles nil `RootDeviceHints` input by returning an
+  empty map without panicking.
+
 ## Running Fuzz Tests
 
 ### Quick Start with Makefile

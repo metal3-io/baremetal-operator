@@ -212,7 +212,7 @@ func reportDeletion(w io.Writer, kind string, names []string, err error) {
 
 	fmt.Fprintf(w, "Deleted %s:\n", kind)
 	for _, name := range names {
-		fmt.Fprintf(w, "  - %s\n", name)
+		fmt.Fprintf(w, "  - %s\n", name) //nolint:gosec // CLI output to the terminal, not HTML
 	}
 }
 

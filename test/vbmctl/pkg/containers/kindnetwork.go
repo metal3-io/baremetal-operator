@@ -74,8 +74,11 @@ func DeleteBridgeNetworks(ctx context.Context, networks []vbmctlapi.DockerBridge
 	var latestErr error
 	for _, net := range networks {
 		networkID, err := GetNetworkByName(ctx, net.Name)
-		if err != nil {
-			log.Printf("Warning: failed to delete Docker network %s, could not get network ID", net.Name)
+		if errors.Is(err, ErrNetworkNotFound) {
+			log.Printf("Warning: Docker network %s not found, skipping", net.Name)
+			continue
+		} else if err != nil {
+			latestErr = fmt.Errorf("failed to get docker network %s: %w", net.Name, err)
 			continue
 		}
 		err = DeleteNetwork(ctx, networkID, &client.NetworkRemoveOptions{})

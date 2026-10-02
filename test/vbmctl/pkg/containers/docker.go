@@ -12,6 +12,7 @@ import (
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 )
 
@@ -149,6 +150,19 @@ func CreateNetwork(ctx context.Context, name string, opts *client.NetworkCreateO
 	return createdNet.ID, nil
 }
 
+// exactNetworkIDs returns the IDs of the networks whose name is exactly
+// networkName. Docker's name filter also matches substrings, so its result
+// must be narrowed down before use.
+func exactNetworkIDs(networks []network.Summary, networkName string) []string {
+	var ids []string
+	for _, n := range networks {
+		if n.Name == networkName {
+			ids = append(ids, n.ID)
+		}
+	}
+	return ids
+}
+
 // GetNetworkByName finds the network with given name. If multiple networks
 // is found, the first match will be returned.
 func GetNetworkByName(ctx context.Context, networkName string) (string, error) {
@@ -166,13 +180,14 @@ func GetNetworkByName(ctx context.Context, networkName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to look for Docker network with name %s: %w", networkName, err)
 	}
-	if len(networks.Items) == 0 {
+	ids := exactNetworkIDs(networks.Items, networkName)
+	if len(ids) == 0 {
 		return "", ErrNetworkNotFound
 	}
-	if len(networks.Items) > 1 {
-		log.Printf("Warning: found %d networks with name %s", len(networks.Items), networkName)
+	if len(ids) > 1 {
+		log.Printf("Warning: found %d networks with name %s", len(ids), networkName)
 	}
-	return networks.Items[0].Network.ID, nil
+	return ids[0], nil
 }
 
 // DeleteNetwork deletes network with given ID. An error is returned if the network

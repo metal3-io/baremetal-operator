@@ -9,6 +9,7 @@ spec:
       name: image-server-ca
       kind: ConfigMap
       key: ca.crt
+  deployRamdisk:
   # EXPERIMENTAL: requires the Overrides feature gate. This replaces the default
   # ramdisk-downloader init container so that it trusts the CA above and can
   # therefore fetch the IPA kernel/ramdisk over HTTPS.

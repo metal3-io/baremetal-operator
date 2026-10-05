@@ -120,6 +120,10 @@ fi
 # Image server variables
 CIRROS_VERSION="0.6.2"
 SYSRESCUE_VERSION="11.00"
+# sysrescue-customize is pinned to the release tag matching SYSRESCUE_VERSION.
+# Bumping SYSRESCUE_VERSION requires updating SYSRESCUE_CUSTOMIZE_SHA256.
+SYSRESCUE_CUSTOMIZE_REF="${SYSRESCUE_VERSION}"
+SYSRESCUE_CUSTOMIZE_SHA256="93065ceb8d96520d0c9efbd769fecb9fe912d747fb344ef90ac4d23ab2fc62cb"
 IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 ISO_FILE="systemrescue-${SYSRESCUE_VERSION}-amd64.iso"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
@@ -228,7 +232,8 @@ pub_ssh_key=$(cut -d " " -f "1,2" "${IMAGE_DIR}/ssh_testkey.pub")
 # We use the systemrescue ISO and their script for customizing it.
 if [[ ! -f "${IMAGE_DIR}/sysrescue-out.iso" ]];then
   pushd "${IMAGE_DIR}"
-  wget --no-verbose -O sysrescue-customize "https://gitlab.com/systemrescue/systemrescue-sources/-/raw/main/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false"
+  wget --no-verbose -O sysrescue-customize "https://gitlab.com/systemrescue/systemrescue-sources/-/raw/${SYSRESCUE_CUSTOMIZE_REF}/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false"
+  echo "${SYSRESCUE_CUSTOMIZE_SHA256}  sysrescue-customize" | sha256sum -c -
   chmod +x sysrescue-customize
 
   mkdir -p recipe/iso_add/sysrescue.d

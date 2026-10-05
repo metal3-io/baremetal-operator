@@ -19,3 +19,9 @@ patches:
     - op: replace
       path: /spec/version
       value: "35.0"
+    # Override the ipa-insecure kernel parameter (set in base) back to the default value of 1.
+    # This is needed since IrSO v0.9 (used together with this overlay in the
+    # 33.0 -> 35.0 upgrade test) does not set IRONIC_CACERT_FILE from the ca.crt of the TLS secret.
+    - op: replace
+      path: /spec/deployRamdisk/extraKernelParams
+      value: "console=ttyS0 bmo-e2e-kernel-params-ok ipa-insecure=1"

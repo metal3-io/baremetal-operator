@@ -94,8 +94,8 @@ vbmctl create image-server
 #   openssl req -x509 -newkey rsa:4096 -nodes -days 365 -subj "/CN=192.168.222.1" \
 #     -addext "subjectAltName = IP:192.168.222.1" \
 #     -out tls.crt -keyout tls.key
-# Note that you may need to chown/chmod the files to be readable by the container user.
-# and see test/e2e/config/nginx-tls.conf for an example nginx configuration
+# Note that you may need to chown/chmod the files to be readable by the container
+# user. See test/e2e/config/nginx-tls.conf for an example nginx configuration
 # file with an HTTPS server block referencing these paths.
 # The config file below (vbmctl_tls_config.yaml) is where the
 # imageServer.extraMounts/extraPorts settings are defined.

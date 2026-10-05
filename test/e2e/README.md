@@ -165,6 +165,22 @@ feature, enabled via `FEATURE_GATES=Overrides=true`) so that `CURL_CA_BUNDLE`
 can be set, since ironic-standalone-operator does not otherwise pass this
 through.
 
+The disk image (`IMAGE_URL`) and the live-ISO (`ISO_IMAGE_URL`) are served
+from the same image server over HTTPS as well, so that the whole provisioning
+flow is exercised with TLS. Ironic is also configured to pass `ipa-insecure=0`
+to IPA through `spec.deployRamdisk.extraKernelParams`, which makes IPA verify
+the certificates of the servers it talks to and download from. The CA
+certificate is injected into the ramdisk by ironic-image (from
+`spec.tls.trustedCA`).
+
+> **Note:** ironic-image always adds its own `ipa-insecure=<value>` (default
+> `1`) to the kernel parameters *before* the ones from `extraKernelParams`, so
+> the parameter appears twice on the kernel command line. IPA reads the
+> command line into a dictionary, so the last occurrence is the effective one.
+> `ipa-insecure=0` must therefore stay at the end of `extraKernelParams`.
+> `VerifyIronicManagedBoot` checks the effective value from `/proc/cmdline`
+> in the e2e tests.
+
 ## Tests
 
 Here is a list of the currently implemented tests. As mentioned above, we divide

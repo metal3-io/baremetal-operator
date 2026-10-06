@@ -210,6 +210,7 @@ password=p@ssw0rd
 				},
 				Data: map[string][]byte{
 					"username":       []byte("admin"),
+					"password":       []byte("unused-password"),
 					"ssh-privatekey": []byte("-----BEGIN RSA PRIVATE KEY-----\ntest-key-data\n-----END RSA PRIVATE KEY-----\n"),
 				},
 			},
@@ -340,6 +341,86 @@ enable_secret=enablepass
 				g.Expect(string(configEntries[tt.sw.Name])).To(Equal(tt.expectedConfig))
 				g.Expect(keyFiles).To(Equal(tt.expectedKeys))
 			}
+		})
+	}
+}
+
+func TestValidateSingleLineINIValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		field   string
+		value   string
+		wantErr bool
+	}{
+		{name: "plain value", field: "username", value: "admin"},
+		{name: "punctuation", field: "password", value: "p@ss=word!"},
+		{name: "line feed", field: "username", value: "admin\nrole=admin", wantErr: true},
+		{name: "carriage return", field: "password", value: "secret\rrole=admin", wantErr: true},
+		{name: "null byte", field: "admin-password", value: "enable\x00secret", wantErr: true},
+		{name: "delete character", field: "username", value: "admin\x7f", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			err := validateSingleLineINIValue(tt.field, tt.value)
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring(tt.field))
+				g.Expect(err.Error()).To(ContainSubstring("control characters"))
+			} else {
+				g.Expect(err).ToNot(HaveOccurred())
+			}
+		})
+	}
+}
+
+func TestWriteSwitchEntryRejectsControlCharactersInCredentialValues(t *testing.T) {
+	g := NewWithT(t)
+	scheme := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(metal3api.AddToScheme(scheme)).To(Succeed())
+
+	for _, field := range []string{"username", "password", "admin-password"} {
+		t.Run(field, func(t *testing.T) {
+			g := NewWithT(t)
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "switch-creds",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"username":       []byte("admin"),
+					"password":       []byte("secret"),
+					"admin-password": []byte("enable-secret"),
+				},
+			}
+			secret.Data[field] = []byte("bad\r\nvalue")
+			if field == "password" || field == "admin-password" {
+				secret.Data["ssh-privatekey"] = []byte("private-key")
+			}
+
+			sw := &metal3api.BareMetalSwitch{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "switch1",
+					Namespace: "test-ns",
+				},
+				Spec: metal3api.BareMetalSwitchSpec{
+					Credentials: &corev1.SecretReference{Name: secret.Name},
+				},
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
+			sm := secretutils.NewSecretManager(logr.Discard(), c, c)
+
+			configEntries := make(map[string][]byte)
+			keyFiles := make(map[string][]byte)
+			err := writeSwitchEntry(t.Context(), sm, sw, testSwitchCredentialPath, configEntries, keyFiles)
+
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(err.Error()).To(ContainSubstring(secret.Name))
+			g.Expect(err.Error()).To(ContainSubstring(field))
+			g.Expect(configEntries).To(BeEmpty())
+			g.Expect(keyFiles).To(BeEmpty())
 		})
 	}
 }

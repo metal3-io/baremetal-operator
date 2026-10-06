@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -117,6 +118,17 @@ type switchConfigData struct {
 	AdminPassword string
 }
 
+// validateSingleLineINIValue rejects control characters that can corrupt an
+// INI value or split it across multiple lines.
+func validateSingleLineINIValue(field, value string) error {
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return fmt.Errorf("value for %q contains control characters", field)
+		}
+	}
+	return nil
+}
+
 // switchConfigTemplate is the INI-format template for a single switch config section.
 var switchConfigTemplate = template.Must(template.New("switchConfig").Parse(
 	`[switch:{{.Name}}]
@@ -178,6 +190,29 @@ func writeSwitchEntry(ctx context.Context, sm secretutils.SecretManager, sw *met
 	if !ok {
 		return &credentialConfigError{msg: fmt.Sprintf("credentials secret %s missing 'username' key", secretName)}
 	}
+	if err := validateSingleLineINIValue("username", string(username)); err != nil {
+		return &credentialConfigError{msg: fmt.Sprintf("credentials secret %s: %v", secretName, err)}
+	}
+
+	// Infer auth type from secret keys before adding any generated files, so a
+	// credential validation error cannot leave a partial config behind.
+	privateKey, hasPrivateKey := secret.Data["ssh-privatekey"]
+	password, hasPassword := secret.Data["password"]
+	if !hasPrivateKey && !hasPassword {
+		return &credentialConfigError{msg: fmt.Sprintf("credentials secret %s missing 'password' or 'ssh-privatekey' key", secretName)}
+	}
+	if hasPassword {
+		if err := validateSingleLineINIValue("password", string(password)); err != nil {
+			return &credentialConfigError{msg: fmt.Sprintf("credentials secret %s: %v", secretName, err)}
+		}
+	}
+
+	adminPassword, hasAdminPassword := secret.Data["admin-password"]
+	if hasAdminPassword {
+		if err := validateSingleLineINIValue("admin-password", string(adminPassword)); err != nil {
+			return &credentialConfigError{msg: fmt.Sprintf("credentials secret %s: %v", secretName, err)}
+		}
+	}
 
 	// Driver type (CRD defaults to "generic-switch", but defend against empty)
 	driverType := sw.Spec.Driver
@@ -196,12 +231,7 @@ func writeSwitchEntry(ctx context.Context, sm secretutils.SecretManager, sw *met
 		Username:   string(username),
 	}
 
-	// Infer auth type from secret keys
-	privateKey, hasPrivateKey := secret.Data["ssh-privatekey"]
-	password, hasPassword := secret.Data["password"]
-
-	switch {
-	case hasPrivateKey:
+	if hasPrivateKey {
 		// Store the private key in the key files map, keyed by MAC address.
 		// Replace colons with dashes because colons are not valid in
 		// Kubernetes secret data keys.
@@ -209,13 +239,12 @@ func writeSwitchEntry(ctx context.Context, sm secretutils.SecretManager, sw *met
 		keyFiles[keyFileName] = privateKey
 
 		data.KeyFile = filepath.Join(credentialsPath, keyFileName)
-	case hasPassword:
+	} else {
+		// The missing-auth check above guarantees the password is present.
 		data.Password = string(password)
-	default:
-		return &credentialConfigError{msg: fmt.Sprintf("credentials secret %s missing 'password' or 'ssh-privatekey' key", secretName)}
 	}
 
-	if adminPassword, ok := secret.Data["admin-password"]; ok {
+	if hasAdminPassword {
 		data.AdminPassword = string(adminPassword)
 	}
 

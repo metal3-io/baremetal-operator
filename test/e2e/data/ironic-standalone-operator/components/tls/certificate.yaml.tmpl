@@ -39,7 +39,7 @@ spec:
       environment.metal3.io/ironic-standalone-operator: "true"
   commonName: ironic-cert
   ipAddresses:
-  - 192.168.222.2
+  - "${IRONIC_PROVISIONING_IP}"
   issuerRef:
     kind: Issuer
     name: ca-issuer

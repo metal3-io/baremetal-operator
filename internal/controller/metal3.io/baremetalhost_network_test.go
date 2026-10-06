@@ -20,12 +20,14 @@ import (
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	featuregatetesting "k8s.io/component-base/featuregate/testing"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -221,6 +223,8 @@ func TestValidateNetworkInterfaces(t *testing.T) {
 }
 
 func TestPreparePortConfigs(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+
 	scheme := runtime.NewScheme()
 	require.NoError(t, metal3api.AddToScheme(scheme))
 
@@ -311,6 +315,29 @@ func TestPreparePortConfigs(t *testing.T) {
 		require.NotNil(t, cond)
 		assert.Equal(t, metav1.ConditionTrue, cond.Status)
 	})
+}
+
+func TestPreparePortConfigsWithIronicNetworkingDisabled(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, false)
+
+	host := &metal3api.BareMetalHost{
+		Spec: metal3api.BareMetalHostSpec{
+			NetworkInterfaces: []metal3api.NetworkInterface{{Name: "eth0"}},
+		},
+		Status: metal3api.BareMetalHostStatus{
+			AppliedNetworkAttachmentConfigs: []metal3api.AppliedNetworkAttachmentConfig{{Name: "eth0"}},
+		},
+	}
+	info := &reconcileInfo{host: host}
+	r := &BareMetalHostReconciler{}
+
+	dirty, err := r.preparePortConfigs(t.Context(), info)
+
+	require.NoError(t, err)
+	assert.False(t, dirty)
+	assert.Nil(t, info.portConfigs)
+	assert.Nil(t, meta.FindStatusCondition(host.Status.Conditions, metal3api.NetworkInterfacesValidCondition))
+	assert.Len(t, host.Status.AppliedNetworkAttachmentConfigs, 1)
 }
 
 func TestGetAvailableNICNames(t *testing.T) {

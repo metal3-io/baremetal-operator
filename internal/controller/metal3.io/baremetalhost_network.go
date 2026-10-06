@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -52,6 +53,10 @@ func nicsFromInfo(info *reconcileInfo) []metal3api.NIC {
 // before registration. It stores the resulting port configs in info when they
 // are valid and returns whether the validation condition changed.
 func (r *BareMetalHostReconciler) preparePortConfigs(ctx context.Context, info *reconcileInfo) (bool, error) {
+	if !features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking) {
+		return false, nil
+	}
+
 	if len(info.host.Spec.NetworkInterfaces) == 0 {
 		dirty, err := r.clearNetworkInterfaceValidation(info.host)
 		if err != nil {

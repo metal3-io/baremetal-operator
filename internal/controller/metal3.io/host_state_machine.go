@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	. "github.com/metal3-io/baremetal-operator/pkg/logging"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -515,7 +516,7 @@ func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcil
 	actResult := hsm.Reconciler.actionManageAvailable(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
 		// Block provisioning if network interfaces are not valid for the current BMH generation.
-		if len(hsm.Host.Spec.NetworkInterfaces) > 0 {
+		if features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking) && len(hsm.Host.Spec.NetworkInterfaces) > 0 {
 			cond := meta.FindStatusCondition(hsm.Host.Status.Conditions, metal3api.NetworkInterfacesValidCondition)
 			if cond == nil || cond.Status != metav1.ConditionTrue || cond.ObservedGeneration != hsm.Host.Generation {
 				reason, message := "Pending", "validation has not run yet"

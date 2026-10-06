@@ -15,6 +15,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/v2/pagination"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	. "github.com/metal3-io/baremetal-operator/pkg/logging"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/ironic/clients"
@@ -381,15 +382,8 @@ func loadConfigFromEnv(havePreprovImgBuilder bool) (ironicConfig, error) {
 
 	c.provNetDisabled = strings.ToLower(os.Getenv("PROVISIONING_NETWORK_DISABLED")) == "true"
 
-	// Enable management of switch ports if networking is enabled
-	networkingValue := os.Getenv("IRONIC_NETWORKING_ENABLED")
-	if networkingValue != "" {
-		var parseErr error
-		c.enableNetworking, parseErr = strconv.ParseBool(networkingValue)
-		if parseErr != nil {
-			return c, fmt.Errorf("invalid IRONIC_NETWORKING_ENABLED value %q: %w", networkingValue, parseErr)
-		}
-	}
+	// Enable management of switch ports when the feature gate is enabled.
+	c.enableNetworking = features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking)
 
 	// Ironic currently only supports a single interface for standalone switch
 	// port configurations, but we have this variable so that we can override

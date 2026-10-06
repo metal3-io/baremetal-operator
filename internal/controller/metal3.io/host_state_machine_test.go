@@ -7,6 +7,7 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	promutil "github.com/prometheus/client_golang/prometheus/testutil"
@@ -15,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	featuregatetesting "k8s.io/component-base/featuregate/testing"
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -170,6 +172,8 @@ func TestProvisioningCapacity(t *testing.T) {
 }
 
 func TestNetworkInterfacesProvisioningGate(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+
 	dummyNICs := []metal3api.NetworkInterface{{Name: "eno1"}}
 
 	testCases := []struct {
@@ -235,6 +239,8 @@ func TestNetworkInterfacesProvisioningGate(t *testing.T) {
 }
 
 func TestNetworkInterfacesProvisioningGateRejectsStaleCondition(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+
 	testHost := host(metal3api.StateAvailable).SaveHostProvisioningSettings().
 		SetNetworkInterfaces([]metal3api.NetworkInterface{{Name: "eno1"}}).
 		build()
@@ -258,6 +264,23 @@ func TestNetworkInterfacesProvisioningGateRejectsStaleCondition(t *testing.T) {
 
 	assert.Equal(t, metal3api.StateAvailable, hsm.NextState)
 	assert.True(t, assert.ObjectsAreEqual(actionContinue{hostErrorRetryDelay}, result))
+}
+
+func TestNetworkInterfacesDoNotBlockProvisioningWhenIronicNetworkingDisabled(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, false)
+
+	testHost := host(metal3api.StateAvailable).SaveHostProvisioningSettings().
+		SetNetworkInterfaces([]metal3api.NetworkInterface{{Name: "eno1"}}).
+		SetCondition(metal3api.NetworkInterfacesValidCondition, metav1.ConditionFalse, "Invalid", "bad config").
+		build()
+	prov := newMockProvisioner()
+	reconciler := testNewReconciler(testHost)
+	hsm := newHostStateMachine(testHost, reconciler, prov, true)
+	info := makeDefaultReconcileInfo(testHost)
+
+	hsm.handleAvailable(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateProvisioning, hsm.NextState)
 }
 
 //nolint:dupl
@@ -352,6 +375,8 @@ func TestRegisterHostNotDirtyWhileWaitingForPreprovisioningImage(t *testing.T) {
 }
 
 func TestRegisterHostPersistsNetworkValidationChangesBeforeRegistrationCompletes(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+
 	testCases := []struct {
 		name      string
 		configure func(*mockProvisioner)
@@ -1625,6 +1650,8 @@ func (p *mockProvisioner) GetHealth(_ context.Context) string {
 }
 
 func TestHandleAvailableBlocksProvisioningWhenNIInvalid(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+
 	theHost := host(metal3api.StateAvailable).build()
 
 	theHost.Spec.NetworkInterfaces = []metal3api.NetworkInterface{

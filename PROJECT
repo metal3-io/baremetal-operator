@@ -121,4 +121,20 @@ resources:
   kind: HostDeployPolicy
   path: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: metal3.io
+  group: metal3.io
+  kind: BareMetalHost
+  path: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: metal3.io
+  group: metal3.io
+  kind: HardwareData
+  path: github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1
+  version: v1beta1
 version: "3"

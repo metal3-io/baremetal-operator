@@ -29,6 +29,32 @@ func TestDefault(t *testing.T) {
 	}
 }
 
+func TestSharedDefaults(t *testing.T) {
+	if DefaultVMMemory != vbmctlapi.DefaultVMMemory || DefaultVMVCPUs != vbmctlapi.DefaultVMVCPUs ||
+		DefaultVolumeSize != vbmctlapi.DefaultVolumeSize || DefaultNetworkBridge != vbmctlapi.DefaultNetworkBridge ||
+		DefaultNetworkAddress != vbmctlapi.DefaultNetworkAddress || DefaultNetworkNetmask != vbmctlapi.DefaultNetworkNetmask {
+		t.Fatal("config defaults differ from API defaults")
+	}
+
+	cfg := Default()
+	cfg.Spec.VMs = []vbmctlapi.VMConfig{{Name: "vm"}}
+	cfg.Spec.Networks = []vbmctlapi.NetworkConfig{{Name: "lab"}}
+	cfg.ApplyDefaults()
+
+	vm := cfg.Spec.VMs[0]
+	if vm.Memory != DefaultVMMemory || vm.VCPUs != DefaultVMVCPUs {
+		t.Errorf("VM defaults = memory %d, vCPUs %d; want %d, %d", vm.Memory, vm.VCPUs, DefaultVMMemory, DefaultVMVCPUs)
+	}
+	if size := (vbmctlapi.VolumeConfig{}).Defaults().Size; size != DefaultVolumeSize {
+		t.Errorf("volume default size = %d, want %d", size, DefaultVolumeSize)
+	}
+	network := cfg.Spec.Networks[0]
+	if network.Bridge != DefaultNetworkBridge || network.Address != DefaultNetworkAddress || network.Netmask != DefaultNetworkNetmask {
+		t.Errorf("network defaults = %+v; want bridge %q, address %q, netmask %d",
+			network, DefaultNetworkBridge, DefaultNetworkAddress, DefaultNetworkNetmask)
+	}
+}
+
 func TestParse(t *testing.T) {
 	yamlData := []byte(`
 apiVersion: vbmctl.metal3.io/v1alpha1

@@ -572,7 +572,10 @@ func (hsm *hostStateMachine) imageProvisioningCancelled() bool {
 }
 
 func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *reconcileInfo) actionResult {
-	if hsm.Host.Status.ErrorType != "" || hsm.provisioningCancelled() {
+	// Any recorded provisioning error normally aborts into deprovisioning.
+	// SecretAccessError waits for the Secret and stays in provisioning, so it
+	// does not count as a provisioning failure.
+	if hsm.fatalProvisioningError() || hsm.provisioningCancelled() {
 		if hsm.Host.Status.ErrorType != "" {
 			hsm.Host.Status.ProvisioningFailCount++
 			info.log.Info("provisioning failed, incrementing fail count",
@@ -596,6 +599,16 @@ func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *recon
 		hsm.Host.Status.ProvisioningFailCount = 0
 	}
 	return actResult
+}
+
+// fatalProvisioningError reports whether the current status error should abort
+// provisioning. Empty means there is nothing to abort on. SecretAccessError is
+// retried in place.
+func (hsm *hostStateMachine) fatalProvisioningError() bool {
+	if hsm.Host.Status.ErrorType == "" || hsm.Host.Status.ErrorType == metal3api.SecretAccessError {
+		return false
+	}
+	return true
 }
 
 func (hsm *hostStateMachine) handleProvisioned(ctx context.Context, info *reconcileInfo) actionResult {

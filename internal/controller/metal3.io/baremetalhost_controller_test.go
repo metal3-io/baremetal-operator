@@ -3606,6 +3606,8 @@ func TestGetImageAuthSecret_OCIImageWithInvalidSecret(t *testing.T) {
 	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
 
 	require.Error(t, err, "expected error for invalid secret")
+	var secretErr SecretAccessError
+	assert.NotErrorAs(t, err, &secretErr)
 	assert.Empty(t, credentials, "expected empty credentials for invalid secret")
 }
 
@@ -3625,6 +3627,11 @@ func TestGetImageAuthSecret_OCIImageWithMissingSecret(t *testing.T) {
 	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
 
 	require.Error(t, err, "expected error for missing secret")
+	var secretErr SecretAccessError
+	require.ErrorAs(t, err, &secretErr)
+	assert.Equal(t, ociAuthSecretName, secretErr.secret)
+	assert.Equal(t, ociAuthSecretKey, secretErr.key)
+	assert.True(t, k8serrors.IsNotFound(err))
 	assert.Empty(t, credentials, "expected empty credentials for missing secret")
 }
 
@@ -3693,6 +3700,8 @@ func TestGetImageAuthSecret_RegistryMismatch(t *testing.T) {
 	credentials, err := r.getImageAuthSecret(t.Context(), host, host.Spec.Image)
 
 	require.Error(t, err, "expected error when registry doesn't match")
+	var secretErr SecretAccessError
+	assert.NotErrorAs(t, err, &secretErr)
 	assert.Empty(t, credentials, "expected empty credentials when registry doesn't match")
 }
 

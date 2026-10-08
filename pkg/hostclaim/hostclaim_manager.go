@@ -348,6 +348,15 @@ func (m *Manager) acceptableNamespaces(ctx context.Context, namespace string) (S
 LOOP_POLICY:
 	for _, hostDeployPolicy := range hostdeploypolicies.Items {
 		log := m.Log.WithValues("policyNamespace", hostDeployPolicy.Namespace, "policyName", hostDeployPolicy.Name)
+		if !hostDeployPolicy.DeletionTimestamp.IsZero() {
+			// The HostDeployPolicy is being deleted. Its finalizer guarantees
+			// that this DeletionTimestamp is visible in the cache before the
+			// object disappears, so skipping the policy here is enough to
+			// make sure no new association uses a HostDeployPolicy that the
+			// user has asked to delete.
+			log.V(1).Info("Ignoring HostDeployPolicy because it is being deleted")
+			continue
+		}
 		if SetContains(namespaces, hostDeployPolicy.Namespace) {
 			// namespace already added, no reason to check this hdp.
 			continue

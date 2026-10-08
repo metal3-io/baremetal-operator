@@ -79,6 +79,13 @@ spec:
             type: object
           status:
             description: HostDeployPolicyStatus defines the observed state of HostDeployPolicy.
+            properties:
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the metadata.generation of the HostDeployPolicy
+                  that the controller has observed in its informer cache.
+                format: int64
+                type: integer
             type: object
         type: object
     served: true

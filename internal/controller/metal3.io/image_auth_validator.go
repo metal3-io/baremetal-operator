@@ -16,6 +16,9 @@ const (
 	// Events.
 	EventAuthFormatUnsupported = "ImageAuthFormatUnsupported"
 	EventAuthParseError        = "ImageAuthParseError"
+
+	// ociAuthSecretKey is the SecretAccessError key for an image pull Secret.
+	ociAuthSecretKey = "OCI auth"
 )
 
 // ImageAuthValidator validates image authentication secrets.
@@ -40,8 +43,10 @@ func (v *ImageAuthValidator) Validate(ctx context.Context, bmh *metal3api.BareMe
 	key := types.NamespacedName{Namespace: bmh.Namespace, Name: secretName}
 	sec, err := secretMgr.ObtainSecret(ctx, key)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return "", fmt.Errorf("auth secret %q not found in namespace %q", secretName, bmh.Namespace)
+		// Match configuration-data Secrets: missing or inaccessible credentials
+		// retry in place. Other retrieval failures stay unwrapped.
+		if k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
+			return "", SecretAccessError{secret: secretName, key: ociAuthSecretKey, err: err}
 		}
 		return "", err
 	}

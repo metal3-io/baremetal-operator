@@ -869,6 +869,7 @@ spec:
                 - power management error
                 - detach error
                 - servicing error
+                - secret access error
                 type: string
               goodCredentials:
                 description: The last credentials we were able to validate as working.

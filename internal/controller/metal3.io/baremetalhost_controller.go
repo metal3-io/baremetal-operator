@@ -62,7 +62,6 @@ const (
 	hardwareDataFinalizer         = metal3api.BareMetalHostFinalizer + "/hardwareData"
 	preprovisioningImageFinalizer = metal3api.BareMetalHostFinalizer + "/preprovisioningImage"
 	NotReady                      = "Not ready"
-	secretAccessEventReason       = "SecretAccessError" // Kubernetes event reason while a configuration Secret cannot be read.
 )
 
 // BareMetalHostReconciler reconciles a BareMetalHost object.
@@ -370,6 +369,7 @@ func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, err
 		metal3api.PowerManagementError:         "PowerManagementError",
 		metal3api.PreparationError:             "PreparationError",
 		metal3api.ServicingError:               "ServicingError",
+		metal3api.SecretAccessError:            "SecretAccessError",
 	}[errorType]
 
 	counter := actionFailureCounters.WithLabelValues(eventType)
@@ -380,35 +380,8 @@ func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, err
 	return actionFailed{dirty: true, ErrorType: errorType, errorCount: info.host.Status.ErrorCount}
 }
 
-// recordRetryableSecretAccess surfaces a missing or inaccessible configuration
-// Secret and requeues without marking the failure fatal. recordActionFailure
-// would set a provisioning error that handleProvisioning treats as a signal to
-// deprovision the host on the next reconcile.
-//
-// ErrorCount is left unchanged and the requeue delay stays fixed, matching the
-// wait-for-Secret behavior used for a missing BMC credential Secret rather
-// than the exponential backoff used for fatal action failures.
-func recordRetryableSecretAccess(info *reconcileInfo, errorMessage string) actionResult {
-	dirty := info.host.SetOperationalStatus(metal3api.OperationalStatusError)
-	if info.host.Status.ErrorType != metal3api.ProvisioningError {
-		info.host.Status.ErrorType = metal3api.ProvisioningError
-		dirty = true
-	}
-	if info.host.Status.ErrorMessage != errorMessage {
-		info.host.Status.ErrorMessage = errorMessage
-		dirty = true
-		info.publishEvent(secretAccessEventReason, errorMessage)
-	}
-
-	continued := actionContinue{hostErrorRetryDelay}
-	if dirty {
-		return actionUpdate{continued}
-	}
-	return continued
-}
-
-// clearRetryableSecretAccessStatus removes a previously surfaced missing-Secret
-// condition. Fatal provisioning errors are left for recordActionFailure.
+// clearRetryableSecretAccessStatus removes a SecretAccessError recorded while
+// waiting for a referenced Secret. Other error types are left in place.
 func clearRetryableSecretAccessStatus(host *metal3api.BareMetalHost) bool {
 	if !isRetryableSecretAccessStatus(host) {
 		return false
@@ -1467,6 +1440,10 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 	// Extract OCI auth secret credentials if needed
 	authSecret, err := r.getImageAuthSecret(ctx, info.host, &image)
 	if err != nil {
+		var secretErr SecretAccessError
+		if errors.As(err, &secretErr) {
+			return recordActionFailure(info, metal3api.SecretAccessError, secretErr.Error())
+		}
 		return recordActionFailure(info, metal3api.ProvisioningError, err.Error())
 	}
 
@@ -1482,7 +1459,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 	if err != nil {
 		var secretErr SecretAccessError
 		if errors.As(err, &secretErr) {
-			return recordRetryableSecretAccess(info, secretErr.Error())
+			return recordActionFailure(info, metal3api.SecretAccessError, secretErr.Error())
 		}
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -991,6 +992,40 @@ func secretAccessProvisionErr(secretName string) error {
 	})
 }
 
+func assertActionFailedBackoff(t *testing.T, result actionResult, errorCount int) {
+	t.Helper()
+	failed, ok := result.(actionFailed)
+	require.True(t, ok)
+	assert.Equal(t, errorCount, failed.errorCount)
+	reconcileResult, err := result.Result()
+	require.NoError(t, err)
+	lower, upper := errorBackoffBounds(errorCount)
+	assert.Greater(t, reconcileResult.RequeueAfter, lower)
+	assert.LessOrEqual(t, reconcileResult.RequeueAfter, upper)
+	assert.NotEqual(t, hostErrorRetryDelay, reconcileResult.RequeueAfter)
+}
+
+func errorBackoffBounds(errorCount int) (time.Duration, time.Duration) {
+	if errorCount > maxBackOffCount {
+		errorCount = maxBackOffCount
+	}
+	base := math.Exp2(float64(errorCount))
+	// calculateBackoff subtracts up to defaultBackoff of the base as jitter.
+	lower := time.Duration(float64(time.Minute) * base * (1 - defaultBackoff))
+	upper := time.Duration(float64(time.Minute) * base)
+	return lower, upper
+}
+
+func assertSecretAccessFailureMetric(t *testing.T, info *reconcileInfo) {
+	t.Helper()
+	counter := actionFailureCounters.WithLabelValues("SecretAccessError")
+	before := promutil.ToFloat64(counter)
+	for _, cb := range info.postSaveCallbacks {
+		cb()
+	}
+	assert.InDelta(t, before+1, promutil.ToFloat64(counter), 0.01)
+}
+
 func TestActionProvisioningSecretAccessErrorOnly(t *testing.T) {
 	secretErr := secretAccessProvisionErr("user-data")
 	var wrapped SecretAccessError
@@ -1038,30 +1073,30 @@ func TestActionProvisioningSecretAccessErrorOnly(t *testing.T) {
 				return
 			}
 
-			_, isFailed := result.(actionFailed)
-			assert.False(t, isFailed)
 			assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
-			assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+			assert.Equal(t, metal3api.SecretAccessError, h.Status.ErrorType)
 			assert.Equal(t, metal3api.OperationalStatusError, h.Status.OperationalStatus)
 			assert.Equal(t, wrapped.Error(), h.Status.ErrorMessage)
-			assert.Equal(t, 0, h.Status.ErrorCount)
+			assert.Equal(t, 1, h.Status.ErrorCount)
+			assert.Equal(t, 0, h.Status.ProvisioningFailCount)
 			assert.Len(t, info.events, 1)
-			assert.Equal(t, secretAccessEventReason, info.events[0].Reason)
+			assert.Equal(t, "SecretAccessError", info.events[0].Reason)
 			assert.Equal(t, wrapped.Error(), info.events[0].Message)
+			assertActionFailedBackoff(t, result, 1)
+			assertSecretAccessFailureMetric(t, info)
 
-			reconcileResult, resErr := result.Result()
-			require.NoError(t, resErr)
-			assert.Equal(t, hostErrorRetryDelay, reconcileResult.RequeueAfter)
-
-			// The same condition must not emit another event or become fatal.
+			// The same condition stays non-fatal, counts another failure, and
+			// uses the ErrorCount backoff instead of a fixed delay.
 			info.events = nil
+			info.postSaveCallbacks = nil
 			again := reconciler.actionProvisioning(t.Context(), prov, info)
-			assert.Empty(t, info.events)
-			assert.Equal(t, 0, h.Status.ErrorCount)
+			assert.Len(t, info.events, 1)
+			assert.Equal(t, "SecretAccessError", info.events[0].Reason)
+			assert.Equal(t, 2, h.Status.ErrorCount)
+			assert.Equal(t, 0, h.Status.ProvisioningFailCount)
 			assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
-			againResult, againErr := again.Result()
-			require.NoError(t, againErr)
-			assert.Equal(t, hostErrorRetryDelay, againResult.RequeueAfter)
+			assert.Equal(t, metal3api.SecretAccessError, h.Status.ErrorType)
+			assertActionFailedBackoff(t, again, 2)
 		})
 	}
 }
@@ -1081,18 +1116,18 @@ func TestProvisioningSecretAccessErrorRetriesWithoutDeprovision(t *testing.T) {
 	result := hsm.ReconcileState(t.Context(), info)
 
 	assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
-	assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+	assert.Equal(t, metal3api.SecretAccessError, h.Status.ErrorType)
 	assert.Equal(t, metal3api.OperationalStatusError, h.Status.OperationalStatus)
 	assert.Contains(t, h.Status.ErrorMessage, `"user-data"`)
-	assert.Equal(t, 0, h.Status.ErrorCount)
+	assert.Equal(t, 1, h.Status.ErrorCount)
+	assert.Equal(t, 0, h.Status.ProvisioningFailCount)
 	assert.Equal(t, 1, prov.provisionCalls)
 	if assert.Len(t, info.events, 1) {
-		assert.Equal(t, secretAccessEventReason, info.events[0].Reason)
+		assert.Equal(t, "SecretAccessError", info.events[0].Reason)
 		assert.Equal(t, h.Status.ErrorMessage, info.events[0].Message)
 	}
-	reconcileResult, resErr := result.Result()
-	require.NoError(t, resErr)
-	assert.Equal(t, hostErrorRetryDelay, reconcileResult.RequeueAfter)
+	assertActionFailedBackoff(t, result, 1)
+	assertSecretAccessFailureMetric(t, info)
 
 	// The next reconcile must keep provisioning. A fatal ErrorType would
 	// move the host to deprovisioning before Provision is called again.
@@ -1105,13 +1140,14 @@ func TestProvisioningSecretAccessErrorRetriesWithoutDeprovision(t *testing.T) {
 	assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
 	assert.Contains(t, h.Status.ErrorMessage, `"other-data"`)
 	assert.Equal(t, 2, prov.provisionCalls)
+	assert.Equal(t, 2, h.Status.ErrorCount)
+	assert.Equal(t, 0, h.Status.ProvisioningFailCount)
 	assert.Equal(t, metal3api.OperationalStatusError, h.Status.OperationalStatus)
+	assert.Equal(t, metal3api.SecretAccessError, h.Status.ErrorType)
 	if assert.Len(t, info.events, 1) {
-		assert.Equal(t, secretAccessEventReason, info.events[0].Reason)
+		assert.Equal(t, "SecretAccessError", info.events[0].Reason)
 	}
-	reconcileResult, resErr = result.Result()
-	require.NoError(t, resErr)
-	assert.Equal(t, hostErrorRetryDelay, reconcileResult.RequeueAfter)
+	assertActionFailedBackoff(t, result, 2)
 
 	prov.provisionErr = nil
 	info = makeDefaultReconcileInfo(h)
@@ -1124,6 +1160,7 @@ func TestProvisioningSecretAccessErrorRetriesWithoutDeprovision(t *testing.T) {
 	assert.Empty(t, h.Status.ErrorMessage)
 	assert.Equal(t, metal3api.OperationalStatusOK, h.Status.OperationalStatus)
 	assert.Equal(t, 0, h.Status.ErrorCount)
+	assert.Equal(t, 0, h.Status.ProvisioningFailCount)
 }
 
 func TestProvisioningErrorDeprovisions(t *testing.T) {
@@ -1141,6 +1178,121 @@ func TestProvisioningErrorDeprovisions(t *testing.T) {
 	assert.Equal(t, 0, prov.provisionCalls)
 	assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
 	assert.Equal(t, "Image provisioning failed", h.Status.ErrorMessage)
+}
+
+func TestProvisioningErrorMessageDoesNotSuppressDeprovision(t *testing.T) {
+	// A fatal provisioning failure must still deprovision when its message
+	// happens to look like a missing-Secret error.
+	message := "could not retrieve deployment secret from Ironic"
+	h := host(metal3api.StateProvisioning).
+		SetStatusError(metal3api.OperationalStatusError, metal3api.ProvisioningError, message, 1).
+		build()
+	prov := newMockProvisioner()
+	reconciler := testNewReconciler(h)
+	hsm := newHostStateMachine(h, reconciler, prov, true)
+	info := makeDefaultReconcileInfo(h)
+
+	hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateDeprovisioning, h.Status.Provisioning.State)
+	assert.Equal(t, 0, prov.provisionCalls)
+	assert.Equal(t, 1, h.Status.ProvisioningFailCount)
+	assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+	assert.Equal(t, message, h.Status.ErrorMessage)
+	assert.False(t, isRetryableSecretAccessStatus(h))
+}
+
+func TestProvisioningMissingOCIAuthSecretRetries(t *testing.T) {
+	secretName := "missing-oci-auth"
+	h := host(metal3api.StateProvisioning).build()
+	h.Spec.Image = &metal3api.Image{
+		URL:               "oci://registry.example.com/repo/image:tag",
+		OCIAuthSecretName: &secretName,
+	}
+	prov := newMockProvisioner()
+	reconciler := testNewReconciler(h)
+	reconciler.APIReader = reconciler.Client
+	hsm := newHostStateMachine(h, reconciler, prov, true)
+
+	info := makeDefaultReconcileInfo(h)
+	info.request.Name = h.Name
+	info.request.Namespace = h.Namespace
+	result := hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
+	assert.Equal(t, metal3api.SecretAccessError, h.Status.ErrorType)
+	assert.Equal(t, metal3api.OperationalStatusError, h.Status.OperationalStatus)
+	assert.Contains(t, h.Status.ErrorMessage, secretName)
+	assert.Equal(t, 1, h.Status.ErrorCount)
+	assert.Equal(t, 0, h.Status.ProvisioningFailCount)
+	assert.Equal(t, 0, prov.provisionCalls)
+	if assert.Len(t, info.events, 1) {
+		assert.Equal(t, "SecretAccessError", info.events[0].Reason)
+	}
+	assertActionFailedBackoff(t, result, 1)
+
+	info = makeDefaultReconcileInfo(h)
+	info.request.Name = h.Name
+	info.request.Namespace = h.Namespace
+	result = hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
+	assert.Equal(t, metal3api.SecretAccessError, h.Status.ErrorType)
+	assert.Equal(t, 2, h.Status.ErrorCount)
+	assert.Equal(t, 0, h.Status.ProvisioningFailCount)
+	assert.Equal(t, 0, prov.provisionCalls)
+	assertActionFailedBackoff(t, result, 2)
+}
+
+func TestProvisioningUnsupportedOCIAuthSecretIsFatal(t *testing.T) {
+	secretName := "bad-oci-auth"
+	h := host(metal3api.StateProvisioning).build()
+	h.Spec.Image = &metal3api.Image{
+		URL:               "oci://registry.example.com/repo/image:tag",
+		OCIAuthSecretName: &secretName,
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: h.Namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"username": []byte("user"),
+		},
+	}
+	prov := newMockProvisioner()
+	c := fakeclient.NewClientBuilder().WithObjects(h, secret).Build()
+	reconciler := &BareMetalHostReconciler{
+		Client:    c,
+		APIReader: c,
+		Log:       ctrl.Log.WithName("host_state_machine").WithName("BareMetalHost"),
+	}
+	hsm := newHostStateMachine(h, reconciler, prov, true)
+	info := makeDefaultReconcileInfo(h)
+	// Match the host key so the firmware settings created while registering
+	// are found again instead of failing the next reconcile.
+	info.request.Name = h.Name
+	info.request.Namespace = h.Namespace
+
+	hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateProvisioning, h.Status.Provisioning.State)
+	assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+	assert.Contains(t, h.Status.ErrorMessage, "unsupported type")
+	assert.Equal(t, 1, h.Status.ErrorCount)
+	assert.Equal(t, 0, h.Status.ProvisioningFailCount)
+	assert.Equal(t, 0, prov.provisionCalls)
+
+	info = makeDefaultReconcileInfo(h)
+	info.request.Name = h.Name
+	info.request.Namespace = h.Namespace
+	hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateDeprovisioning, h.Status.Provisioning.State)
+	assert.Equal(t, 1, h.Status.ProvisioningFailCount)
+	assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+	assert.Equal(t, 0, prov.provisionCalls)
 }
 
 func TestErrorCountClearedOnStateTransition(t *testing.T) {

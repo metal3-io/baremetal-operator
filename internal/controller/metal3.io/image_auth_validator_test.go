@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -10,11 +12,13 @@ import (
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func testLogger(t *testing.T) logr.Logger {
@@ -52,6 +56,113 @@ func TestValidate_SecretNotFound(t *testing.T) {
 	}
 	if credentials != "" {
 		t.Error("expected empty credentials when secret is not found")
+	}
+	assertOCIAuthSecretAccessError(t, err, secretName)
+	if !k8serrors.IsNotFound(err) {
+		t.Fatalf("expected NotFound to unwrap, got %v", err)
+	}
+}
+
+func TestValidate_SecretForbidden(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = metal3api.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+
+	secretName := "my-secret"
+	forbidden := k8serrors.NewForbidden(corev1.Resource("secrets"), secretName, errors.New("no access"))
+	c := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*corev1.Secret); ok {
+				return forbidden
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	}).Build()
+	recorder := record.NewFakeRecorder(10)
+	secretManager := secretutils.NewSecretManager(testLogger(t), c, c)
+	validator := NewImageAuthValidator(recorder)
+
+	bmh := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-host",
+			Namespace: "default",
+		},
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
+				URL:               "oci://registry.example.com/repo/image:tag",
+				OCIAuthSecretName: &secretName,
+			},
+		},
+	}
+
+	credentials, err := validator.Validate(t.Context(), bmh, secretManager)
+	if err == nil {
+		t.Fatal("expected error when secret is forbidden")
+	}
+	if credentials != "" {
+		t.Error("expected empty credentials when secret is forbidden")
+	}
+	assertOCIAuthSecretAccessError(t, err, secretName)
+	if !errors.Is(err, forbidden) {
+		t.Fatalf("expected Forbidden to unwrap, got %v", err)
+	}
+}
+
+func TestValidate_TransientRetrievalNotWrapped(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = metal3api.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+
+	secretName := "my-secret"
+	transient := k8serrors.NewServiceUnavailable("etcd timeout")
+	c := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*corev1.Secret); ok {
+				return transient
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	}).Build()
+	secretManager := secretutils.NewSecretManager(testLogger(t), c, c)
+	validator := NewImageAuthValidator(nil)
+
+	bmh := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-host",
+			Namespace: "default",
+		},
+		Spec: metal3api.BareMetalHostSpec{
+			Image: &metal3api.Image{
+				URL:               "oci://registry.example.com/repo/image:tag",
+				OCIAuthSecretName: &secretName,
+			},
+		},
+	}
+
+	_, err := validator.Validate(t.Context(), bmh, secretManager)
+	if err == nil {
+		t.Fatal("expected error when secret retrieval fails transiently")
+	}
+	var secretErr SecretAccessError
+	if errors.As(err, &secretErr) {
+		t.Fatal("transient retrieval failure must stay unwrapped")
+	}
+	if !errors.Is(err, transient) {
+		t.Fatalf("expected transient error to unwrap, got %v", err)
+	}
+}
+
+func assertOCIAuthSecretAccessError(t *testing.T, err error, secretName string) {
+	t.Helper()
+	var secretErr SecretAccessError
+	if !errors.As(err, &secretErr) {
+		t.Fatalf("expected SecretAccessError, got %v", err)
+	}
+	if secretErr.secret != secretName {
+		t.Fatalf("secret = %q, want %q", secretErr.secret, secretName)
+	}
+	if secretErr.key != ociAuthSecretKey {
+		t.Fatalf("key = %q, want %q", secretErr.key, ociAuthSecretKey)
 	}
 }
 
@@ -97,6 +208,10 @@ func TestValidate_WrongSecretType(t *testing.T) {
 	}
 	if credentials != "" {
 		t.Error("expected empty credentials for wrong secret type")
+	}
+	var secretErr SecretAccessError
+	if errors.As(err, &secretErr) {
+		t.Fatal("unsupported secret type must not be a SecretAccessError")
 	}
 
 	// Assert that warning event was recorded.
@@ -235,6 +350,10 @@ func TestValidate_RegistryNotInSecret(t *testing.T) {
 	}
 	if credentials != "" {
 		t.Error("expected empty credentials when registry is not in secret")
+	}
+	var secretErr SecretAccessError
+	if errors.As(err, &secretErr) {
+		t.Fatal("invalid credentials must not be a SecretAccessError")
 	}
 
 	// Assert warning event was recorded.

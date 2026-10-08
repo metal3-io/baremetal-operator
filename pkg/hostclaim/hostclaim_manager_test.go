@@ -19,6 +19,7 @@ package hostclaim
 import (
 	"context"
 	"errors"
+	"maps"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -26,9 +27,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -49,6 +53,12 @@ func setupScheme() *runtime.Scheme {
 }
 
 var _ = Describe("HostClaim manager", func() {
+	var defaultConsumerRef = corev1.ObjectReference{
+		Name:       HostclaimName,
+		Namespace:  HostclaimNamespace,
+		Kind:       HostClaimKind,
+		APIVersion: metal3api.GroupVersion.String(),
+	}
 
 	var (
 		defaultImage = metal3api.Image{URL: "url"}
@@ -387,8 +397,8 @@ var _ = Describe("HostClaim manager", func() {
 			}
 			Expect(err).NotTo(HaveOccurred())
 			updatedBmh := &metal3api.BareMetalHost{}
-			err = fakeClient.Get(context.TODO(), client.ObjectKeyFromObject(bmh), updatedBmh)
-			Expect(err).NotTo(HaveOccurred())
+			getErr := fakeClient.Get(context.TODO(), client.ObjectKeyFromObject(bmh), updatedBmh)
+			Expect(getErr).NotTo(HaveOccurred())
 			Expect(updatedBmh.Spec.ConsumerRef).ToNot(BeNil())
 			Expect(updatedBmh.Spec.ConsumerRef.Name).To(Equal(tc.HostClaim.Name))
 			Expect(updatedBmh.Spec.ConsumerRef.Namespace).To(Equal(tc.HostClaim.Namespace))
@@ -411,6 +421,223 @@ var _ = Describe("HostClaim manager", func() {
 					Key: "k", Operator: selection.Exists, Values: []string{}}}).Build(),
 			ExpectFails:   true,
 			ExpectRequeue: true,
+		}),
+	)
+
+	type testCaseSetBMHSpec struct {
+		SetImage        bool
+		SetCustomDeploy bool
+		SetPoweredOn    bool
+		Updated         bool
+	}
+
+	DescribeTable("Test setBMHspec",
+		func(tc testCaseSetBMHSpec) {
+			hcBuilder := NewHostclaim(HostclaimName)
+			if tc.SetImage {
+				hcBuilder = hcBuilder.SetImage(defaultImage)
+			}
+			if tc.SetCustomDeploy {
+				hcBuilder = hcBuilder.SetCustomDeploy("custom")
+			}
+			if tc.SetPoweredOn {
+				hcBuilder = hcBuilder.SetPowerOn()
+			}
+			hostClaim := hcBuilder.Build()
+			bmhBuilder := NewBaremetalhost("bmh", "ns", metal3api.StateAvailable)
+			bmh := bmhBuilder.Build()
+			hostMgr, ok := NewManager(nil, GinkgoLogr, hostClaim, nil).(*Manager)
+			Expect(ok).To(BeTrue())
+			updated := hostMgr.setBmhSpec(bmh)
+			if tc.SetImage {
+				Expect(bmh.Spec.Image).NotTo(BeNil())
+				Expect(*bmh.Spec.Image).To(Equal(defaultImage))
+			}
+			if tc.SetCustomDeploy {
+				Expect(bmh.Spec.CustomDeploy).NotTo(BeNil())
+				Expect(bmh.Spec.CustomDeploy.Method).To(Equal("custom"))
+			}
+			Expect(bmh.Spec.Online).To(Equal(tc.SetPoweredOn))
+			Expect(updated).To(Equal(tc.Updated))
+			updated = hostMgr.setBmhSpec(bmh)
+			Expect(updated).To(BeFalse())
+		},
+		Entry("set image", testCaseSetBMHSpec{
+			SetImage: true,
+			Updated:  true,
+		}),
+		Entry("set custom deploy", testCaseSetBMHSpec{
+			SetCustomDeploy: true,
+			Updated:         true,
+		}),
+		Entry("set power on", testCaseSetBMHSpec{
+			SetPoweredOn: true,
+			Updated:      true,
+		}),
+	)
+
+	It("Test updateHostClaimStatus",
+		func() {
+			hostClaim := NewHostclaim(HostclaimName).SetAssociatedBMH("ns", "bmh").Build()
+			bmh := NewBaremetalhost("bmh", "ns", metal3api.StateAvailable).
+				SetCondition(metal3api.ProvisionedCondition, false, "reason").
+				SetCondition(metal3api.AvailableForProvisioningCondition, true, "reason").
+				Build()
+			bmh.Status.PoweredOn = true
+			fakeClient := fake.NewClientBuilder().WithScheme(setupScheme()).Build()
+			hostMgr, ok := NewManager(fakeClient, GinkgoLogr, hostClaim, fakeClient).(*Manager)
+			Expect(ok).To(BeTrue())
+			hostMgr.updateHostClaimStatus(bmh)
+			Expect(hostClaim.Status.PoweredOn).To(BeTrue())
+			Expect(hostClaim.Status.HardwareData).NotTo(BeNil())
+			Expect(hostClaim.Status.HardwareData.Name).To(Equal("bmh"))
+			Expect(hostClaim.Status.HardwareData.Namespace).To(Equal("ns"))
+			Expect(conditions.IsFalse(hostClaim, metal3api.ProvisionedCondition)).To(BeTrue())
+			Expect(conditions.IsTrue(hostClaim, metal3api.AvailableForProvisioningCondition)).To(BeTrue())
+		})
+
+	It("test syncReboot",
+		func() {
+			otherReboot := metal3api.RebootAnnotationPrefix + "/manual"
+			claimAnnot := metal3api.RebootAnnotationPrefix + "/test"
+			bmhAnnot := metal3api.RebootAnnotationPrefix + "/" + RebootHostClaimOwnedPrefix + "test"
+			annots := map[string]string{"a": "v1", otherReboot: "v2"}
+			saved := maps.Clone(annots)
+			bmh := NewBaremetalhost("bmh", "ns", metal3api.StateAvailable).SetAnnotations(annots).Build()
+			// Phased reboot
+			hostClaim := NewHostclaim(HostclaimName).SetAnnotations(map[string]string{claimAnnot: "v0"}).SetAssociatedBMH("ns", "bmh").Build()
+			upd := syncReboot(hostClaim.Annotations, bmh.Annotations)
+			Expect(bmh.Annotations).To(HaveLen(3))
+			Expect(bmh.Annotations[bmhAnnot]).To(Equal("v0"))
+			Expect(bmh.Annotations[otherReboot]).To(Equal("v2"))
+			Expect(upd).To(BeTrue())
+			// idempotence
+			upd = syncReboot(hostClaim.Annotations, bmh.Annotations)
+			Expect(upd).To(BeFalse())
+			// Remove reboot Annotation on the HostClaim.
+			delete(hostClaim.Annotations, claimAnnot)
+			upd = syncReboot(hostClaim.Annotations, bmh.Annotations)
+			Expect(maps.Equal(bmh.Annotations, saved)).To(BeTrue())
+			Expect(upd).To(BeTrue())
+			// idempotence
+			upd = syncReboot(hostClaim.Annotations, bmh.Annotations)
+			Expect(upd).To(BeFalse())
+			// simple reboot
+			hostClaim.Annotations[metal3api.RebootAnnotationPrefix] = "v3"
+			upd = syncReboot(hostClaim.Annotations, bmh.Annotations)
+			Expect(upd).To(BeTrue(), "transient reboot propagated")
+			saved[metal3api.RebootAnnotationPrefix] = "v3"
+			Expect(maps.Equal(bmh.Annotations, saved)).To(BeTrue())
+		},
+	)
+
+	type testCaseUpdate struct {
+		HostClaim   *metal3api.HostClaim
+		ExpectFail  bool
+		ExpectClear bool
+	}
+	DescribeTable("test Update",
+		func(tc testCaseUpdate) {
+			ctx := context.TODO()
+			hc := tc.HostClaim
+			bmh := NewBaremetalhost("bmh", "ns", metal3api.StateAvailable).SetConsumerRef(defaultConsumerRef).Build()
+			objects := []client.Object{
+				hc, bmh,
+				NewHostdeploypolicy("hdp", "ns").AcceptNames([]string{HostclaimNamespace}).Build(),
+				NewNamespace("hcNs").Build(), NewNamespace("ns").Build(),
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(setupScheme()).WithObjects(objects...).Build()
+			hostMgr := NewManager(fakeClient, GinkgoLogr, hc, fakeClient)
+			err := hostMgr.Update(ctx)
+			if tc.ExpectFail {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
+			if tc.ExpectClear {
+				Expect(hc.Status.BareMetalHost).To(BeNil())
+				Expect(hc.Status.HardwareData).To(BeNil())
+				Expect(hc.Status.PoweredOn).To(BeFalse())
+				assoc := conditions.Get(hc, metal3api.AssociatedCondition)
+				Expect(assoc).NotTo(BeNil())
+				Expect(assoc.Status).To(Equal(metav1.ConditionFalse))
+				Expect(assoc.Reason).To(Equal(metal3api.MissingBareMetalHostReason))
+				for _, condType := range []string{metal3api.ProvisionedCondition, metal3api.AvailableForProvisioningCondition} {
+					c := conditions.Get(hc, condType)
+					Expect(c).NotTo(BeNil(), condType)
+					Expect(c.Status).To(Equal(metav1.ConditionUnknown), condType)
+				}
+			}
+		},
+		Entry("Regular case", testCaseUpdate{HostClaim: NewHostclaim(HostclaimName).SetAssociatedBMH("ns", "bmh").Build()}),
+		Entry("badly associated case", testCaseUpdate{
+			HostClaim:   NewHostclaim("other").SetAssociatedBMH("ns", "bmh").Build(),
+			ExpectClear: true,
+		}),
+		Entry("no bmh", testCaseUpdate{
+			HostClaim:   NewHostclaim(HostclaimName).SetAssociatedBMH("ns", "other").Build(),
+			ExpectClear: true,
+		}),
+	)
+
+	type testCaseDelete struct {
+		BareMetalHost *metal3api.BareMetalHost
+		ExpectRequeue bool
+		SecretCleared bool
+	}
+	DescribeTable("Test Delete",
+		func(tc testCaseDelete) {
+			ctx := context.TODO()
+			hc := NewHostclaim(HostclaimName).
+				SetUserData("sec1").SetMetaData("sec2").SetNetworkData("sec3").
+				SetAssociatedBMH("ns", "bmh").Build()
+
+			objects := []client.Object{
+				hc,
+				NewHostdeploypolicy("hdp", "ns").AcceptNames([]string{HostclaimNamespace}).Build(),
+				NewNamespace("hcNs").Build(), NewNamespace("ns").Build(),
+			}
+			if tc.BareMetalHost != nil {
+				bmh := tc.BareMetalHost
+				objects = append(objects, bmh)
+				for _, ref := range []*corev1.SecretReference{bmh.Spec.UserData, bmh.Spec.MetaData, bmh.Spec.NetworkData} {
+					if ref != nil && !tc.SecretCleared {
+						sec := NewSecret(ref.Name, "ns").SetData(map[string][]byte{"data": []byte("v")}).Build()
+						objects = append(objects, sec)
+					}
+				}
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(setupScheme()).WithObjects(objects...).Build()
+			hostMgr := NewManager(fakeClient, GinkgoLogr, hc, fakeClient)
+			err := hostMgr.Delete(ctx)
+			bmhOut := &metal3api.BareMetalHost{}
+			if tc.BareMetalHost == nil {
+				return
+			}
+			getErr := fakeClient.Get(ctx, types.NamespacedName{Namespace: "ns", Name: "bmh"}, bmhOut)
+			Expect(getErr).NotTo(HaveOccurred())
+			if tc.ExpectRequeue {
+				Expect(err).To(HaveOccurred())
+				isRequeue, _ := IsRequeueAfterError(err)
+				Expect(isRequeue).To(BeTrue())
+				Expect(bmhOut.Spec.Image).To(BeNil())
+				Expect(bmhOut.Spec.ConsumerRef).NotTo(BeNil(), "Access to bmh is kept")
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(bmhOut.Spec.ConsumerRef).To(BeNil(), "Access to bmh is revoked")
+				Expect(bmhOut.Spec.Online).To(BeFalse(), "host is offline")
+			}
+		},
+		Entry("Wait for deprovisioning", testCaseDelete{
+			BareMetalHost: NewBaremetalhost("bmh", "ns", metal3api.StateProvisioned).SetConsumerRef(defaultConsumerRef).Build(),
+			ExpectRequeue: true,
+		}),
+		Entry("Last step, cleanup", testCaseDelete{
+			BareMetalHost: NewBaremetalhost("bmh", "ns", metal3api.StateAvailable).SetConsumerRef(defaultConsumerRef).
+				SetCleaningMode("metadata").Build(),
+		}),
+		Entry("No BMH", testCaseDelete{
+			BareMetalHost: nil,
 		}),
 	)
 })

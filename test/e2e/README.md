@@ -14,6 +14,8 @@ represent BareMetalHosts, and configures either VBMC or sushy-tools to be used
 as BMC. Ironic runs in the "host network" of the kind cluster in the test. The
 kind cluster is then configured to expose the relevant ports on the actual host
 so that they can be reached from the BareMetalHost VMs.
+With `BMC_PROTOCOL=fixture` the script skips the VMs, BMC emulators and Ironic,
+and runs the suite against the fixture provisioner (`config/fixture.yaml`).
 
 However, before running the script ensure the environment is setup correctly:
 

@@ -645,3 +645,159 @@ func TestValidateHostFirmwareSettings(t *testing.T) {
 		})
 	}
 }
+
+// Test that password-type settings are filtered by AttributeType, not just by name.
+func TestPasswordTypeFilteredByAttributeType(t *testing.T) {
+	// Settings from the provisioner include a password-type attribute
+	// whose name does NOT contain the substring "Password" (SetupPassphrase),
+	// one that does (SysPassword), and a normal setting that must survive.
+	settingsFromProvisioner := metal3api.SettingsMap{
+		"ProcVirtualization": "Disabled", // normal setting, must survive
+		"SetupPassphrase":    "s3cret!",  // Password-type by AttributeType, not by name
+		"SysPassword":        "pa$$word", // Not password-type, caught by the name filter
+	}
+
+	// Schema declares the password-type attributes
+	schemaFromProvisioner := map[string]metal3api.SettingSchema{
+		"ProcVirtualization": {
+			AttributeType:   "Enumeration",
+			AllowableValues: []string{"Enabled", "Disabled"},
+			ReadOnly:        &iFalse,
+		},
+		"SetupPassphrase": {
+			AttributeType: "Password",
+			MinLength:     &minLength,
+			MaxLength:     &maxLength,
+			ReadOnly:      &iFalse,
+		},
+		"SysPassword": {
+			AttributeType: "String",
+			MinLength:     &minLength,
+			MaxLength:     &maxLength,
+			ReadOnly:      &iFalse,
+		},
+	}
+
+	hfs := &metal3api.HostFirmwareSettings{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "HostFirmwareSettings",
+			APIVersion: "metal3.io/v1alpha1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            hostName,
+			Namespace:       hostNamespace,
+			ResourceVersion: "1"},
+		Spec: metal3api.HostFirmwareSettingsSpec{
+			Settings: metal3api.DesiredSettingsMap{},
+		},
+		Status: metal3api.HostFirmwareSettingsStatus{},
+	}
+
+	r := getTestHFSReconciler(hfs)
+	bmh := createBaremetalHost()
+
+	info := &rInfo{
+		log: logf.Log.WithName("controllers").WithName("HostFirmwareSettings"),
+		hfs: hfs,
+		bmh: bmh,
+	}
+
+	ctx := t.Context()
+	err := r.updateHostFirmwareSettings(ctx, settingsFromProvisioner, schemaFromProvisioner, info)
+	require.NoError(t, err)
+
+	// Reload the HFS from the fake client
+	key := client.ObjectKey{Namespace: hostNamespace, Name: hostName}
+	actualHFS := &metal3api.HostFirmwareSettings{}
+	err = r.Client.Get(ctx, key, actualHFS)
+	require.NoError(t, err)
+
+	// Password-type settings must NOT appear in Status.Settings regardless of name
+	assert.NotContains(t, actualHFS.Status.Settings, "SetupPassphrase",
+		"Password-type setting 'SetupPassphrase' should be filtered from Status by AttributeType")
+	assert.NotContains(t, actualHFS.Status.Settings, "SysPassword",
+		"Password-type setting 'SysPassword' should be filtered from Status by name")
+
+	// Non-password settings must still be present
+	assert.Contains(t, actualHFS.Status.Settings, "ProcVirtualization")
+}
+
+// Test that validateHostFirmwareSettings rejects password-type settings by AttributeType.
+func TestValidateRejectsPasswordTypeByAttributeType(t *testing.T) {
+	testCases := []struct {
+		Scenario      string
+		SpecSettings  metal3api.HostFirmwareSettingsSpec
+		ExpectedError string
+	}{
+		{
+			Scenario: "password-type setting with non-Password name is rejected",
+			SpecSettings: metal3api.HostFirmwareSettingsSpec{
+				Settings: metal3api.DesiredSettingsMap{
+					"SetupPassphrase": intstr.FromString("newpassword"),
+				},
+			},
+			ExpectedError: "cannot set Password field",
+		},
+		{
+			Scenario: "password setting caught by name filter still works",
+			SpecSettings: metal3api.HostFirmwareSettingsSpec{
+				Settings: metal3api.DesiredSettingsMap{
+					"SysPassword": intstr.FromString("oldfilter"),
+				},
+			},
+			ExpectedError: "cannot set Password field",
+		},
+	}
+
+	// Schema declares SetupPassphrase as Password type
+	schema := &metal3api.FirmwareSchema{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      schemaName,
+			Namespace: hostNamespace,
+		},
+		Spec: metal3api.FirmwareSchemaSpec{
+			Schema: map[string]metal3api.SettingSchema{
+				"ProcVirtualization": {
+					AttributeType:   "Enumeration",
+					AllowableValues: []string{"Enabled", "Disabled"},
+					ReadOnly:        &iFalse,
+				},
+				"SetupPassphrase": {
+					AttributeType: "Password",
+					MinLength:     &minLength,
+					MaxLength:     &maxLength,
+					ReadOnly:      &iFalse,
+				},
+				"SysPassword": {
+					AttributeType: "String",
+					MinLength:     &minLength,
+					MaxLength:     &maxLength,
+					ReadOnly:      &iFalse,
+				},
+			},
+		},
+	}
+
+	status := &metal3api.HostFirmwareSettingsStatus{
+		Settings: metal3api.SettingsMap{
+			"ProcVirtualization": "Enabled",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			hfs := &metal3api.HostFirmwareSettings{}
+			hfs.Spec = tc.SpecSettings
+			hfs.Status = *status
+
+			r := getTestHFSReconciler(hfs)
+			info := &rInfo{
+				log: logf.Log.WithName("controllers").WithName("HostFirmwareSettings"),
+				hfs: hfs,
+			}
+
+			errors := r.validateHostFirmwareSettings(info, status, schema)
+			require.NotEmpty(t, errors, "expected validation error for password-type setting")
+			assert.Equal(t, tc.ExpectedError, errors[0].Error())
+		})
+	}
+}

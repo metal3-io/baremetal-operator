@@ -90,6 +90,48 @@ func TestBMCEmulatorConfigMarshalYAMLUsesLegacyFlatShapeForValues(t *testing.T) 
 	}
 }
 
+func TestNetworkConfigDefaults(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    NetworkConfig
+		expected NetworkConfig
+	}{
+		{
+			name:  "empty network gets defaults",
+			input: NetworkConfig{Name: "lab"},
+			expected: NetworkConfig{
+				Name:    "lab",
+				Bridge:  "metal3",
+				Address: "192.168.222.1",
+				Netmask: 24,
+			},
+		},
+		{
+			name: "custom network values preserved",
+			input: NetworkConfig{
+				Name:    "lab",
+				Bridge:  "custom-bridge",
+				Address: "192.0.2.1",
+				Netmask: 26,
+			},
+			expected: NetworkConfig{
+				Name:    "lab",
+				Bridge:  "custom-bridge",
+				Address: "192.0.2.1",
+				Netmask: 26,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if result := tt.input.Defaults(); result != tt.expected {
+				t.Errorf("Defaults() = %+v, want %+v", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestVolumeConfigDefaults(t *testing.T) {
 	tests := []struct {
 		name     string

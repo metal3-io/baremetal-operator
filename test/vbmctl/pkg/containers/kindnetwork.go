@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/netip"
+	"os"
 	"strconv"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
@@ -46,14 +46,14 @@ func CreateBridgeNetworks(ctx context.Context, networks []vbmctlapi.DockerBridge
 		createdID, err := CreateNetwork(ctx, net.Name, &networkOpts)
 		// Don't fail if the network exists
 		if errors.Is(err, ErrNetworkExists) {
-			log.Printf("Warning: Docker network %s already exists, continuing.", net.Name)
+			fmt.Fprintf(os.Stderr, "Warning: Docker network %s already exists, continuing.\n", net.Name)
 		} else if err != nil {
 			// Clean up previously created networks
-			log.Printf("Failed to create network %s, cleaning up %d previously created Docker networks", net.Name, len(createdNetworks))
+			fmt.Fprintf(os.Stderr, "Failed to create network %s, cleaning up %d previously created Docker networks\n", net.Name, len(createdNetworks))
 			for _, netID := range createdNetworks {
 				delErr := DeleteNetwork(ctx, netID, &client.NetworkRemoveOptions{})
 				if delErr != nil {
-					log.Printf("Warning: failed to clean up Docker network: %v", delErr)
+					fmt.Fprintf(os.Stderr, "Warning: failed to clean up Docker network: %v\n", delErr)
 				}
 			}
 			return nil, fmt.Errorf("failed to create network: %w", err)
@@ -75,7 +75,7 @@ func DeleteBridgeNetworks(ctx context.Context, networks []vbmctlapi.DockerBridge
 	for _, net := range networks {
 		networkID, err := GetNetworkByName(ctx, net.Name)
 		if err != nil {
-			log.Printf("Warning: failed to delete Docker network %s, could not get network ID", net.Name)
+			fmt.Fprintf(os.Stderr, "Warning: failed to delete Docker network %s, could not get network ID\n", net.Name)
 			continue
 		}
 		err = DeleteNetwork(ctx, networkID, &client.NetworkRemoveOptions{})

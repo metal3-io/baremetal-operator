@@ -41,6 +41,7 @@ SUSHY_EMULATOR_PORT="${SUSHY_EMULATOR_PORT:-8000}"
 
 # Default to the required tests.
 export GINKGO_LABEL_FILTER="${GINKGO_LABEL_FILTER:-required}"
+GINKGO_FOCUS="${GINKGO_FOCUS:-}"
 
 # TODO: Get rid of this by passing GINKGO_LABEL_FILTER straight from project-infra.
 GINKGO_FOCUS="${GINKGO_FOCUS:-}"
@@ -152,6 +153,10 @@ if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
   envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
     "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
     "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
+
+  # Clean up any leftover VMs/networks/containers from a previous run before
+  # provisioning a fresh lab.
+  ./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" delete bml 2>/dev/null || true
 
   # Create VMs to act as BMHs in the tests and the libvirt network. Create
   # also image server and E2E emulator containers.

@@ -64,6 +64,7 @@ BMO has standalone E2E tests using libvirt VMs and BMC emulators:
 | `./hack/ci-e2e.sh` | Full E2E suite (requires libvirt, docker) |
 | `GINKGO_FOCUS="inspection" ./hack/ci-e2e.sh` | Run specific test |
 | `BMC_PROTOCOL=ipmi ./hack/ci-e2e.sh` | Test with IPMI protocol |
+| `BMC_PROTOCOL=fixture ./hack/ci-e2e.sh` | Fixture provisioner, no Ironic or VMs |
 
 Key files: `test/e2e/config/ironic.yaml`, `test/e2e/config/fixture.yaml`
 

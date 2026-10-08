@@ -30,6 +30,7 @@ All of them honor `CONTAINER_RUNTIME` (default `podman`; set to
 ./hack/markdownlint.sh
 ./hack/shellcheck.sh
 ./hack/manifestlint.sh
+./hack/yamllint.sh
 ```
 
 Run them from the repository root so volume mounts and the Makefile

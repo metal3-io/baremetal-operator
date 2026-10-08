@@ -89,7 +89,7 @@ func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.Servic
 		// When servicing failed and there are pending updates, we need to clean host provisioning settings
 		// If restartOnFailure is false, it means the settings aren't cleared.
 		if !restartOnFailure {
-			result, err = operationFailed(ironicNode.LastError)
+			result, err = operationFailed(redactSensitiveText(ironicNode.LastError))
 			return result, started, err
 		}
 

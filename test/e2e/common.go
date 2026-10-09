@@ -203,20 +203,43 @@ func WaitForBmhInOperationalStatus(ctx context.Context, input WaitForBmhInOperat
 // PatchBMHForProvisioning patches the BMH to set the image and root device hints.
 // If setUserDataSecret is true, it also sets the user data secret for SSH access.
 func PatchBMHForProvisioning(ctx context.Context, input PatchBMHForProvisioningInput) error {
-	helper, err := patch.NewHelper(input.bmh, input.client)
+	fresh := &metal3api.BareMetalHost{}
+	key := types.NamespacedName{Namespace: input.bmh.Namespace, Name: input.bmh.Name}
+	if err := input.client.Get(ctx, key, fresh); err != nil {
+		return err
+	}
+
+	helper, err := patch.NewHelper(fresh, input.client)
 	if err != nil {
 		return err
 	}
-	input.bmh.Spec.Image = &metal3api.Image{
+	fresh.Spec.Image = &metal3api.Image{
 		URL:          input.e2eConfig.GetVariable("IMAGE_URL"),
 		Checksum:     input.e2eConfig.GetVariable("IMAGE_CHECKSUM"),
 		ChecksumType: metal3api.AutoChecksum,
 	}
-	input.bmh.Spec.RootDeviceHints = &input.bmc.RootDeviceHints
+	fresh.Spec.RootDeviceHints = &input.bmc.RootDeviceHints
 	if input.userDataSecret != nil {
-		input.bmh.Spec.UserData = input.userDataSecret
+		fresh.Spec.UserData = input.userDataSecret
 	}
-	return helper.Patch(ctx, input.bmh)
+	if err := helper.Patch(ctx, fresh); err != nil {
+		return err
+	}
+
+	// Confirm the image actually persisted to the server. Patch returning nil only
+	// means the request succeeded; verifying spec.image guards against a merge that
+	// dropped the field and keeps the test from timing out later at wait-provisioned.
+	verify := &metal3api.BareMetalHost{}
+	if err := input.client.Get(ctx, key, verify); err != nil {
+		return err
+	}
+	if verify.Spec.Image == nil || verify.Spec.Image.URL == "" {
+		return fmt.Errorf("image was not persisted on BMH %s/%s after patch", key.Namespace, key.Name)
+	}
+
+	// Keep the caller's object in sync with the server state.
+	verify.DeepCopyInto(input.bmh)
+	return nil
 }
 
 // WaitForBmhReconciled waits for the BMO controller to process a BMH update.

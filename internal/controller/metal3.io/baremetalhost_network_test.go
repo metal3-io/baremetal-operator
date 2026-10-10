@@ -356,6 +356,15 @@ func TestGetAvailableNICNames(t *testing.T) {
 			expected: []string{"eth0", "eth1", "eth2"},
 		},
 		{
+			name: "duplicate-names-removed",
+			nics: []metal3api.NIC{
+				{Name: "eth1", MAC: "00:11:22:33:44:66"},
+				{Name: "eth0", MAC: "00:11:22:33:44:55"},
+				{Name: "eth1", MAC: "00:11:22:33:44:77"},
+			},
+			expected: []string{"eth0", "eth1"},
+		},
+		{
 			name: "empty-names-filtered",
 			nics: []metal3api.NIC{
 				{Name: "", MAC: "00:11:22:33:44:55"},
@@ -374,6 +383,10 @@ func TestGetAvailableNICNames(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := &BareMetalHostReconciler{}
 			result := r.getAvailableNICNames(tc.nics)
+			if len(tc.expected) == 0 {
+				assert.Empty(t, result)
+				return
+			}
 			assert.Equal(t, tc.expected, result)
 		})
 	}

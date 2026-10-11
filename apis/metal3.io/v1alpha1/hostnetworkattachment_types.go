@@ -78,6 +78,7 @@ type HostNetworkAttachmentSpec struct {
 // HostNetworkAttachment defines switchport configuration for BMH network interfaces.
 // Spec fields are mutable when no BMH references the attachment, immutable when in use.
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=hna
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Mode",type="string",JSONPath=".spec.mode",description="Switchport mode"
 // +kubebuilder:printcolumn:name="Native VLAN",type="integer",JSONPath=".spec.nativeVLAN",description="Native VLAN ID"

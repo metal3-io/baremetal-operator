@@ -191,8 +191,14 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
-	// Check if any attach/detach action is pending or failed to attach
-	isImageAttached, vmediaGetError := prov.GetDataImageStatus(ctx)
+	var isImageAttached bool
+	var vmediaGetError error
+
+	dataImageAPI, vmediaGetError := provisioner.GetDataImageAPI(prov)
+	if vmediaGetError == nil {
+		// Check if any attach/detach action is pending or failed to attach
+		isImageAttached, vmediaGetError = dataImageAPI.GetDataImageStatus(ctx)
+	}
 
 	// In case there was an error fetching vmedia details
 	// upadate message and counter

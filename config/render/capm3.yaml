@@ -3494,6 +3494,22 @@ rules:
   - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: baremetal-operator-switch-secrets-role
+  namespace: baremetal-operator-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: baremetal-operator-manager-role
@@ -3636,6 +3652,20 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: baremetal-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: baremetal-operator-controller-manager
+  namespace: baremetal-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: baremetal-operator-switch-secrets-rolebinding
+  namespace: baremetal-operator-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: baremetal-operator-switch-secrets-role
 subjects:
 - kind: ServiceAccount
   name: baremetal-operator-controller-manager

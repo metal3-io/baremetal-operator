@@ -43,6 +43,10 @@ type BareMetalSwitchReconciler struct {
 	Log       logr.Logger
 	APIReader client.Reader
 
+	// SwitchSecretsNamespace is where the generated switch config and credentials
+	// secrets are stored (IRONIC_NAMESPACE, falling back to POD_NAMESPACE).
+	SwitchSecretsNamespace string
+
 	// SwitchConfigsSecretName is the name of the secret that holds the
 	// generated INI-format switch configuration (from IRONIC_SWITCH_CONFIGS_SECRET).
 	SwitchConfigsSecretName string
@@ -76,7 +80,7 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if k8serrors.IsNotFound(err) {
 			// Resource deleted - regenerate config without this switch
 			logger.Info("BareMetalSwitch deleted, updating switch config")
-			if _, updateErr := updateSwitchConfigSecret(ctx, r.Client, sm, req.Namespace, r.SwitchConfigsSecretName, r.SwitchCredentialSecretName, r.SwitchCredentialPath, logger); updateErr != nil {
+			if _, updateErr := updateSwitchConfigSecret(ctx, r.Client, sm, r.SwitchSecretsNamespace, r.SwitchConfigsSecretName, r.SwitchCredentialSecretName, r.SwitchCredentialPath, logger); updateErr != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to update switch config after deletion: %w", updateErr)
 			}
 			return ctrl.Result{}, nil
@@ -84,8 +88,8 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, fmt.Errorf("could not load BareMetalSwitch: %w", err)
 	}
 
-	// Regenerate switch config from all BareMetalSwitch resources in the namespace
-	result, err := updateSwitchConfigSecret(ctx, r.Client, sm, bmSwitch.Namespace, r.SwitchConfigsSecretName, r.SwitchCredentialSecretName, r.SwitchCredentialPath, logger)
+	// Regenerate switch config from all BareMetalSwitch resources visible to BMO.
+	result, err := updateSwitchConfigSecret(ctx, r.Client, sm, r.SwitchSecretsNamespace, r.SwitchConfigsSecretName, r.SwitchCredentialSecretName, r.SwitchCredentialPath, logger)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update switch config: %w", err)
 	}

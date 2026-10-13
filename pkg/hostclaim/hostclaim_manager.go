@@ -28,6 +28,7 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	. "github.com/metal3-io/baremetal-operator/pkg/logging"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -163,7 +164,7 @@ func (m *Manager) Associate(ctx context.Context) error {
 		}
 		return err
 	}
-	m.Log.Info("Associating hostClaim with host", "bmh", bmh.Name, "bmhNamespace", bmh.Namespace)
+	m.Log.Info("Associating hostClaim with host", LogFieldHostName, bmh.Name, LogFieldHostNamespace, bmh.Namespace)
 
 	// First we record the association in the BMH. If we fail, we must redo the
 	// whole selection process.
@@ -297,7 +298,7 @@ func (m *Manager) pickHost(availableHosts []*metal3api.BareMetalHost) (*metal3ap
 			}
 		}
 		if len(availableHostsInFailureDomain) == 0 {
-			m.Log.Info("No available hosts in FailureDomain", m.HostClaim.Spec.FailureDomain, "choosing from other available hosts")
+			m.Log.Info("No available hosts in FailureDomain choosing from other available hosts", LogFieldFailureDomain, m.HostClaim.Spec.FailureDomain)
 		}
 	}
 
@@ -322,7 +323,7 @@ func (m *Manager) pickHost(availableHosts []*metal3api.BareMetalHost) (*metal3ap
 // HostDeployPolicies are only listed in that namespace and the result is either
 // an empty set or a singleton containing that namespace.
 func (m *Manager) acceptableNamespaces(ctx context.Context, namespace string) (Set[string], error) {
-	m.Log.V(1).Info("Searching for suitable namespaces")
+	m.Log.V(VerbosityLevelDebug).Info("Searching for suitable namespaces")
 	hostdeploypolicies := metal3api.HostDeployPolicyList{}
 	options := []client.ListOption{}
 	if namespace != "" {
@@ -347,18 +348,18 @@ func (m *Manager) acceptableNamespaces(ctx context.Context, namespace string) (S
 	namespaces := NewSet[string]()
 LOOP_POLICY:
 	for _, hostDeployPolicy := range hostdeploypolicies.Items {
-		log := m.Log.WithValues("policyNamespace", hostDeployPolicy.Namespace, "policyName", hostDeployPolicy.Name)
+		log := m.Log.WithValues(LogFieldHostDeployPolicyNamespace, hostDeployPolicy.Namespace, LogFieldHostDeployPolicy, hostDeployPolicy.Name)
 		if SetContains(namespaces, hostDeployPolicy.Namespace) {
 			// namespace already added, no reason to check this hdp.
 			continue
 		}
 		constraints := hostDeployPolicy.Spec.HostClaimNamespaces
 		if constraints == nil {
-			log.V(1).Info("Ignoring HostDeployPolicy without constraint")
+			log.V(VerbosityLevelDebug).Info("Ignoring HostDeployPolicy without constraint")
 			continue
 		}
 		if constraints.Names != nil && !slices.Contains(constraints.Names, hostNs) {
-			log.V(1).Info("Ignoring HostDeployPolicy because claim namespace not in names", "names", constraints.Names)
+			log.V(VerbosityLevelDebug).Info("Ignoring HostDeployPolicy because claim namespace not in names", "hostdeploypolicyNames", constraints.Names)
 			continue
 		}
 		if constraints.NameMatches != "" {
@@ -370,7 +371,7 @@ LOOP_POLICY:
 				return nil, err
 			}
 			if !b {
-				log.V(1).Info("Ignoring HostDeployPolicy because claim namespace does not match regex")
+				log.V(VerbosityLevelDebug).Info("Ignoring HostDeployPolicy because claim namespace does not match regex")
 				continue
 			}
 		}
@@ -378,19 +379,19 @@ LOOP_POLICY:
 		for _, pair := range constraints.HasLabels {
 			if v, ok := nsLabels[pair.Name]; ok {
 				if pair.Value != "" && v != pair.Value {
-					log.V(1).Info(
+					log.V(VerbosityLevelDebug).Info(
 						"Ignoring HostDeployPolicy because claim namespace labels does not have correct value",
-						"label", pair.Name, "value", v, "expected", pair.Value)
+						LogFieldLabel, pair.Name, LogFieldLabelValue, v, "expectedValue", pair.Value)
 					continue LOOP_POLICY
 				}
 			} else {
-				log.V(1).Info(
+				log.V(VerbosityLevelDebug).Info(
 					"Ignoring HostDeployPolicy because claim namespace labels does not have a required label",
-					"label", pair.Name)
+					LogFieldLabel, pair.Name)
 				continue LOOP_POLICY
 			}
 		}
-		log.V(1).Info("Accepting namespace because of HostDeployPolicy", "namespace", hostDeployPolicy.Namespace)
+		log.V(VerbosityLevelDebug).Info("Accepting namespace because of HostDeployPolicy", LogFieldHostDeployPolicyNamespace, hostDeployPolicy.Namespace)
 		AddSet(namespaces, hostDeployPolicy.Namespace)
 	}
 	m.Log.Info("Acceptable namespaces", "namespaces", namespaces)
@@ -444,14 +445,14 @@ func (m *Manager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, erro
 
 	for namespace := range namespaces {
 		bmhs := metal3api.BareMetalHostList{}
-		m.Log.V(1).Info("Looking for BMHs in namespace", "namespace", namespace)
+		m.Log.V(VerbosityLevelDebug).Info("Looking for BMHs in namespace", LogFieldNamespace, namespace)
 		err = m.client.List(ctx, &bmhs, client.MatchingLabelsSelector{Selector: labelSelector}, client.InNamespace(namespace))
 		if err != nil {
 			return nil, err
 		}
 		for i, bmh := range bmhs.Items {
 			if bmh.Spec.ConsumerRef != nil && consumerRefMatches(bmh.Spec.ConsumerRef, m.HostClaim) {
-				m.Log.Info("Found host with existing ConsumerRef", "bmh", bmh.Name, "bmhNamespace", bmh.Namespace)
+				m.Log.Info("Found host with existing ConsumerRef", LogFieldHostName, bmh.Name, LogFieldHostNamespace, bmh.Namespace)
 				return &bmh, nil
 			}
 
@@ -477,12 +478,12 @@ func (m *Manager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, erro
 
 			if bmh.Status.ErrorMessage != "" {
 				m.Log.Info("Found an available host with an error message (should not occur)",
-					"bmh", bmh.Name, "bmhNamespace", bmh.Namespace)
+					LogFieldHostName, bmh.Name, LogFieldHostNamespace, bmh.Namespace)
 				continue
 			}
 
 			m.Log.Info("Host matched hostSelector for Host, adding it to availableHosts list",
-				"bmh", bmh.Name, "bmhNamespace", bmh.Namespace)
+				LogFieldHostName, bmh.Name, LogFieldHostNamespace, bmh.Namespace)
 			availableHosts = append(availableHosts, &bmhs.Items[i])
 		}
 	}

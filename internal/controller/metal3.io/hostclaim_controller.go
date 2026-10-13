@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	hostclaimManager "github.com/metal3-io/baremetal-operator/pkg/hostclaim"
+	. "github.com/metal3-io/baremetal-operator/pkg/logging"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,7 +51,7 @@ type HostClaimReconciler struct {
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 
 func (r *HostClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
-	log := r.Log.WithValues("hostclaim", req.NamespacedName)
+	log := r.Log.WithValues(LogFieldHostClaim, req.NamespacedName)
 	hostClaim := &metal3api.HostClaim{}
 	if err := r.Client.Get(ctx, req.NamespacedName, hostClaim); err != nil {
 		if k8serrors.IsNotFound(err) {

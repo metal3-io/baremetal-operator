@@ -222,19 +222,19 @@ manifest-lint: ## Run manifest validation
 build: generate manifests manager tools build-e2e ## Build everything
 
 .PHONY: manager
-manager: generate lint ironic-plugin demo-plugin ## Build manager binary and bundled provisioner plugins
+manager: generate ironic-plugin demo-plugin ## Build manager binary and bundled provisioner plugins
 	go build $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) -o bin/$(OPERATOR_NAME) main.go
 
 .PHONY: run
-run: generate lint manifests ironic-plugin ## Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate manifests ironic-plugin ## Run against the configured Kubernetes cluster in ~/.kube/config
 	PROVISIONER_PLUGIN_DIR=$(BIN_DIR) go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=ironic -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: demo
-demo: generate lint manifests demo-plugin ## Run in demo mode
+demo: generate manifests demo-plugin ## Run in demo mode
 	PROVISIONER_PLUGIN_DIR=$(BIN_DIR) go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=demo -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: run-test-mode
-run-test-mode: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
+run-test-mode: generate manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=fixture -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: install

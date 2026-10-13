@@ -22,6 +22,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -175,6 +176,29 @@ func setupWebhooks(ctx context.Context, mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HostFirmwareComponents")
 		os.Exit(1)
 	}
+}
+
+// addToNamespaces adds a namespace cache config to an existing map of configs
+// without modifying the existing map.  If the specified namespace already
+// exists then no action is taken.
+func addToNamespaces(namespaces map[string]cache.Config, namespaceToAdd string) map[string]cache.Config {
+	result := maps.Clone(namespaces)
+	if namespaceToAdd == "" {
+		return result
+	}
+
+	if result == nil {
+		result = make(map[string]cache.Config, 1)
+	}
+	if _, exists := result[namespaceToAdd]; !exists {
+		result[namespaceToAdd] = cache.Config{}
+	}
+
+	return result
+}
+
+func resolveSwitchSecretsNamespace(ironicNamespace, podNamespace string) string {
+	return cmp.Or(ironicNamespace, podNamespace)
 }
 
 func main() {
@@ -362,6 +386,20 @@ func main() {
 		setupLog.Info("Manager set up with cluster scope")
 	}
 
+	// Update the consolidated switch config/credential secrets in this namespace.
+	switchSecretsNamespace := resolveSwitchSecretsNamespace(os.Getenv("IRONIC_NAMESPACE"), os.Getenv("POD_NAMESPACE"))
+
+	// Keep the generated switch secrets in the Secret cache even when BMO is
+	// configured to watch BareMetalSwitch resources only in other namespaces.
+	var secretCacheNamespaces map[string]cache.Config
+	if features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking) && len(watchNamespaces) > 0 {
+		if _, exists := watchNamespaces[switchSecretsNamespace]; !exists {
+			secretCacheNamespaces = addToNamespaces(watchNamespaces, switchSecretsNamespace)
+		}
+	}
+
+	cacheByObject := secretutils.AddSecretSelector(pluginRequirements.CacheByObject, secretCacheNamespaces)
+
 	ctrlOpts := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -380,7 +418,7 @@ func main() {
 		LeaderElectionReleaseOnCancel: true,
 		HealthProbeBindAddress:        healthAddr,
 		Cache: cache.Options{
-			ByObject:          secretutils.AddSecretSelector(pluginRequirements.CacheByObject),
+			ByObject:          cacheByObject,
 			DefaultNamespaces: watchNamespaces,
 		},
 	}
@@ -545,6 +583,11 @@ func main() {
 	}
 
 	if features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking) {
+		if switchSecretsNamespace == "" {
+			setupLog.Error(errors.New("IRONIC_NAMESPACE or POD_NAMESPACE must be set when IronicNetworking is enabled"), "missing required environment variable")
+			os.Exit(1)
+		}
+
 		switchConfigsSecretName := os.Getenv("IRONIC_SWITCH_CONFIGS_SECRET")
 		if switchConfigsSecretName == "" {
 			setupLog.Error(errors.New("IRONIC_SWITCH_CONFIGS_SECRET must be set when IronicNetworking is enabled"), "missing required environment variable")
@@ -567,6 +610,7 @@ func main() {
 			Client:                     mgr.GetClient(),
 			Log:                        ctrl.Log.WithName("controllers").WithName("BareMetalSwitch"),
 			APIReader:                  mgr.GetAPIReader(),
+			SwitchSecretsNamespace:     switchSecretsNamespace,
 			SwitchConfigsSecretName:    switchConfigsSecretName,
 			SwitchCredentialSecretName: switchCredentialSecretName,
 			SwitchCredentialPath:       switchCredentialPath,

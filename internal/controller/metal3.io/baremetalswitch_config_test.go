@@ -433,7 +433,6 @@ func TestGenerateSwitchConfig(t *testing.T) {
 
 	tests := []struct {
 		name                  string
-		namespace             string
 		objects               []client.Object
 		credentialPath        string
 		expectedConfigEntries map[string]string
@@ -442,15 +441,13 @@ func TestGenerateSwitchConfig(t *testing.T) {
 	}{
 		{
 			name:                  "no switches configured",
-			namespace:             "test-ns",
 			objects:               []client.Object{},
 			expectedConfigEntries: map[string]string{},
 			expectedKeys:          map[string][]byte{},
 			expectError:           false,
 		},
 		{
-			name:      "single password switch",
-			namespace: "test-ns",
+			name: "single password switch",
 			objects: []client.Object{
 				&metal3api.BareMetalSwitch{
 					ObjectMeta: metav1.ObjectMeta{
@@ -492,8 +489,7 @@ password=secret123
 			expectError:  false,
 		},
 		{
-			name:      "mixed password and publickey switches",
-			namespace: "test-ns",
+			name: "mixed password and publickey switches",
 			objects: newMixedAuthSwitchObjects(
 				"switch1", "switch2", "switch1-creds", "switch2-creds",
 				map[string][]byte{"username": []byte("admin1"), "password": []byte("secret1")},
@@ -526,8 +522,7 @@ key_file=/etc/ironic/switch-credentials/aa-bb-cc-dd-ee-ff.key
 			expectError: false,
 		},
 		{
-			name:      "valid switches produced when one switch has missing credentials",
-			namespace: "test-ns",
+			name: "valid switches produced when one switch has missing credentials",
 			objects: []client.Object{
 				&metal3api.BareMetalSwitch{
 					ObjectMeta: metav1.ObjectMeta{
@@ -590,7 +585,7 @@ password=secret123
 			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.objects...).Build()
 			sm := secretutils.NewSecretManager(logr.Discard(), c, c)
 
-			result, err := generateSwitchConfig(t.Context(), c, sm, tt.namespace, tt.credentialPath, logr.Discard())
+			result, err := generateSwitchConfig(t.Context(), c, sm, tt.credentialPath, logr.Discard())
 
 			if tt.expectError {
 				g.Expect(err).To(HaveOccurred())
@@ -634,7 +629,7 @@ password=secret123
 		}).Build()
 		sm := secretutils.NewSecretManager(logr.Discard(), c, c)
 
-		_, err := generateSwitchConfig(t.Context(), c, sm, "test-ns", "", logr.Discard())
+		_, err := generateSwitchConfig(t.Context(), c, sm, "", logr.Discard())
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(err.Error()).To(ContainSubstring("connection refused"))
 	})
@@ -1009,6 +1004,7 @@ func TestReconcileConditions(t *testing.T) {
 				SwitchConfigsSecretName:    testSwitchConfigsSecretName,
 				SwitchCredentialSecretName: testSwitchCredentialSecretName,
 				SwitchCredentialPath:       testSwitchCredentialPath,
+				SwitchSecretsNamespace:     "test-ns",
 			}
 
 			result, err := r.Reconcile(t.Context(), ctrl.Request{

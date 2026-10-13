@@ -22,9 +22,89 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
+
+func TestAddToNamespaces(t *testing.T) {
+	t.Run("adds a namespace to an empty map", func(t *testing.T) {
+		g := NewWithT(t)
+		result := addToNamespaces(nil, "baremetal-operator-system")
+		g.Expect(result).To(Equal(map[string]cache.Config{
+			"baremetal-operator-system": {},
+		}))
+	})
+
+	t.Run("copies the existing namespaces and adds the new namespace", func(t *testing.T) {
+		g := NewWithT(t)
+		tenants := map[string]cache.Config{
+			"tenant-a": {FieldSelector: fields.OneTermEqualSelector("metadata.name", "host-a")},
+			"tenant-b": {},
+		}
+
+		result := addToNamespaces(tenants, "baremetal-operator-system")
+
+		g.Expect(result).To(HaveLen(3))
+		g.Expect(result["tenant-a"]).To(Equal(tenants["tenant-a"]))
+		g.Expect(result).To(HaveKey("tenant-b"))
+		g.Expect(result).To(HaveKey("baremetal-operator-system"))
+		g.Expect(tenants).To(HaveLen(2))
+		g.Expect(tenants).NotTo(HaveKey("baremetal-operator-system"))
+	})
+
+	t.Run("preserves config when namespace is already present", func(t *testing.T) {
+		g := NewWithT(t)
+		config := cache.Config{FieldSelector: fields.OneTermEqualSelector("metadata.name", "host-a")}
+		watched := map[string]cache.Config{"baremetal-operator-system": config}
+
+		result := addToNamespaces(watched, "baremetal-operator-system")
+
+		g.Expect(result).To(Equal(watched))
+	})
+
+	t.Run("empty namespace leaves namespaces unchanged", func(t *testing.T) {
+		g := NewWithT(t)
+		watched := map[string]cache.Config{"tenant-a": {}}
+
+		result := addToNamespaces(watched, "")
+
+		g.Expect(result).To(Equal(watched))
+		g.Expect(result).NotTo(HaveKey(cache.AllNamespaces))
+	})
+}
+
+func TestResolveSwitchSecretsNamespace(t *testing.T) {
+	tests := []struct {
+		name            string
+		ironicNamespace string
+		podNamespace    string
+		want            string
+	}{
+		{
+			name:            "prefers Ironic namespace",
+			ironicNamespace: "ironic-system",
+			podNamespace:    "baremetal-operator-system",
+			want:            "ironic-system",
+		},
+		{
+			name:         "falls back to BMO pod namespace",
+			podNamespace: "baremetal-operator-system",
+			want:         "baremetal-operator-system",
+		},
+		{
+			name: "returns empty when neither namespace is set",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			g.Expect(resolveSwitchSecretsNamespace(tt.ironicNamespace, tt.podNamespace)).To(Equal(tt.want))
+		})
+	}
+}
 
 func TestTLSInsecureCiperSuite(t *testing.T) {
 	t.Run("test insecure cipher suite passed as TLS flag", func(t *testing.T) {

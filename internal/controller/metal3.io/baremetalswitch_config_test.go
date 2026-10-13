@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -29,6 +30,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -87,6 +89,25 @@ func newMixedAuthSwitchObjects(pwName, pkName, pwSecretName, pkSecretName string
 				Namespace: "test-ns",
 			},
 			Data: pkCreds,
+		},
+	}
+}
+
+func newDuplicateTestSwitch(name, namespace, address, macAddress, credentialsName string, uid types.UID, creationTimestamp metav1.Time) *metal3api.BareMetalSwitch {
+	return &metal3api.BareMetalSwitch{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              name,
+			Namespace:         namespace,
+			UID:               uid,
+			CreationTimestamp: creationTimestamp,
+		},
+		Spec: metal3api.BareMetalSwitchSpec{
+			Address:    address,
+			MACAddress: macAddress,
+			DeviceType: "cisco_ios",
+			Credentials: &corev1.SecretReference{
+				Name: credentialsName,
+			},
 		},
 	}
 }
@@ -635,6 +656,88 @@ password=secret123
 	})
 }
 
+func TestGenerateSwitchConfigRejectsDuplicateNamesAndMACAddresses(t *testing.T) {
+	g := NewWithT(t)
+	scheme := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(metal3api.AddToScheme(scheme)).To(Succeed())
+
+	createdAt := func(day int) metav1.Time {
+		return metav1.NewTime(time.Date(2026, time.January, day, 0, 0, 0, 0, time.UTC))
+	}
+	newCredentials := func(name, namespace string, data map[string][]byte) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Data:       data,
+		}
+	}
+
+	t.Run("same name keeps the oldest switch across namespaces", func(t *testing.T) {
+		g := NewWithT(t)
+		oldest := newDuplicateTestSwitch("shared", "namespace-a", "192.168.1.1", "00:00:5e:00:53:01", "old-creds", "old-uid", createdAt(1))
+		duplicate := newDuplicateTestSwitch("shared", "namespace-b", "192.168.1.2", "00:00:5e:00:53:02", "duplicate-creds", "duplicate-uid", createdAt(2))
+		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+			oldest,
+			duplicate,
+			newCredentials("old-creds", "namespace-a", map[string][]byte{"username": []byte("old"), "password": []byte("old-password")}),
+			newCredentials("duplicate-creds", "namespace-b", map[string][]byte{"username": []byte("new"), "password": []byte("new-password")}),
+		).Build()
+		sm := secretutils.NewSecretManager(logr.Discard(), c, c)
+
+		result, err := generateSwitchConfig(t.Context(), c, sm, "", logr.Discard())
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(result.configEntries).To(HaveLen(1))
+		g.Expect(string(result.configEntries["shared"])).To(ContainSubstring("address=192.168.1.1"))
+		g.Expect(string(result.configEntries["shared"])).NotTo(ContainSubstring("192.168.1.2"))
+		g.Expect(result.errors).To(HaveLen(1))
+		g.Expect(result.errors[duplicate.UID].Error()).To(ContainSubstring(`name "shared" conflicts with namespace-a/shared`))
+	})
+
+	t.Run("MAC comparison ignores case and unrelated switches retain their config and key files", func(t *testing.T) {
+		g := NewWithT(t)
+		oldest := newDuplicateTestSwitch("switch-oldest", "namespace-a", "192.168.1.1", "aa:bb:cc:dd:ee:01", "old-creds", "old-uid", createdAt(1))
+		duplicate := newDuplicateTestSwitch("switch-duplicate", "namespace-b", "192.168.1.2", "AA:BB:CC:DD:EE:01", "duplicate-creds", "duplicate-uid", createdAt(2))
+		unrelated := newDuplicateTestSwitch("switch-unrelated", "namespace-c", "192.168.1.3", "00:00:5e:00:53:03", "unrelated-creds", "unrelated-uid", createdAt(3))
+		publicKey := func(value string) map[string][]byte {
+			return map[string][]byte{"username": []byte("admin"), "ssh-privatekey": []byte(value)}
+		}
+		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+			oldest,
+			duplicate,
+			unrelated,
+			newCredentials("old-creds", "namespace-a", publicKey("old-key")),
+			newCredentials("duplicate-creds", "namespace-b", publicKey("duplicate-key")),
+			newCredentials("unrelated-creds", "namespace-c", publicKey("unrelated-key")),
+		).Build()
+		sm := secretutils.NewSecretManager(logr.Discard(), c, c)
+
+		result, err := generateSwitchConfig(t.Context(), c, sm, testSwitchCredentialPath, logr.Discard())
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(result.configEntries).To(HaveLen(2))
+		g.Expect(result.configEntries).To(HaveKey("switch-oldest"))
+		g.Expect(result.configEntries).To(HaveKey("switch-unrelated"))
+		g.Expect(result.configEntries).NotTo(HaveKey("switch-duplicate"))
+		g.Expect(result.keyFiles).To(Equal(map[string][]byte{
+			"aa-bb-cc-dd-ee-01.key": []byte("old-key"),
+			"00-00-5e-00-53-03.key": []byte("unrelated-key"),
+		}))
+		g.Expect(result.errors).To(HaveLen(1))
+		g.Expect(result.errors[duplicate.UID].Error()).To(ContainSubstring(`MAC address "AA:BB:CC:DD:EE:01" conflicts with namespace-a/switch-oldest`))
+	})
+}
+
+func TestCompareBareMetalSwitchesBreaksCreationTimestampTies(t *testing.T) {
+	g := NewWithT(t)
+	timestamp := metav1.NewTime(time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC))
+
+	byNamespace := metal3api.BareMetalSwitch{ObjectMeta: metav1.ObjectMeta{Namespace: "namespace-a", Name: "z-switch", CreationTimestamp: timestamp}}
+	otherNamespace := metal3api.BareMetalSwitch{ObjectMeta: metav1.ObjectMeta{Namespace: "namespace-b", Name: "a-switch", CreationTimestamp: timestamp}}
+	g.Expect(compareBareMetalSwitches(byNamespace, otherNamespace)).To(BeNumerically("<", 0))
+
+	byName := metal3api.BareMetalSwitch{ObjectMeta: metav1.ObjectMeta{Namespace: "namespace-a", Name: "a-switch", CreationTimestamp: timestamp}}
+	g.Expect(compareBareMetalSwitches(byName, byNamespace)).To(BeNumerically("<", 0))
+}
+
 func TestUpdateSwitchConfigSecret(t *testing.T) {
 	g := NewWithT(t)
 	scheme := runtime.NewScheme()
@@ -662,13 +765,13 @@ func TestUpdateSwitchConfigSecret(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                     string
-		namespace                string
-		objects                  []client.Object
-		expectError              bool
-		expectedConfig           string
-		expectedCredentialKeys   map[string][]byte
-		expectedCredentialErrors map[string]error
+		name                   string
+		namespace              string
+		objects                []client.Object
+		expectError            bool
+		expectedConfig         string
+		expectedCredentialKeys map[string][]byte
+		expectedErrors         map[types.UID]error
 	}{
 		{
 			name:      "updates existing secret with generated config",
@@ -729,6 +832,7 @@ password=secret123
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "switch3",
 						Namespace: "test-ns",
+						UID:       "switch3-uid",
 					},
 					Spec: metal3api.BareMetalSwitchSpec{
 						Address:    "192.168.1.3",
@@ -743,8 +847,8 @@ password=secret123
 			expectError:            false,
 			expectedConfig:         "# This file is managed by the Baremetal Operator\n\n",
 			expectedCredentialKeys: map[string][]byte{},
-			expectedCredentialErrors: map[string]error{
-				"switch3": &credentialSecretNotFoundError{msg: "credentials secret test-ns/missing-secret not found"},
+			expectedErrors: map[types.UID]error{
+				"switch3-uid": &credentialSecretNotFoundError{msg: "credentials secret test-ns/missing-secret not found"},
 			},
 		},
 		{
@@ -800,10 +904,10 @@ password=pass123
 				g.Expect(err).ToNot(HaveOccurred())
 
 				// Verify credential errors
-				g.Expect(result.credentialErrors).To(HaveLen(len(tt.expectedCredentialErrors)))
-				for name, expected := range tt.expectedCredentialErrors {
-					g.Expect(result.credentialErrors).To(HaveKey(name))
-					g.Expect(result.credentialErrors[name].Error()).To(Equal(expected.Error()))
+				g.Expect(result.errors).To(HaveLen(len(tt.expectedErrors)))
+				for uid, expected := range tt.expectedErrors {
+					g.Expect(result.errors).To(HaveKey(uid))
+					g.Expect(result.errors[uid].Error()).To(Equal(expected.Error()))
 				}
 
 				// Verify the config secret data
@@ -854,13 +958,13 @@ func TestReconcileConditions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		switch_       *metal3api.BareMetalSwitch
-		objects       []client.Object
-		expectRequeue bool
-		expectStatus  metav1.ConditionStatus
-		expectReason  string
-		expectMessage string
+		name               string
+		switch_            *metal3api.BareMetalSwitch
+		objects            []client.Object
+		expectRequeueAfter time.Duration
+		expectStatus       metav1.ConditionStatus
+		expectReason       string
+		expectMessage      string
 	}{
 		{
 			name: "sets Reconciled=True on successful reconciliation",
@@ -890,10 +994,10 @@ func TestReconcileConditions(t *testing.T) {
 					},
 				},
 			},
-			expectRequeue: false,
-			expectStatus:  metav1.ConditionTrue,
-			expectReason:  "Reconciled",
-			expectMessage: "Switch configuration has been successfully reconciled into the config secret",
+			expectRequeueAfter: 0,
+			expectStatus:       metav1.ConditionTrue,
+			expectReason:       "Reconciled",
+			expectMessage:      "Switch configuration has been successfully reconciled into the config secret",
 		},
 		{
 			name: "sets Reconciled=False when credential secret is missing",
@@ -911,11 +1015,11 @@ func TestReconcileConditions(t *testing.T) {
 					},
 				},
 			},
-			objects:       []client.Object{},
-			expectRequeue: true,
-			expectStatus:  metav1.ConditionFalse,
-			expectReason:  "CredentialError",
-			expectMessage: "credentials secret test-ns/nonexistent-creds not found",
+			objects:            []client.Object{},
+			expectRequeueAfter: credentialErrorRequeueDelay,
+			expectStatus:       metav1.ConditionFalse,
+			expectReason:       "CredentialError",
+			expectMessage:      "credentials secret test-ns/nonexistent-creds not found",
 		},
 		{
 			name: "sets Reconciled=False when username key is missing",
@@ -944,10 +1048,10 @@ func TestReconcileConditions(t *testing.T) {
 					},
 				},
 			},
-			expectRequeue: false,
-			expectStatus:  metav1.ConditionFalse,
-			expectReason:  "CredentialError",
-			expectMessage: "missing 'username' key",
+			expectRequeueAfter: 0,
+			expectStatus:       metav1.ConditionFalse,
+			expectReason:       "CredentialError",
+			expectMessage:      "missing 'username' key",
 		},
 		{
 			name: "sets Reconciled=False when password and ssh-privatekey keys are missing",
@@ -976,10 +1080,10 @@ func TestReconcileConditions(t *testing.T) {
 					},
 				},
 			},
-			expectRequeue: false,
-			expectStatus:  metav1.ConditionFalse,
-			expectReason:  "CredentialError",
-			expectMessage: "missing 'password' or 'ssh-privatekey' key",
+			expectRequeueAfter: 0,
+			expectStatus:       metav1.ConditionFalse,
+			expectReason:       "CredentialError",
+			expectMessage:      "missing 'password' or 'ssh-privatekey' key",
 		},
 	}
 
@@ -1012,11 +1116,7 @@ func TestReconcileConditions(t *testing.T) {
 			})
 			g.Expect(err).ToNot(HaveOccurred())
 
-			if tt.expectRequeue {
-				g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
-			} else {
-				g.Expect(result.RequeueAfter).To(BeZero())
-			}
+			g.Expect(result.RequeueAfter).To(Equal(tt.expectRequeueAfter))
 
 			// Re-fetch the switch to get updated status
 			updatedSwitch := &metal3api.BareMetalSwitch{}
@@ -1030,6 +1130,107 @@ func TestReconcileConditions(t *testing.T) {
 			g.Expect(cond.ObservedGeneration).To(Equal(updatedSwitch.Generation))
 		})
 	}
+}
+
+func TestReconcileDuplicateMACAddressMarksOnlyDuplicateInvalid(t *testing.T) {
+	g := NewWithT(t)
+	scheme := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(metal3api.AddToScheme(scheme)).To(Succeed())
+
+	createdAt := func(day int) metav1.Time {
+		return metav1.NewTime(time.Date(2026, time.January, day, 0, 0, 0, 0, time.UTC))
+	}
+	canonical := newDuplicateTestSwitch("switch-canonical", "namespace-a", "192.168.1.1", "aa:bb:cc:dd:ee:01", "canonical-creds", "canonical-uid", createdAt(1))
+	duplicate := newDuplicateTestSwitch("switch-duplicate", "namespace-b", "192.168.1.2", "AA:BB:CC:DD:EE:01", "duplicate-creds", "duplicate-uid", createdAt(2))
+	configSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: testSwitchConfigsSecretName, Namespace: "test-ns"},
+		Data:       map[string][]byte{},
+	}
+	credentialSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: testSwitchCredentialSecretName, Namespace: "test-ns"},
+		Data:       map[string][]byte{},
+	}
+	keyCredentials := func(name, namespace, key string) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Data:       map[string][]byte{"username": []byte("admin"), "ssh-privatekey": []byte(key)},
+		}
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(
+			// Add the duplicate first to ensure generation order is based on the
+			// creation timestamps rather than the API list order.
+			duplicate,
+			canonical,
+			keyCredentials("canonical-creds", "namespace-a", "canonical-key"),
+			keyCredentials("duplicate-creds", "namespace-b", "duplicate-key"),
+			configSecret,
+			credentialSecret,
+		).
+		WithStatusSubresource(&metal3api.BareMetalSwitch{}).
+		Build()
+	r := &BareMetalSwitchReconciler{
+		Client:                     c,
+		Log:                        logr.Discard(),
+		APIReader:                  c,
+		SwitchSecretsNamespace:     "test-ns",
+		SwitchConfigsSecretName:    testSwitchConfigsSecretName,
+		SwitchCredentialSecretName: testSwitchCredentialSecretName,
+		SwitchCredentialPath:       testSwitchCredentialPath,
+	}
+
+	_, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(canonical)})
+	g.Expect(err).NotTo(HaveOccurred())
+	result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(duplicate)})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(result.RequeueAfter).To(Equal(time.Minute))
+
+	getCondition := func(sw *metal3api.BareMetalSwitch) *metav1.Condition {
+		updated := &metal3api.BareMetalSwitch{}
+		g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(sw), updated)).To(Succeed())
+		return meta.FindStatusCondition(updated.Status.Conditions, string(metal3api.SwitchConditionValid))
+	}
+	canonicalCondition := getCondition(canonical)
+	g.Expect(canonicalCondition).NotTo(BeNil())
+	g.Expect(canonicalCondition.Status).To(Equal(metav1.ConditionTrue))
+	duplicateCondition := getCondition(duplicate)
+	g.Expect(duplicateCondition).NotTo(BeNil())
+	g.Expect(duplicateCondition.Status).To(Equal(metav1.ConditionFalse))
+	g.Expect(duplicateCondition.Reason).To(Equal("Duplicate"))
+	g.Expect(duplicateCondition.Message).To(ContainSubstring("MAC address"))
+	g.Expect(duplicateCondition.Message).To(ContainSubstring("namespace-a/switch-canonical"))
+
+	updatedConfig := &corev1.Secret{}
+	g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(configSecret), updatedConfig)).To(Succeed())
+	g.Expect(string(updatedConfig.Data[switchConfigKey])).To(ContainSubstring("[switch:switch-canonical]"))
+	g.Expect(string(updatedConfig.Data[switchConfigKey])).NotTo(ContainSubstring("[switch:switch-duplicate]"))
+	updatedCredentials := &corev1.Secret{}
+	g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(credentialSecret), updatedCredentials)).To(Succeed())
+	g.Expect(updatedCredentials.Data).To(Equal(map[string][]byte{
+		"aa-bb-cc-dd-ee-01.key": []byte("canonical-key"),
+	}))
+
+	// When the canonical switch is removed, the duplicate's periodic retry
+	// should admit it and clear its Duplicate condition.
+	g.Expect(c.Delete(t.Context(), canonical)).To(Succeed())
+	result, err = r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(duplicate)})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(result.RequeueAfter).To(BeZero())
+	duplicateCondition = getCondition(duplicate)
+	g.Expect(duplicateCondition.Status).To(Equal(metav1.ConditionTrue))
+	g.Expect(duplicateCondition.Reason).To(Equal("Reconciled"))
+
+	updatedConfig = &corev1.Secret{}
+	g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(configSecret), updatedConfig)).To(Succeed())
+	g.Expect(string(updatedConfig.Data[switchConfigKey])).To(ContainSubstring("[switch:switch-duplicate]"))
+	g.Expect(string(updatedConfig.Data[switchConfigKey])).NotTo(ContainSubstring("[switch:switch-canonical]"))
+	updatedCredentials = &corev1.Secret{}
+	g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(credentialSecret), updatedCredentials)).To(Succeed())
+	g.Expect(updatedCredentials.Data).To(Equal(map[string][]byte{
+		"AA-BB-CC-DD-EE-01.key": []byte("duplicate-key"),
+	}))
 }
 
 func TestSecretDataEqual(t *testing.T) {

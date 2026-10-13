@@ -35,7 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-const credentialErrorRequeueDelay = 10 * time.Second
+const (
+	bareMetalSwitchDuplicateRequeueDelay = 60 * time.Second
+	credentialErrorRequeueDelay          = 10 * time.Second
+)
 
 // BareMetalSwitchReconciler reconciles a BareMetalSwitch object.
 type BareMetalSwitchReconciler struct {
@@ -94,29 +97,46 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, fmt.Errorf("failed to update switch config: %w", err)
 	}
 
-	// Set the Reconciled condition based on whether this switch had a credential error
-	if credErr, hasErr := result.credentialErrors[bmSwitch.Name]; hasErr {
+	if switchErr, hasErr := result.errors[bmSwitch.UID]; hasErr {
+		reason := ""
+		reconcileResult := ctrl.Result{}
+		var duplicateErr *duplicateSwitchError
+		var credentialSecretErr *credentialSecretNotFoundError
+		var credentialConfigErr *credentialConfigError
+		switch {
+		case errors.As(switchErr, &duplicateErr):
+			reason = "Duplicate"
+			reconcileResult = ctrl.Result{RequeueAfter: bareMetalSwitchDuplicateRequeueDelay}
+			// Recheck periodically so this switch can be admitted if the conflicting
+			// BareMetalSwitch is changed or deleted.
+		case errors.As(switchErr, &credentialSecretErr):
+			reason = "CredentialError"
+			reconcileResult = ctrl.Result{RequeueAfter: credentialErrorRequeueDelay}
+			// The secret doesn't exist yet so the Owns() watch cannot detect
+			// its creation (no owner reference). Requeue periodically.
+			logger.Info("BareMetalSwitch credential secret missing, requeueing", "error", switchErr)
+		case errors.As(switchErr, &credentialConfigErr):
+			reason = "CredentialError"
+			// An update to the BareMetalSwitch or its credential Secret will
+			// trigger another reconcile, so this case does not requeue periodically.
+			logger.Info("BareMetalSwitch has credential error", "error", switchErr)
+		default:
+			return ctrl.Result{}, fmt.Errorf("unexpected BareMetalSwitch config error: %w", switchErr)
+		}
+
 		if meta.SetStatusCondition(&bmSwitch.Status.Conditions, metav1.Condition{
 			Type:               string(metal3api.SwitchConditionValid),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: bmSwitch.Generation,
-			Reason:             "CredentialError",
-			Message:            credErr.Error(),
+			Reason:             reason,
+			Message:            switchErr.Error(),
 		}) {
-			if statusErr := r.Status().Update(ctx, bmSwitch); statusErr != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to update BareMetalSwitch status: %w", statusErr)
+			if err := r.Status().Update(ctx, bmSwitch); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to update BareMetalSwitch status: %w", err)
 			}
 		}
-		if errors.As(credErr, new(*credentialSecretNotFoundError)) {
-			// The secret doesn't exist yet so the Owns() watch cannot detect
-			// its creation (no owner reference). Requeue periodically.
-			logger.Info("BareMetalSwitch credential secret missing, requeueing", "error", credErr)
-			return ctrl.Result{RequeueAfter: credentialErrorRequeueDelay}, nil
-		}
-		// The secret exists but is misconfigured. The Owns() watch will
-		// trigger a reconcile when the user fixes it, so no requeue needed.
-		logger.Info("BareMetalSwitch has credential error", "error", credErr)
-		return ctrl.Result{}, nil
+
+		return reconcileResult, nil
 	}
 
 	if meta.SetStatusCondition(&bmSwitch.Status.Conditions, metav1.Condition{

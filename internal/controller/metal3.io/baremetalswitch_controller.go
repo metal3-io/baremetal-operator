@@ -36,8 +36,8 @@ import (
 )
 
 const (
-	bareMetalSwitchDuplicateRequeueDelay = 60 * time.Second
-	credentialErrorRequeueDelay          = 10 * time.Second
+	bareMetalSwitchReconcileInterval = 60 * time.Second
+	credentialErrorRequeueDelay      = 10 * time.Second
 )
 
 // BareMetalSwitchReconciler reconciles a BareMetalSwitch object.
@@ -73,7 +73,7 @@ type BareMetalSwitchReconciler struct {
 // move the current state of the cluster closer to the desired state.
 func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Log.WithValues("baremetalswitch", req.NamespacedName)
-	logger.Info("starting reconcile")
+	logger.V(1).Info("starting reconcile")
 
 	sm := secretutils.NewSecretManager(logger, r.Client, r.APIReader)
 
@@ -99,16 +99,15 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	if switchErr, hasErr := result.errors[bmSwitch.UID]; hasErr {
 		reason := ""
-		reconcileResult := ctrl.Result{}
+		// Recheck periodically because another switch can change this switch's
+		// cluster-wide duplicate status without generating an event for it.
+		reconcileResult := ctrl.Result{RequeueAfter: bareMetalSwitchReconcileInterval}
 		var duplicateErr *duplicateSwitchError
 		var credentialSecretErr *credentialSecretNotFoundError
 		var credentialConfigErr *credentialConfigError
 		switch {
 		case errors.As(switchErr, &duplicateErr):
 			reason = "Duplicate"
-			reconcileResult = ctrl.Result{RequeueAfter: bareMetalSwitchDuplicateRequeueDelay}
-			// Recheck periodically so this switch can be admitted if the conflicting
-			// BareMetalSwitch is changed or deleted.
 		case errors.As(switchErr, &credentialSecretErr):
 			reason = "CredentialError"
 			reconcileResult = ctrl.Result{RequeueAfter: credentialErrorRequeueDelay}
@@ -117,8 +116,6 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			logger.Info("BareMetalSwitch credential secret missing, requeueing", "error", switchErr)
 		case errors.As(switchErr, &credentialConfigErr):
 			reason = "CredentialError"
-			// An update to the BareMetalSwitch or its credential Secret will
-			// trigger another reconcile, so this case does not requeue periodically.
 			logger.Info("BareMetalSwitch has credential error", "error", switchErr)
 		default:
 			return ctrl.Result{}, fmt.Errorf("unexpected BareMetalSwitch config error: %w", switchErr)
@@ -151,8 +148,8 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	logger.Info("BareMetalSwitch reconciled")
-	return ctrl.Result{}, nil
+	logger.V(1).Info("BareMetalSwitch reconciled")
+	return ctrl.Result{RequeueAfter: bareMetalSwitchReconcileInterval}, nil
 }
 
 // SetupWithManager registers the reconciler to be run by the manager.

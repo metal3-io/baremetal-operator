@@ -91,6 +91,9 @@ var (
 
 const leaderElectionID = "baremetal-operator"
 
+// BareMetalSwitch reconciles update shared output Secrets, so run them serially.
+const bareMetalSwitchMaxConcurrentReconciles = 1
+
 const (
 	defaultProvisionerName      = "ironic"
 	defaultProvisionerPluginDir = "/plugins"
@@ -614,7 +617,7 @@ func main() {
 			SwitchConfigsSecretName:    switchConfigsSecretName,
 			SwitchCredentialSecretName: switchCredentialSecretName,
 			SwitchCredentialPath:       switchCredentialPath,
-		}).SetupWithManager(mgr, maxConcurrency); err != nil {
+		}).SetupWithManager(mgr, bareMetalSwitchMaxConcurrentReconciles); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BareMetalSwitch")
 			os.Exit(1)
 		}

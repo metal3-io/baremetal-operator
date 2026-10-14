@@ -994,7 +994,7 @@ func TestReconcileConditions(t *testing.T) {
 					},
 				},
 			},
-			expectRequeueAfter: 0,
+			expectRequeueAfter: bareMetalSwitchReconcileInterval,
 			expectStatus:       metav1.ConditionTrue,
 			expectReason:       "Reconciled",
 			expectMessage:      "Switch configuration has been successfully reconciled into the config secret",
@@ -1048,7 +1048,7 @@ func TestReconcileConditions(t *testing.T) {
 					},
 				},
 			},
-			expectRequeueAfter: 0,
+			expectRequeueAfter: bareMetalSwitchReconcileInterval,
 			expectStatus:       metav1.ConditionFalse,
 			expectReason:       "CredentialError",
 			expectMessage:      "missing 'username' key",
@@ -1080,7 +1080,7 @@ func TestReconcileConditions(t *testing.T) {
 					},
 				},
 			},
-			expectRequeueAfter: 0,
+			expectRequeueAfter: bareMetalSwitchReconcileInterval,
 			expectStatus:       metav1.ConditionFalse,
 			expectReason:       "CredentialError",
 			expectMessage:      "missing 'password' or 'ssh-privatekey' key",
@@ -1212,12 +1212,12 @@ func TestReconcileDuplicateMACAddressMarksOnlyDuplicateInvalid(t *testing.T) {
 		"aa-bb-cc-dd-ee-01.key": []byte("canonical-key"),
 	}))
 
-	// When the canonical switch is removed, the duplicate's periodic retry
+	// When the canonical switch is removed, the duplicate's periodic reconcile
 	// should admit it and clear its Duplicate condition.
 	g.Expect(c.Delete(t.Context(), canonical)).To(Succeed())
 	result, err = r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(duplicate)})
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(result.RequeueAfter).To(BeZero())
+	g.Expect(result.RequeueAfter).To(Equal(bareMetalSwitchReconcileInterval))
 	duplicateCondition = getCondition(duplicate)
 	g.Expect(duplicateCondition.Status).To(Equal(metav1.ConditionTrue))
 	g.Expect(duplicateCondition.Reason).To(Equal("Reconciled"))
@@ -1231,6 +1231,100 @@ func TestReconcileDuplicateMACAddressMarksOnlyDuplicateInvalid(t *testing.T) {
 	g.Expect(updatedCredentials.Data).To(Equal(map[string][]byte{
 		"AA-BB-CC-DD-EE-01.key": []byte("duplicate-key"),
 	}))
+}
+
+func TestPeriodicReconcileUpdatesSwitchesAffectedByMACAddressChanges(t *testing.T) {
+	g := NewWithT(t)
+	scheme := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(metal3api.AddToScheme(scheme)).To(Succeed())
+
+	createdAt := func(day int) metav1.Time {
+		return metav1.NewTime(time.Date(2026, time.January, day, 0, 0, 0, 0, time.UTC))
+	}
+	canonical := newDuplicateTestSwitch("switch-canonical", "namespace-a", "192.168.1.1", "aa:bb:cc:dd:ee:01", "canonical-creds", "canonical-uid", createdAt(1))
+	peer := newDuplicateTestSwitch("switch-peer", "namespace-b", "192.168.1.2", "aa:bb:cc:dd:ee:02", "peer-creds", "peer-uid", createdAt(2))
+	configSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: testSwitchConfigsSecretName, Namespace: "test-ns"},
+		Data:       map[string][]byte{},
+	}
+	credentialSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: testSwitchCredentialSecretName, Namespace: "test-ns"},
+		Data:       map[string][]byte{},
+	}
+	credentials := func(name, namespace string) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Data:       map[string][]byte{"username": []byte("admin"), "password": []byte("secret")},
+		}
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(
+			canonical,
+			peer,
+			credentials("canonical-creds", "namespace-a"),
+			credentials("peer-creds", "namespace-b"),
+			configSecret,
+			credentialSecret,
+		).
+		WithStatusSubresource(&metal3api.BareMetalSwitch{}).
+		Build()
+	r := &BareMetalSwitchReconciler{
+		Client:                     c,
+		Log:                        logr.Discard(),
+		APIReader:                  c,
+		SwitchSecretsNamespace:     "test-ns",
+		SwitchConfigsSecretName:    testSwitchConfigsSecretName,
+		SwitchCredentialSecretName: testSwitchCredentialSecretName,
+		SwitchCredentialPath:       testSwitchCredentialPath,
+	}
+
+	requestFor := func(sw *metal3api.BareMetalSwitch) ctrl.Request {
+		return ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sw)}
+	}
+	canonicalKey := client.ObjectKeyFromObject(canonical)
+	getValidCondition := func(sw *metal3api.BareMetalSwitch) *metav1.Condition {
+		updated := &metal3api.BareMetalSwitch{}
+		g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(sw), updated)).To(Succeed())
+		return meta.FindStatusCondition(updated.Status.Conditions, string(metal3api.SwitchConditionValid))
+	}
+	for _, sw := range []*metal3api.BareMetalSwitch{canonical, peer} {
+		result, err := r.Reconcile(t.Context(), requestFor(sw))
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(result.RequeueAfter).To(Equal(bareMetalSwitchReconcileInterval))
+		condition := getValidCondition(sw)
+		g.Expect(condition).NotTo(BeNil())
+		g.Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+	}
+
+	// A periodic reconcile of the peer observes the conflict after the older
+	// switch changes to its MAC.
+	canonical = &metal3api.BareMetalSwitch{}
+	g.Expect(c.Get(t.Context(), canonicalKey, canonical)).To(Succeed())
+	canonical.Spec.MACAddress = peer.Spec.MACAddress
+	g.Expect(c.Update(t.Context(), canonical)).To(Succeed())
+
+	result, err := r.Reconcile(t.Context(), requestFor(peer))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(result.RequeueAfter).To(Equal(bareMetalSwitchReconcileInterval))
+	condition := getValidCondition(peer)
+	g.Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+	g.Expect(condition.Reason).To(Equal("Duplicate"))
+
+	// The peer's next periodic reconcile observes that the older switch moved
+	// away and clears its duplicate condition.
+	canonical = &metal3api.BareMetalSwitch{}
+	g.Expect(c.Get(t.Context(), canonicalKey, canonical)).To(Succeed())
+	canonical.Spec.MACAddress = "aa:bb:cc:dd:ee:03"
+	g.Expect(c.Update(t.Context(), canonical)).To(Succeed())
+
+	result, err = r.Reconcile(t.Context(), requestFor(peer))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(result.RequeueAfter).To(Equal(bareMetalSwitchReconcileInterval))
+	condition = getValidCondition(peer)
+	g.Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+	g.Expect(condition.Reason).To(Equal("Reconciled"))
 }
 
 func TestSecretDataEqual(t *testing.T) {

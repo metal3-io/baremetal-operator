@@ -344,12 +344,12 @@ func updateSwitchConfigSecret(ctx context.Context, c client.Client, sm secretuti
 	// Update the switch configs secret
 	if err := updateSecretData(ctx, c, sm, secretNamespace, configSecretName, map[string][]byte{
 		switchConfigKey: configBuf.Bytes(),
-	}); err != nil {
+	}, logger); err != nil {
 		return nil, fmt.Errorf("failed to update switch configs secret: %w", err)
 	}
 
 	// Update the switch credentials secret
-	if err := updateSecretData(ctx, c, sm, secretNamespace, credentialSecretName, result.keyFiles); err != nil {
+	if err := updateSecretData(ctx, c, sm, secretNamespace, credentialSecretName, result.keyFiles, logger); err != nil {
 		return nil, fmt.Errorf("failed to update switch credentials secret: %w", err)
 	}
 
@@ -360,7 +360,7 @@ func updateSwitchConfigSecret(ctx context.Context, c client.Client, sm secretuti
 // data is fully replaced with newData. The SecretManager is used to fetch the
 // secret so that unlabelled secrets are found via the API reader and
 // automatically labelled for the filtered cache.
-func updateSecretData(ctx context.Context, c client.Client, sm secretutils.SecretManager, namespace, secretName string, newData map[string][]byte) error {
+func updateSecretData(ctx context.Context, c client.Client, sm secretutils.SecretManager, namespace, secretName string, newData map[string][]byte, logger logr.Logger) error {
 	secret, err := sm.ObtainSecret(ctx, types.NamespacedName{
 		Name:      secretName,
 		Namespace: namespace,
@@ -379,6 +379,7 @@ func updateSecretData(ctx context.Context, c client.Client, sm secretutils.Secre
 	if err := c.Update(ctx, secret); err != nil {
 		return fmt.Errorf("failed to update secret %s: %w", secretName, err)
 	}
+	logger.Info("updated BareMetalSwitch output secret data", "namespace", namespace, "secret", secretName)
 
 	return nil
 }

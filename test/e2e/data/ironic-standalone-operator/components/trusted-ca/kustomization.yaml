@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+- path: trusted-ca-patch.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    environment.metal3.io/ironic-standalone-operator: "true"
+
+# NOTE: This CA certificate is generated automatically in hack/ci-e2e.sh. It is
+# the self-signed certificate used by the vbmctl image server, so that the
+# ramdisk-downloader init container can verify it over HTTPS instead of
+# downloading the IPA kernel/ramdisk over plain HTTP.
+configMapGenerator:
+- name: image-server-ca
+  behavior: create
+  files:
+  - ca.crt=ca.crt

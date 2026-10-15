@@ -372,6 +372,7 @@ func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, err
 		metal3api.PowerManagementError:         "PowerManagementError",
 		metal3api.PreparationError:             "PreparationError",
 		metal3api.ServicingError:               "ServicingError",
+		metal3api.SecretAccessError:            "SecretAccessError",
 	}[errorType]
 
 	counter := actionFailureCounters.WithLabelValues(eventType)
@@ -380,6 +381,15 @@ func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, err
 	info.publishEvent(eventType, errorMessage)
 
 	return actionFailed{dirty: true, ErrorType: errorType, errorCount: info.host.Status.ErrorCount}
+}
+
+// clearRetryableSecretAccessStatus removes a SecretAccessError recorded while
+// waiting for a referenced Secret. Other error types are left in place.
+func clearRetryableSecretAccessStatus(host *metal3api.BareMetalHost) bool {
+	if !isRetryableSecretAccessStatus(host) {
+		return false
+	}
+	return clearError(host)
 }
 
 func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState) actionResult {
@@ -1456,6 +1466,10 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 	// Extract OCI auth secret credentials if needed
 	authSecret, err := r.getImageAuthSecret(ctx, info.host, &image)
 	if err != nil {
+		var secretErr SecretAccessError
+		if errors.As(err, &secretErr) {
+			return recordActionFailure(info, metal3api.SecretAccessError, secretErr.Error())
+		}
 		return recordActionFailure(info, metal3api.ProvisioningError, err.Error())
 	}
 
@@ -1469,8 +1483,16 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		ImagePullSecret: authSecret,
 	}, forceReboot)
 	if err != nil {
+		var secretErr SecretAccessError
+		if errors.As(err, &secretErr) {
+			return recordActionFailure(info, metal3api.SecretAccessError, secretErr.Error())
+		}
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
 	}
+
+	// Configuration data was readable. Drop a status recorded while waiting
+	// for the Secret so a completed provision is not left in error.
+	secretAccessCleared := clearRetryableSecretAccessStatus(info.host)
 
 	if provResult.ErrorMessage != "" {
 		info.log.V(VerbosityLevelDebug).Info("handling provisioning error in controller")
@@ -1481,6 +1503,9 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		if err := r.Update(ctx, info.host); err != nil {
 			return actionError{fmt.Errorf("failed to remove reboot annotations from host: %w", err)}
 		}
+		if secretAccessCleared {
+			return actionUpdate{actionContinue{}}
+		}
 		return actionContinue{}
 	}
 
@@ -1489,7 +1514,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		// to return false, indicating that it has no more work to
 		// do.
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		if clearError(info.host) || secretAccessCleared {
 			return actionUpdate{result}
 		}
 		return result

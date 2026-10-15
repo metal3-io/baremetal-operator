@@ -29,10 +29,12 @@ import (
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -55,6 +57,8 @@ const (
 	TerminalReueueDelay time.Duration = 0
 	// Standard delay when waiting for other to settle.
 	HostClaimRequeueDelay = time.Second * 30
+	// Small delay for an internal action.
+	SmallRequeueDelay = time.Second
 	// Small delay on conflict error.
 	ConflictRequeueDelay = time.Millisecond * 100
 	// Factor up to which the conflict requeue delay may be randomly increased.
@@ -63,10 +67,20 @@ const (
 	FailureDomainLabelName = "infrastructure.cluster.x-k8s.io/failure-domain"
 	// HostClaimKind is the name of the kind.
 	HostClaimKind = "HostClaim"
+	// RebootHostClaimOwnedPrefix is a prefix on the shortname of a reboot
+	// annotation on a BMH when it is owned by a HostClaim.
+	RebootHostClaimOwnedPrefix = "hostclaim-"
+
+	hostclaimRebootPrefix = metal3api.RebootAnnotationPrefix + "/"
+	bmhRebootPrefix       = hostclaimRebootPrefix + RebootHostClaimOwnedPrefix
 )
 
-// An error used when there is no BMH satisfying the constraints.
-var ErrNoAvailableBMH = errors.New("no available BareMetalHost")
+var (
+	// An error used when there is no BMH satisfying the constraints.
+	ErrNoAvailableBMH = errors.New("no available BareMetalHost")
+	// ErrNoBMH is returned when no BareMetalHost is found.
+	ErrNoBMH = errors.New("no BareMetalHost found")
+)
 
 type ManagerInterface interface {
 	SetFinalizer()
@@ -196,34 +210,203 @@ func (m *Manager) Associate(ctx context.Context) error {
 
 // Delete removes the link between the HostClaim and the associated BareMetalHost.
 func (m *Manager) Delete(ctx context.Context) error {
-	// TODO: to be reimplemented later.
-	if m.HostClaim == nil || m.HostClaim.Status.BareMetalHost == nil {
+	bmh, err := m.getBmh(ctx)
+	if err != nil && !errors.Is(err, ErrNoBMH) {
+		return err
+	}
+	if bmh == nil {
+		m.Log.Info("baremetalhost not found for host", "host", m.HostClaim.Name)
 		return nil
 	}
-	ref := m.HostClaim.Status.BareMetalHost
-	bmh := &metal3api.BareMetalHost{}
-	if err := m.client.Get(ctx, client.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}, bmh); err != nil {
-		if k8serrors.IsNotFound(err) {
-			m.HostClaim.Status.BareMetalHost = nil
+
+	// getBmh checked that ConsumerRef is non-nil and points back to the claim.
+	// We don't re-check here.
+	bmhUpdated := false
+
+	if bmh.Spec.Image != nil {
+		bmh.Spec.Image = nil
+		bmhUpdated = true
+	}
+
+	if bmh.Spec.CustomDeploy != nil {
+		bmh.Spec.CustomDeploy = nil
+		bmhUpdated = true
+	}
+
+	if bmh.Spec.Online {
+		bmh.Spec.Online = false
+		bmhUpdated = true
+	}
+
+	// Remove reboot annotations owned by the claim
+	for key := range bmh.Annotations {
+		if strings.HasPrefix(key, bmhRebootPrefix) {
+			delete(bmh.Annotations, key)
+			bmhUpdated = true
+		}
+	}
+
+	if bmhUpdated {
+		if err = m.client.Update(ctx, bmh); err != nil {
+			return hideConflictError(err)
+		}
+
+		m.Log.Info("Deprovisioning BaremetalHost, requeuing")
+		return RequeueAfterError{RequeueAfter: SmallRequeueDelay}
+	}
+
+	waiting := true
+	switch bmh.Status.Provisioning.State {
+	case metal3api.StateRegistering,
+		metal3api.StateMatchProfile, metal3api.StateInspecting,
+		metal3api.StateReady, metal3api.StateAvailable, metal3api.StateNone,
+		metal3api.StateUnmanaged:
+		// Host is not provisioned.
+		waiting = false
+	case metal3api.StateExternallyProvisioned:
+		// We have no control over provisioning, so just wait until the
+		// host is powered off.
+		waiting = bmh.Status.PoweredOn
+	default:
+	}
+	if waiting {
+		m.Log.Info("Deprovisioning BaremetalHost, requeuing until available")
+		return RequeueAfterError{RequeueAfter: HostClaimRequeueDelay}
+	}
+
+	if bmh.Annotations != nil {
+		// Delete reboot annotations owned by the HostClaim controller:
+		// the transient bare form, and suffixed annotations carrying the
+		// RebootOwnedTag. Any other reboot annotation on the BMH belongs
+		// to a user or another controller and is left in place.
+		ownedPrefix := metal3api.RebootAnnotationPrefix + "/" + RebootHostClaimOwnedPrefix
+		for key := range bmh.Annotations {
+			if key == metal3api.RebootAnnotationPrefix || strings.HasPrefix(key, ownedPrefix) {
+				delete(bmh.Annotations, key)
+			}
+		}
+	}
+
+	bmh.Spec.ConsumerRef = nil
+	if err := m.client.Update(ctx, bmh); err != nil {
+		return err
+	}
+
+	m.Log.Info("finished deleting HostClaim")
+	return nil
+}
+
+// Update updates a hostclaim and is invoked by the HostClaim Controller.
+func (m *Manager) Update(ctx context.Context) error {
+	m.Log.V(1).Info("Updating HostClaim")
+
+	bmh, err := m.getBmh(ctx)
+	if err != nil {
+		if errors.Is(err, ErrNoBMH) {
+			// The reference to BareMetalHost is wrong (bmh gone, bad ConsumerRef).
+			// Reset status to get a new association. returns nil as the
+			// recovery can be considered as a normal transition.
+			m.clearDisassociatedHostClaim()
 			return nil
 		}
 		return err
 	}
-	if bmh.Spec.ConsumerRef != nil && consumerRefMatches(bmh.Spec.ConsumerRef, m.HostClaim) {
-		bmh.Spec.ConsumerRef = nil
-		if err := m.client.Update(ctx, bmh); err != nil {
-			return hideConflictError(err)
-		}
+
+	// ensure that the BMH specs are correctly set.
+	updated := m.setBmhSpec(bmh)
+
+	if bmh.Annotations == nil {
+		bmh.Annotations = map[string]string{}
 	}
-	m.HostClaim.Status.BareMetalHost = nil
+
+	if syncReboot(m.HostClaim.Annotations, bmh.Annotations) {
+		updated = true
+	}
+	if updated {
+		m.Log.Info("Updating the BareMetalHost spec: changes detected.")
+		err = m.client.Update(ctx, bmh)
+	}
+
+	if err != nil {
+		sanitizedErr := hideConflictError(err)
+		if !errors.As(sanitizedErr, &RequeueAfterError{}) {
+			m.SetConditionHostToFalse(
+				metal3api.SynchronizedCondition, metal3api.BareMetalHostNotSynchronizedReason,
+				"Failed to update BareMetalHost")
+		}
+		m.Log.Error(err, "Error while updating the BareMetalHost")
+		return sanitizedErr
+	}
+
+	m.SetConditionHostToTrue(metal3api.SynchronizedCondition, metal3api.ConfigurationSyncedReason)
+
+	// transient rebootAnnotation was successfully transmitted. We can delete it on HostClaim.
+	// Note: if the deferred HostClaim patch fails, the annotation persists and
+	// may cause a second reboot at next reconciliation.
+	// This is preferred over losing the reboot request entirely if the claim was patched
+	// first.
+	delete(m.HostClaim.Annotations, metal3api.RebootAnnotationPrefix)
+
+	m.updateHostClaimStatus(bmh)
+
+	m.Log.V(1).Info("Finished updating HostClaim")
 	return nil
 }
 
-func (m *Manager) Update(_ context.Context) error {
-	return nil
+func (m *Manager) clearDisassociatedHostClaim() {
+	hostClaim := m.HostClaim
+	hostClaim.Status.BareMetalHost = nil
+	hostClaim.Status.HardwareData = nil
+	hostClaim.Status.PoweredOn = false
+	message := "Associated BareMetalHost no longer exists"
+	m.SetConditionHostToFalse(
+		metal3api.AssociatedCondition, metal3api.MissingBareMetalHostReason, message)
+	m.SetConditionHostToFalse(
+		metal3api.SynchronizedCondition, metal3api.BareMetalHostNotSynchronizedReason, message)
+	for _, cond := range []string{metal3api.ProvisionedCondition, metal3api.AvailableForProvisioningCondition} {
+		conditions.Set(hostClaim, metav1.Condition{
+			Type:   cond,
+			Status: metav1.ConditionUnknown,
+		})
+	}
+	now := metav1.Now()
+	hostClaim.Status.LastUpdated = &now
 }
 
+// getBmh gets the associated BareMetalHost by looking for the status of the HostClaim.
+// Returns ErrNoBMH if the BareMetalHost is not found.
+func (m *Manager) getBmh(ctx context.Context) (*metal3api.BareMetalHost, error) {
+	hostClaim := m.HostClaim
+	bmhRef := hostClaim.Status.BareMetalHost
+	if bmhRef == nil {
+		return nil, ErrNoBMH
+	}
+
+	bmh := metal3api.BareMetalHost{}
+	key := types.NamespacedName{
+		Name:      bmhRef.Name,
+		Namespace: bmhRef.Namespace,
+	}
+	err := m.client.Get(ctx, key, &bmh)
+	if k8serrors.IsNotFound(err) {
+		m.Log.Info("Linked host not found", "bmh", bmhRef.Name, "bmhNamespace", bmhRef.Namespace)
+		return nil, ErrNoBMH
+	} else if err != nil {
+		return nil, err
+	}
+	if !consumerRefMatches(bmh.Spec.ConsumerRef, hostClaim) {
+		m.Log.Info("The consumer ref does not point to the hostClaim", "consumerRef", bmh.Spec.ConsumerRef)
+		return nil, ErrNoBMH
+	}
+	return &bmh, nil
+}
+
+// hideConflictError transforms a conflict error (either a bare one, or wrapped into an aggregate)
+// into a RequeueAfter error.
 func hideConflictError(err error) error {
+	if k8serrors.IsConflict(err) {
+		return RequeueAfterError{RequeueAfter: wait.Jitter(ConflictRequeueDelay, ConflictJitterFactor)}
+	}
 	var aggr kerrors.Aggregate
 	if ok := errors.As(err, &aggr); ok {
 		if slices.ContainsFunc(aggr.Errors(), k8serrors.IsConflict) {
@@ -231,6 +414,47 @@ func hideConflictError(err error) error {
 		}
 	}
 	return err
+}
+
+// setBmhSpec will ensure the host's Spec is set according to the hostclaim's
+// details.
+func (m *Manager) setBmhSpec(bmh *metal3api.BareMetalHost) bool {
+	updated := false
+	// A host with an existing image is already provisioned and
+	// upgrades are not supported at this time. To re-provision a
+	// host, we must fully deprovision it and then provision it again.
+	if bmh.Spec.Image == nil && m.HostClaim.Spec.Image != nil {
+		updated = true
+		bmh.Spec.Image = m.HostClaim.Spec.Image.DeepCopy()
+	} else if m.HostClaim.Spec.Image == nil {
+		if bmh.Spec.Image != nil {
+			updated = true
+			bmh.Spec.Image = nil
+		}
+	}
+
+	// Propagate custom deploy.
+	if m.HostClaim.Spec.CustomDeploy == nil {
+		if bmh.Spec.CustomDeploy != nil {
+			updated = true
+			bmh.Spec.CustomDeploy = nil
+		}
+	} else {
+		if bmh.Spec.CustomDeploy == nil {
+			updated = true
+			bmh.Spec.CustomDeploy = &metal3api.CustomDeploy{Method: m.HostClaim.Spec.CustomDeploy.Method}
+		} else if bmh.Spec.CustomDeploy.Method != m.HostClaim.Spec.CustomDeploy.Method {
+			updated = true
+			bmh.Spec.CustomDeploy.Method = m.HostClaim.Spec.CustomDeploy.Method
+		}
+	}
+
+	if bmh.Spec.Online != m.HostClaim.Spec.PoweredOn {
+		updated = true
+		bmh.Spec.Online = m.HostClaim.Spec.PoweredOn
+	}
+
+	return updated
 }
 
 // consumerRefMatches returns a boolean based on whether the consumer
@@ -499,6 +723,69 @@ func (m *Manager) chooseBMH(ctx context.Context) (*metal3api.BareMetalHost, erro
 	}
 
 	return chosenHost, err
+}
+
+// updateHostClaimStatus updates the status of the HostClaim with information from BareMetalHost.
+func (m *Manager) updateHostClaimStatus(bmh *metal3api.BareMetalHost) {
+	hostOld := m.HostClaim.Status.DeepCopy()
+
+	m.HostClaim.Status.PoweredOn = bmh.Status.PoweredOn
+	m.HostClaim.Status.HardwareData = &metal3api.ObjectReference{
+		Namespace: bmh.Namespace,
+		Name:      bmh.Name,
+	}
+	conditions.SetMirrorCondition(bmh, m.HostClaim, metal3api.AvailableForProvisioningCondition)
+	conditions.SetMirrorCondition(bmh, m.HostClaim, metal3api.ProvisionedCondition)
+	m.SetConditionHostToTrue(metal3api.AssociatedCondition, metal3api.BareMetalHostAssociatedReason)
+
+	if !equality.Semantic.DeepEqual(m.HostClaim.Status, *hostOld) {
+		m.Log.Info("Status of HostClaim changed")
+		now := metav1.Now()
+		m.HostClaim.Status.LastUpdated = &now
+	}
+}
+
+// syncReboot mirrors reboot annotations from the HostClaim onto the BMH.
+//
+// When phased reboot annotations are propagated, they are prefixed with
+// RebootHostClaimOwnedPrefix.
+func syncReboot(hostMap, bmhMap map[string]string) bool {
+	updated := false
+
+	// Propagate deletions of phased reboot annotations:
+	// the prefix is used to limit the scope of the search
+	// for deletion candidates.
+	// Simple reboot annotations are deleted by the BMH controller once handled.
+	for key := range bmhMap {
+		if !strings.HasPrefix(key, bmhRebootPrefix) {
+			continue
+		}
+		hostKey := hostclaimRebootPrefix + strings.TrimPrefix(key, bmhRebootPrefix)
+		if _, ok := hostMap[hostKey]; !ok {
+			updated = true
+			delete(bmhMap, key)
+		}
+	}
+
+	// Propagate additions and updates.
+	for key, v := range hostMap {
+		switch {
+		case key == metal3api.RebootAnnotationPrefix:
+			// the annotation must be removed on the hostClaim but this is
+			// deferred until the bmh is updated.
+			if w, ok := bmhMap[key]; !ok || w != v {
+				updated = true
+				bmhMap[key] = v
+			}
+		case strings.HasPrefix(key, hostclaimRebootPrefix):
+			bmhKey := bmhRebootPrefix + strings.TrimPrefix(key, hostclaimRebootPrefix)
+			if bmhMap[bmhKey] != v {
+				updated = true
+				bmhMap[bmhKey] = v
+			}
+		}
+	}
+	return updated
 }
 
 type Set[T comparable] = map[T]struct{}

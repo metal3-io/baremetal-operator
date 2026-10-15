@@ -32,9 +32,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: |-
-          HostNetworkAttachment defines switchport configuration for BMH network interfaces.
-          Spec fields are mutable when no BMH references the attachment, immutable when in use.
+        description: HostNetworkAttachment defines switchport configuration for BMH
+          network interfaces.
         properties:
           apiVersion:
             description: |-

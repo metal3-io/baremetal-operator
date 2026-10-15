@@ -227,7 +227,8 @@ func buildAppliedNetworkAttachmentConfigs(info *reconcileInfo) []metal3api.Appli
 			name = mac
 		}
 		appliedConfig := metal3api.AppliedNetworkAttachmentConfig{
-			Name: name,
+			Name:       name,
+			MACAddress: strings.ToLower(mac),
 			SwitchPortConfig: metal3api.SwitchPortConfig{
 				Mode:         config.SwitchPortConfig.Mode,
 				NativeVLAN:   config.SwitchPortConfig.NativeVLAN,
@@ -250,6 +251,28 @@ func buildAppliedNetworkAttachmentConfigs(info *reconcileInfo) []metal3api.Appli
 	})
 
 	return applied
+}
+
+// buildRecoveryPortConfigs reconstructs the last applied port configs from
+// status. These configs are only a recovery hint for a replacement Ironic
+// node; normal reconciliation continues to resolve the current HNAs.
+func buildRecoveryPortConfigs(info *reconcileInfo) map[string]*provisioner.PortConfig {
+	if len(info.host.Status.AppliedNetworkAttachmentConfigs) == 0 && info.host.Status.Provisioning.ID == "" {
+		return nil
+	}
+
+	// An empty snapshot on a registered host means no switchport config was
+	// applied. Preserve it during recovery instead of using pending changes.
+	configs := make(map[string]*provisioner.PortConfig)
+	for _, applied := range info.host.Status.AppliedNetworkAttachmentConfigs {
+		mac := strings.ToLower(applied.MACAddress)
+		configs[mac] = &provisioner.PortConfig{
+			SwitchPortConfig:     *applied.SwitchPortConfig.DeepCopy(),
+			SwitchPortIdentifier: applied.SwitchPort.DeepCopy(),
+		}
+	}
+
+	return configs
 }
 
 // setNetworkInterfaceValidation updates the network interface validation condition.

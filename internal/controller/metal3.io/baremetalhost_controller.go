@@ -954,12 +954,14 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 
 	// Resolve and validate port configs before Register so the
 	// provisioner only receives validated configurations.
-	// Network validation dirty state is tracked separately to avoid
-	// being overwritten by matchProfile's unconditional dirty assignment.
+	// Network validation changes are tracked separately so they can be saved
+	// when registration needs to be retried.
 	networkDirty, err = r.preparePortConfigs(ctx, info)
 	if err != nil {
 		return actionError{err}
 	}
+	recoveryPortConfigs := buildRecoveryPortConfigs(info)
+	previousProvisioningID := info.host.Status.Provisioning.ID
 
 	provResult, provID, err := prov.Register(
 		ctx,
@@ -978,6 +980,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 			DisableInspection:          info.host.InspectionDisabled(),
 			InspectionMode:             info.host.Spec.InspectionMode,
 			PortConfigs:                info.portConfigs,
+			RecoveryPortConfigs:        recoveryPortConfigs,
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)
@@ -1009,6 +1012,11 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		return recordActionFailure(info, metal3api.RegistrationError, provResult.ErrorMessage)
 	}
 
+	// If Register recovered a replacement Ironic node, the provisioner used
+	// RecoveryPortConfigs to restore its previous port state. Keep the status
+	// snapshot unchanged until a later reconcile applies the current PortConfigs.
+	recoveredIronicNode := recoveryPortConfigs != nil && provID != "" && provID != previousProvisioningID
+
 	if provID != "" && info.host.Status.Provisioning.ID != provID {
 		info.log.Info("setting provisioning id", "ID", provID)
 		info.host.Status.Provisioning.ID = provID
@@ -1031,11 +1039,11 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		return result
 	}
 
-	dirty, err = r.matchProfile(info)
+	profileDirty, err := r.matchProfile(info)
 	if err != nil {
 		return recordActionFailure(info, metal3api.RegistrationError, err.Error())
 	}
-	if dirty {
+	if profileDirty {
 		return actionUpdate{}
 	}
 
@@ -1091,7 +1099,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 	// empty map when NI was removed (clean up), or populated (apply).
 	// Only update during states where the provisioner can actually
 	// modify Ironic ports so status reflects what is applied.
-	if info.portConfigs != nil && provisioner.CanUpdateSwitchPortConfig(info.host.Status.Provisioning.State) {
+	if info.portConfigs != nil && !recoveredIronicNode && provisioner.CanUpdateSwitchPortConfig(info.host.Status.Provisioning.State) {
 		desired := buildAppliedNetworkAttachmentConfigs(info)
 		if !reflect.DeepEqual(desired, info.host.Status.AppliedNetworkAttachmentConfigs) {
 			info.host.Status.AppliedNetworkAttachmentConfigs = desired

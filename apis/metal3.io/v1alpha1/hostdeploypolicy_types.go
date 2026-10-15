@@ -51,6 +51,10 @@ type NameValuePair struct {
 
 // HostDeployPolicyStatus defines the observed state of HostDeployPolicy.
 type HostDeployPolicyStatus struct {
+	// ObservedGeneration is the metadata.generation of the HostDeployPolicy
+	// that the controller has observed in its informer cache.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

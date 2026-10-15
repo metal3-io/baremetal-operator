@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"os"
 	"strings"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
@@ -87,7 +87,7 @@ func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctl
 		if err := m.pool.CreateVolume(ctx, m.opts.PoolName, volumeName, volCfg.Size); err != nil {
 			return nil, fmt.Errorf("failed to create volume %s: %w", volumeName, err)
 		}
-		log.Printf("Created volume %s\n", volumeName)
+		// PoolManager.CreateVolume reports success.
 	}
 
 	// Reserve IP addresses if specified
@@ -113,7 +113,8 @@ func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctl
 		return nil, fmt.Errorf("failed to get domain UUID: %w", err)
 	}
 
-	log.Printf("Created VM %s with UUID %s\n", cfg.Name, uuid)
+	// Note: the command layer reports successful VM creation to the user;
+	// do not print here to avoid duplicate output.
 
 	return &vbmctlapi.VM{
 		Config: cfg,
@@ -131,11 +132,11 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 		var libvirtErr libvirt.Error
 		if errors.As(err, &libvirtErr) {
 			if libvirtErr.Code == libvirt.ERR_NO_DOMAIN {
-				log.Printf("Domain %s does not exist, skipping\n", name)
+				fmt.Fprintf(os.Stderr, "Domain %s does not exist, skipping\n", name)
 				// Still try to delete volumes if requested
 				if deleteVolumes {
 					if volErr := m.deleteVMVolumes(ctx, name); volErr != nil {
-						log.Printf("Warning: failed to delete volumes for %s: %v\n", name, volErr)
+						fmt.Fprintf(os.Stderr, "Warning: failed to delete volumes for %s: %v\n", name, volErr)
 					}
 				}
 				return nil
@@ -155,7 +156,7 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 		if err := domain.Destroy(); err != nil {
 			return fmt.Errorf("failed to destroy domain: %w", err)
 		}
-		log.Printf("Destroyed running domain %s\n", name)
+		fmt.Fprintf(os.Stdout, "Destroyed running domain %s\n", name)
 	}
 
 	// Undefine the domain
@@ -166,7 +167,7 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 		}
 	}
 
-	log.Printf("Undefined domain %s\n", name)
+	fmt.Fprintf(os.Stderr, "Undefined domain %s\n", name)
 
 	// Delete associated volumes if requested
 	if deleteVolumes {
@@ -183,17 +184,16 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 func (m *VMManager) deleteVMVolumes(ctx context.Context, vmName string) error {
 	volumes, err := m.pool.ListVolumes(ctx, m.opts.PoolName)
 	if err != nil {
-		log.Printf("Warning: failed to list volumes in pool %s: %v\n", m.opts.PoolName, err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to list volumes in pool %s: %v\n", m.opts.PoolName, err)
 		return err
 	}
 
 	prefix := vmName + "-"
 	for _, vol := range volumes {
 		if strings.HasPrefix(vol.Config.Name, prefix) {
+			// PoolManager.DeleteVolume already reports success; only surface failures here.
 			if err := m.pool.DeleteVolume(ctx, m.opts.PoolName, vol.Config.Name); err != nil {
-				log.Printf("Warning: failed to delete volume %s: %v\n", vol.Config.Name, err)
-			} else {
-				log.Printf("Deleted volume %s\n", vol.Config.Name)
+				fmt.Fprintf(os.Stderr, "Warning: failed to delete volume %s: %v\n", vol.Config.Name, err)
 			}
 		}
 	}
@@ -210,10 +210,10 @@ func (m *VMManager) CreateAll(ctx context.Context, configs []vbmctlapi.VMConfig)
 		vm, err := m.Create(ctx, cfg)
 		if err != nil {
 			// Clean up previously created VMs and their volumes
-			log.Printf("Failed to create VM %s, cleaning up %d previously created VM(s)\n", cfg.Name, len(vms))
+			fmt.Fprintf(os.Stderr, "Failed to create VM %s, cleaning up %d previously created VM(s)\n", cfg.Name, len(vms))
 			for _, created := range vms {
 				if delErr := m.Delete(ctx, created.Config.Name, true); delErr != nil {
-					log.Printf("Warning: failed to clean up VM %s: %v\n", created.Config.Name, delErr)
+					fmt.Fprintf(os.Stderr, "Warning: failed to clean up VM %s: %v\n", created.Config.Name, delErr)
 				}
 			}
 			return nil, fmt.Errorf("failed to create VM %s: %w", cfg.Name, err)
@@ -229,7 +229,7 @@ func (m *VMManager) DeleteAll(ctx context.Context, names []string, deleteVolumes
 	var lastErr error
 	for _, name := range names {
 		if err := m.Delete(ctx, name, deleteVolumes); err != nil {
-			log.Printf("Error deleting VM %s: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Error deleting VM %s: %v\n", name, err)
 			lastErr = err
 		}
 	}
@@ -253,17 +253,17 @@ func (m *VMManager) List(_ context.Context) ([]*vbmctlapi.VM, error) {
 
 		uuid, err := domain.GetUUIDString()
 		if err != nil {
-			log.Printf("Warning: failed to get UUID for domain %q: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to get UUID for domain %q: %v\n", name, err)
 		}
 
 		state, err := m.getDomainState(&domain)
 		if err != nil {
-			log.Printf("Warning: failed to get state for domain %q: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to get state for domain %q: %v\n", name, err)
 		}
 
 		info, err := domain.GetInfo()
 		if err != nil {
-			log.Printf("Warning: failed to get info for domain %q: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to get info for domain %q: %v\n", name, err)
 		}
 
 		var memoryMB, vcpus int
@@ -350,6 +350,6 @@ func (m *VMManager) reserveIPAddress(vmName string, index int, net vbmctlapi.Net
 		return fmt.Errorf("failed to add DHCP host entry: %w", err)
 	}
 
-	log.Printf("Reserved IP %s for %s on network %s\n", net.IPAddress, vmName, net.Network)
+	fmt.Fprintf(os.Stdout, "Reserved IP %s for %s on network %s\n", net.IPAddress, vmName, net.Network)
 	return nil
 }

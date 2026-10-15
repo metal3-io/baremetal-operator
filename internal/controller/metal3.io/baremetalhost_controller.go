@@ -971,6 +971,17 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		return actionError{err}
 	}
 
+	previousProvisioningID := info.host.Status.Provisioning.ID
+	if previousProvisioningID != "" &&
+		(!provisioner.CanUpdateSwitchPortConfig(info.host.Status.Provisioning.State) ||
+			info.portConfigs == nil) {
+		// If we had already registered this host with Ironic, and it is not in
+		// a state that allows for updating ports to the current HNA settings OR
+		// the current HNA settings are not valid, then we must rebuild the
+		// ports from the last applied state.
+		info.portConfigs = buildRecoveryPortConfigs(info)
+	}
+
 	provResult, provID, err := prov.Register(
 		ctx,
 		provisioner.ManagementAccessData{

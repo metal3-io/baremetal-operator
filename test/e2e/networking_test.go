@@ -6,8 +6,11 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"path"
 
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -132,12 +135,19 @@ var _ = Describe("networking", Label("required", "networking"), func() {
 		Expect(c.Get(ctx, types.NamespacedName{Name: "test-host", Namespace: namespace.Name}, retrievedBMH)).To(Succeed())
 		Expect(retrievedBMH.Spec.NetworkInterfaces).To(HaveLen(2))
 
-		By("verifying that a referenced HNA cannot be deleted")
-		err := c.Delete(ctx, accessHNA)
-		Expect(err).To(HaveOccurred())
-		Expect(k8serrors.IsForbidden(err)).To(BeTrue(), fmt.Sprintf("expected Forbidden error, got: %v", err))
+		By("deleting an HNA while a BMH still references it")
+		Expect(c.Delete(ctx, accessHNA)).To(Succeed())
+		Eventually(func() bool {
+			err := c.Get(ctx, types.NamespacedName{Name: accessHNA.Name, Namespace: namespace.Name}, &metal3api.HostNetworkAttachment{})
+			return k8serrors.IsNotFound(err)
+		}, e2eConfig.GetIntervals(specName, "wait-hna-deleted")...).Should(BeTrue())
 
-		By("deleting the BMH to release HNA references")
+		By("verifying the BMH retains its reference to the deleted HNA")
+		Expect(c.Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: namespace.Name}, retrievedBMH)).To(Succeed())
+		Expect(retrievedBMH.Spec.NetworkInterfaces).To(HaveLen(2))
+		Expect(retrievedBMH.Spec.NetworkInterfaces[0].HostNetworkAttachment.Name).To(Equal(accessHNA.Name))
+
+		By("deleting the BMH while it references a deleted HNA")
 		Expect(c.Delete(ctx, bmh)).To(Succeed())
 		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
 			Client:    c,
@@ -145,13 +155,12 @@ var _ = Describe("networking", Label("required", "networking"), func() {
 			Namespace: bmh.Namespace,
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 
-		By("verifying the HNA can be deleted after BMH removal")
-		Expect(c.Delete(ctx, accessHNA)).To(Succeed())
+		By("deleting the remaining HNA")
 		Expect(c.Delete(ctx, trunkHNA)).To(Succeed())
 
-		By("verifying the HNAs are actually deleted")
+		By("verifying the remaining HNA is actually deleted")
 		Eventually(func() bool {
-			err := c.Get(ctx, types.NamespacedName{Name: "access-net", Namespace: namespace.Name}, &metal3api.HostNetworkAttachment{})
+			err := c.Get(ctx, types.NamespacedName{Name: trunkHNA.Name, Namespace: namespace.Name}, &metal3api.HostNetworkAttachment{})
 			return k8serrors.IsNotFound(err)
 		}, e2eConfig.GetIntervals(specName, "wait-hna-deleted")...).Should(BeTrue())
 	})
@@ -324,14 +333,91 @@ var _ = Describe("networking", Label("required", "networking"), func() {
 			g.Expect(retrievedBMH.Status.AppliedNetworkAttachmentConfigs[0].SwitchPortConfig.NativeVLAN).To(Equal(100))
 		}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
 
-		By("cleaning up")
+		By("updating the HNA while the available BMH still references it")
+		updatedHNA := &metal3api.HostNetworkAttachment{}
+		Expect(c.Get(ctx, types.NamespacedName{Name: hna.Name, Namespace: namespace.Name}, updatedHNA)).To(Succeed())
+		updatedHNA.Spec.NativeVLAN = 200
+		Expect(c.Update(ctx, updatedHNA)).To(Succeed())
+
+		retrievedBMH := &metal3api.BareMetalHost{}
+
+		By("verifying the BMH automatically applies the updated HNA configuration")
+		Eventually(func(g Gomega) {
+			g.Expect(c.Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: namespace.Name}, retrievedBMH)).To(Succeed())
+			g.Expect(retrievedBMH.Status.Provisioning.State).To(Equal(metal3api.StateAvailable))
+			g.Expect(retrievedBMH.Status.AppliedNetworkAttachmentConfigs).To(HaveLen(1))
+			g.Expect(retrievedBMH.Status.AppliedNetworkAttachmentConfigs[0].SwitchPortConfig.NativeVLAN).To(Equal(200))
+		}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
+
+		By("deleting the HNA while the available BMH still references it")
+		Expect(c.Delete(ctx, updatedHNA)).To(Succeed())
+		Eventually(func() bool {
+			err := c.Get(ctx, types.NamespacedName{Name: hna.Name, Namespace: namespace.Name}, &metal3api.HostNetworkAttachment{})
+			return k8serrors.IsNotFound(err)
+		}, e2eConfig.GetIntervals(specName, "wait-hna-deleted")...).Should(BeTrue())
+
+		By("verifying the BMH retains its reference and applied port config")
+		Expect(c.Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: namespace.Name}, retrievedBMH)).To(Succeed())
+		Expect(retrievedBMH.Spec.NetworkInterfaces).To(HaveLen(1))
+		Expect(retrievedBMH.Spec.NetworkInterfaces[0].HostNetworkAttachment.Name).To(Equal(hna.Name))
+		Expect(retrievedBMH.Status.AppliedNetworkAttachmentConfigs).To(HaveLen(1))
+		Expect(retrievedBMH.Status.AppliedNetworkAttachmentConfigs[0].SwitchPortConfig.Mode).To(Equal(metal3api.SwitchPortMode("access")))
+		Expect(retrievedBMH.Status.AppliedNetworkAttachmentConfigs[0].SwitchPortConfig.NativeVLAN).To(Equal(200))
+
+		if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+			ironicClient := CreateIronicClient(e2eConfig)
+			ironicNodeName := IronicNodeName(namespace.Name, bmh.Name)
+
+			By("deleting the Ironic node to simulate Ironic losing its database entry")
+			ironicNode, err := nodes.Get(ctx, ironicClient, ironicNodeName).Extract()
+			Expect(err).NotTo(HaveOccurred())
+			var deleteErr error
+			Eventually(func() bool {
+				deleteErr = nodes.Delete(ctx, ironicClient, ironicNode.UUID).ExtractErr()
+				return !gophercloud.ResponseCodeIs(deleteErr, http.StatusConflict)
+			}, e2eConfig.GetIntervals("default", "wait-available")...).Should(BeTrue())
+			Expect(deleteErr).NotTo(HaveOccurred())
+
+			By("triggering BMO reconciliation after the Ironic node was lost")
+			Expect(c.Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: namespace.Name}, retrievedBMH)).To(Succeed())
+			AnnotateBmh(ctx, c, *retrievedBMH, "e2e.metal3.io/reconcile", ptr.To("true"))
+
+			By("verifying BMO re-registers the node with the last applied switchport config")
+			Eventually(func(g Gomega) {
+				recoveredNode, ironicErr := nodes.Get(ctx, ironicClient, ironicNodeName).Extract()
+				if ironicErr != nil {
+					g.Expect(ironicErr).NotTo(HaveOccurred())
+					return
+				}
+				g.Expect(recoveredNode.UUID).NotTo(Equal(ironicNode.UUID), "BMO should recreate the deleted Ironic node")
+
+				ironicPorts, ironicErr := fetchIronicPorts(e2eConfig, namespace.Name, bmh.Name)
+				if ironicErr != nil {
+					g.Expect(ironicErr).NotTo(HaveOccurred())
+					return
+				}
+				bootPort := findPortByMAC(ironicPorts, bmc.BootMacAddress)
+				g.Expect(bootPort).NotTo(BeNil())
+				if bootPort == nil {
+					return
+				}
+				g.Expect(bootPort.Extra).NotTo(BeNil())
+				switchportRaw, hasSwitchport := bootPort.Extra["switchport"]
+				g.Expect(hasSwitchport).To(BeTrue(), "switchport config should be restored after re-registration")
+				switchport, ok := switchportRaw.(map[string]interface{})
+				g.Expect(ok).To(BeTrue())
+				g.Expect(switchport["mode"]).To(Equal("access"))
+				g.Expect(switchport["native_vlan"]).To(Equal(float64(200)))
+			}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
+		}
+
+		By("deprovisioning the BMH after deleting its referenced HNA")
 		Expect(c.Delete(ctx, bmh)).To(Succeed())
 		WaitForBmhDeleted(ctx, WaitForBmhDeletedInput{
 			Client:    c,
 			BmhName:   bmh.Name,
 			Namespace: bmh.Namespace,
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
-		Expect(c.Delete(ctx, hna)).To(Succeed())
 	})
 
 	It("should set NetworkInterfacesValid to False for invalid interface names", func() {
@@ -876,7 +962,7 @@ var _ = Describe("networking", Label("required", "networking"), func() {
 		Expect(c.Delete(ctx, hna)).To(Succeed())
 	})
 
-	It("should clear port configs only after deprovisioning completes when NI removed atomically", func() {
+	It("should clear port configs after deprovisioning when HNA is deleted and NI is removed atomically", func() {
 		c := clusterProxy.GetClient()
 
 		By("creating a BMC credentials secret")
@@ -959,6 +1045,28 @@ var _ = Describe("networking", Label("required", "networking"), func() {
 			State:  metal3api.StateProvisioned,
 		}, e2eConfig.GetIntervals("default", "wait-provisioned")...)
 
+		By("deleting the HNA while the provisioned BMH still references it")
+		Expect(c.Delete(ctx, hna)).To(Succeed())
+		Eventually(func() bool {
+			err := c.Get(ctx, types.NamespacedName{Name: hna.Name, Namespace: namespace.Name}, &metal3api.HostNetworkAttachment{})
+			return k8serrors.IsNotFound(err)
+		}, e2eConfig.GetIntervals(specName, "wait-hna-deleted")...).Should(BeTrue())
+
+		By("verifying the missing HNA is reported while the applied config is retained")
+		Eventually(func(g Gomega) {
+			g.Expect(c.Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: namespace.Name}, bmh)).To(Succeed())
+			g.Expect(bmh.Status.Provisioning.State).To(Equal(metal3api.StateProvisioned))
+			cond := meta.FindStatusCondition(bmh.Status.Conditions, metal3api.NetworkInterfacesValidCondition)
+			g.Expect(cond).NotTo(BeNil())
+			if cond == nil {
+				return
+			}
+			g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			g.Expect(cond.Reason).To(Equal("AttachmentNotFound"))
+			g.Expect(bmh.Status.AppliedNetworkAttachmentConfigs).NotTo(BeEmpty(),
+				"AppliedNetworkAttachmentConfigs should be retained while the HNA is missing")
+		}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
+
 		By("atomically removing image and NetworkInterfaces to trigger deprovisioning")
 		Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			if err := c.Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: namespace.Name}, bmh); err != nil {
@@ -1004,7 +1112,27 @@ var _ = Describe("networking", Label("required", "networking"), func() {
 			g.Expect(c.Get(ctx, types.NamespacedName{Name: bmh.Name, Namespace: namespace.Name}, bmh)).To(Succeed())
 			g.Expect(bmh.Status.AppliedNetworkAttachmentConfigs).To(BeEmpty(),
 				"AppliedNetworkAttachmentConfigs should be cleared after deprovisioning")
+			g.Expect(meta.FindStatusCondition(bmh.Status.Conditions, metal3api.NetworkInterfacesValidCondition)).To(BeNil(),
+				"NetworkInterfacesValid should be cleared after the interface references are removed")
 		}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
+
+		if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+			By("verifying Ironic no longer has switchport config after deprovisioning")
+			Eventually(func(g Gomega) {
+				ironicPorts, ironicErr := fetchIronicPorts(e2eConfig, namespace.Name, bmh.Name)
+				g.Expect(ironicErr).NotTo(HaveOccurred())
+				if ironicErr != nil {
+					return
+				}
+				bootPort := findPortByMAC(ironicPorts, bmc.BootMacAddress)
+				g.Expect(bootPort).NotTo(BeNil())
+				if bootPort == nil || bootPort.Extra == nil {
+					return
+				}
+				_, hasSwitchport := bootPort.Extra["switchport"]
+				g.Expect(hasSwitchport).To(BeFalse(), "switchport config should be cleared after deprovisioning")
+			}, e2eConfig.GetIntervals("default", "wait-available")...).Should(Succeed())
+		}
 
 		By("cleaning up")
 		Expect(c.Delete(ctx, bmh)).To(Succeed())
@@ -1013,7 +1141,6 @@ var _ = Describe("networking", Label("required", "networking"), func() {
 			BmhName:   bmh.Name,
 			Namespace: bmh.Namespace,
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
-		Expect(c.Delete(ctx, hna)).To(Succeed())
 	})
 
 	It("should preserve port configs when NI removed separately during deprovisioning", func() {

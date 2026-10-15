@@ -14,19 +14,22 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	configSecretName     = "metal3-switch-configs"
-	credentialSecretName = "metal3-switch-credentials"
-	credentialPath       = "/etc/ironic/switch-credentials"
-	switchConfigKey      = "switch-configs.conf"
-	switchConfigHeader   = "# This file is managed by the Baremetal Operator\n\n"
+	configSecretName       = "metal3-switch-configs"
+	credentialSecretName   = "metal3-switch-credentials"
+	switchSecretsNamespace = "baremetal-operator-system"
+	credentialPath         = "/etc/ironic/switch-credentials"
+	switchConfigKey        = "switch-configs.conf"
+	switchConfigHeader     = "# This file is managed by the Baremetal Operator\n\n"
 )
 
 // createCredentialSecret creates a Kubernetes secret for switch credentials.
@@ -80,12 +83,21 @@ func getCredentialSecret(ctx context.Context, c client.Client, namespace string)
 
 var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch"), func() {
 	var (
-		specName      = "baremetalswitch"
-		namespace     *corev1.Namespace
-		cancelWatches context.CancelFunc
+		specName                         = "baremetalswitch"
+		namespace                        *corev1.Namespace
+		cancelWatches                    context.CancelFunc
+		additionalNamespace              *corev1.Namespace
+		cancelAdditionalNamespaceWatches context.CancelFunc
+		mainNamespaceCleanup             []client.Object
+		additionalNamespaceCleanup       []client.Object
 	)
 
 	BeforeEach(func() {
+		additionalNamespace = nil
+		cancelAdditionalNamespaceWatches = nil
+		mainNamespaceCleanup = nil
+		additionalNamespaceCleanup = nil
+
 		namespace, cancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
 			Creator:             clusterProxy.GetClient(),
 			ClientSet:           clusterProxy.GetClientSet(),
@@ -94,9 +106,169 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 			IgnoreAlreadyExists: true,
 		})
 
-		By("creating empty output secrets for the controller")
-		createEmptySecret(ctx, clusterProxy.GetClient(), namespace.Name, configSecretName)
-		createEmptySecret(ctx, clusterProxy.GetClient(), namespace.Name, credentialSecretName)
+		By("creating empty output secrets in the BMO/Ironic namespace")
+		createEmptySecret(ctx, clusterProxy.GetClient(), switchSecretsNamespace, configSecretName)
+		createEmptySecret(ctx, clusterProxy.GetClient(), switchSecretsNamespace, credentialSecretName)
+	})
+
+	It("should reject duplicate switch names and MAC addresses across namespaces", func() {
+		c := clusterProxy.GetClient()
+		if e2eConfig.GetBoolVariable("NAMESPACE_SCOPED") {
+			additionalNamespace = &corev1.Namespace{}
+			Expect(c.Get(ctx, types.NamespacedName{Name: "networking"}, additionalNamespace)).To(Succeed())
+		} else {
+			additionalNamespace, cancelAdditionalNamespaceWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
+				Creator:   c,
+				ClientSet: clusterProxy.GetClientSet(),
+				Name:      fmt.Sprintf("%s-zduplicate-%s", namespace.Name, util.RandomString(6)),
+				LogFolder: artifactFolder,
+			})
+		}
+
+		suffix := util.RandomString(6)
+		canonicalName := "switch-canonical-" + suffix
+		macDuplicateName := "switch-mac-duplicate-" + suffix
+		uniqueName := "switch-unique-" + suffix
+		canonicalMAC := "02:ab:cd:ef:00:01"
+		uniqueMAC := "02:ab:cd:ef:00:02"
+		credentialObject := func(ns, name string) *corev1.Secret {
+			return &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name}}
+		}
+		canonicalCredentials := canonicalName + "-creds"
+		macDuplicateCredentials := macDuplicateName + "-creds"
+		nameDuplicateCredentials := "name-duplicate-" + suffix + "-creds"
+		uniqueCredentials := uniqueName + "-creds"
+
+		By("creating the canonical switch in the first namespace")
+		createCredentialSecret(ctx, c, namespace.Name, canonicalCredentials, map[string]string{
+			"username":       "admin",
+			"ssh-privatekey": "canonical-private-key",
+		})
+		canonical := &metal3api.BareMetalSwitch{
+			ObjectMeta: metav1.ObjectMeta{Name: canonicalName, Namespace: namespace.Name},
+			Spec: metal3api.BareMetalSwitchSpec{
+				Address: "192.168.1.1", MACAddress: canonicalMAC, DeviceType: "netmiko_cisco_ios",
+				Credentials: &corev1.SecretReference{Name: canonicalCredentials},
+			},
+		}
+		mainNamespaceCleanup = append(mainNamespaceCleanup, canonical, credentialObject(namespace.Name, canonicalCredentials))
+		Expect(c.Create(ctx, canonical)).To(Succeed())
+		Eventually(func(g Gomega) {
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
+			g.Expect(config).To(ContainSubstring("[switch:" + canonicalName + "]"))
+			sw := &metal3api.BareMetalSwitch{}
+			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(canonical), sw)).To(Succeed())
+			condition := meta.FindStatusCondition(sw.Status.Conditions, string(metal3api.SwitchConditionValid))
+			g.Expect(condition).NotTo(BeNil())
+			g.Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
+
+		By("creating another switch with the same MAC in a different case")
+		createCredentialSecret(ctx, c, additionalNamespace.Name, macDuplicateCredentials, map[string]string{
+			"username":       "admin",
+			"ssh-privatekey": "duplicate-private-key",
+		})
+		macDuplicate := &metal3api.BareMetalSwitch{
+			ObjectMeta: metav1.ObjectMeta{Name: macDuplicateName, Namespace: additionalNamespace.Name},
+			Spec: metal3api.BareMetalSwitchSpec{
+				Address: "192.168.1.2", MACAddress: "02:AB:CD:EF:00:01", DeviceType: "netmiko_cisco_ios",
+				Credentials: &corev1.SecretReference{Name: macDuplicateCredentials},
+			},
+		}
+		additionalNamespaceCleanup = append(additionalNamespaceCleanup, macDuplicate, credentialObject(additionalNamespace.Name, macDuplicateCredentials))
+		Expect(c.Create(ctx, macDuplicate)).To(Succeed())
+
+		By("creating a same-name duplicate with a different MAC")
+		createCredentialSecret(ctx, c, additionalNamespace.Name, nameDuplicateCredentials, map[string]string{
+			"username": "duplicate",
+			"password": "duplicate-password",
+		})
+		nameDuplicate := &metal3api.BareMetalSwitch{
+			ObjectMeta: metav1.ObjectMeta{Name: canonicalName, Namespace: additionalNamespace.Name},
+			Spec: metal3api.BareMetalSwitchSpec{
+				Address: "192.168.1.3", MACAddress: "02:ab:cd:ef:00:03", DeviceType: "netmiko_cisco_ios",
+				Credentials: &corev1.SecretReference{Name: nameDuplicateCredentials},
+			},
+		}
+		additionalNamespaceCleanup = append(additionalNamespaceCleanup, nameDuplicate, credentialObject(additionalNamespace.Name, nameDuplicateCredentials))
+		Expect(c.Create(ctx, nameDuplicate)).To(Succeed())
+
+		By("creating an unrelated switch that must remain in both output secrets")
+		createCredentialSecret(ctx, c, namespace.Name, uniqueCredentials, map[string]string{
+			"username":       "unique",
+			"ssh-privatekey": "unique-private-key",
+		})
+		unique := &metal3api.BareMetalSwitch{
+			ObjectMeta: metav1.ObjectMeta{Name: uniqueName, Namespace: namespace.Name},
+			Spec: metal3api.BareMetalSwitchSpec{
+				Address: "192.168.1.4", MACAddress: uniqueMAC, DeviceType: "netmiko_cisco_ios",
+				Credentials: &corev1.SecretReference{Name: uniqueCredentials},
+			},
+		}
+		mainNamespaceCleanup = append(mainNamespaceCleanup, unique, credentialObject(namespace.Name, uniqueCredentials))
+		Expect(c.Create(ctx, unique)).To(Succeed())
+
+		By("verifying only the duplicate switches have invalid status and are omitted")
+		Eventually(func(g Gomega) {
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
+			g.Expect(strings.Count(config, "[switch:"+canonicalName+"]")).To(Equal(1))
+			g.Expect(config).To(ContainSubstring("[switch:" + uniqueName + "]"))
+			g.Expect(config).NotTo(ContainSubstring("[switch:" + macDuplicateName + "]"))
+			canonicalSection := ""
+			if sections := strings.SplitN(config, "[switch:"+canonicalName+"]\n", 2); len(sections) == 2 {
+				canonicalSection = strings.SplitN(sections[1], "\n\n", 2)[0]
+			}
+			g.Expect(canonicalSection).To(ContainSubstring("address=192.168.1.1"))
+			g.Expect(canonicalSection).NotTo(ContainSubstring("192.168.1.3"))
+			g.Expect(config).To(ContainSubstring("key_file=" + path.Join(credentialPath, strings.ReplaceAll(canonicalMAC, ":", "-")+".key")))
+
+			credentials := getCredentialSecret(ctx, c, switchSecretsNamespace)
+			g.Expect(credentials).To(HaveKeyWithValue("02-ab-cd-ef-00-01.key", []byte("canonical-private-key")))
+			g.Expect(credentials).To(HaveKeyWithValue("02-ab-cd-ef-00-02.key", []byte("unique-private-key")))
+			g.Expect(credentials).NotTo(HaveKey("02-AB-CD-EF-00-01.key"))
+
+			for _, expected := range []struct {
+				sw     *metal3api.BareMetalSwitch
+				status metav1.ConditionStatus
+				reason string
+			}{
+				{sw: canonical, status: metav1.ConditionTrue, reason: "Reconciled"},
+				{sw: unique, status: metav1.ConditionTrue, reason: "Reconciled"},
+				{sw: macDuplicate, status: metav1.ConditionFalse, reason: "Duplicate"},
+				{sw: nameDuplicate, status: metav1.ConditionFalse, reason: "Duplicate"},
+			} {
+				updated := &metal3api.BareMetalSwitch{}
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(expected.sw), updated)).To(Succeed())
+				condition := meta.FindStatusCondition(updated.Status.Conditions, string(metal3api.SwitchConditionValid))
+				g.Expect(condition).NotTo(BeNil())
+				g.Expect(condition.Status).To(Equal(expected.status))
+				g.Expect(condition.Reason).To(Equal(expected.reason))
+			}
+		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
+
+		By("deleting the canonical switch and admitting the former duplicates")
+		Expect(c.Delete(ctx, canonical)).To(Succeed())
+		Eventually(func(g Gomega) {
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
+			g.Expect(config).To(ContainSubstring("[switch:" + macDuplicateName + "]"))
+			g.Expect(config).To(ContainSubstring("[switch:" + canonicalName + "]"))
+			g.Expect(config).To(ContainSubstring("address=192.168.1.2"))
+			g.Expect(config).To(ContainSubstring("address=192.168.1.3"))
+			g.Expect(config).NotTo(ContainSubstring("address=192.168.1.1"))
+
+			credentials := getCredentialSecret(ctx, c, switchSecretsNamespace)
+			g.Expect(credentials).To(HaveKeyWithValue("02-AB-CD-EF-00-01.key", []byte("duplicate-private-key")))
+			g.Expect(credentials).To(HaveKeyWithValue("02-ab-cd-ef-00-02.key", []byte("unique-private-key")))
+
+			for _, sw := range []*metal3api.BareMetalSwitch{macDuplicate, nameDuplicate} {
+				updated := &metal3api.BareMetalSwitch{}
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(sw), updated)).To(Succeed())
+				condition := meta.FindStatusCondition(updated.Status.Conditions, string(metal3api.SwitchConditionValid))
+				g.Expect(condition).NotTo(BeNil())
+				g.Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(condition.Reason).To(Equal("Reconciled"))
+			}
+		}, e2eConfig.GetIntervals(specName, "wait-duplicate-promoted")...).Should(Succeed())
 	})
 
 	It("should manage switch config from BareMetalSwitch resources", func() {
@@ -127,7 +299,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the config secret contains the first switch")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:switch-1]"))
 			g.Expect(config).To(ContainSubstring("address=192.168.1.1"))
 			g.Expect(config).To(ContainSubstring("mac_address=00:00:5e:00:53:01"))
@@ -169,7 +341,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the config secret contains both switches sorted by name")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:switch-1]"))
 			g.Expect(config).To(ContainSubstring("[switch:switch-2]"))
 			// Verify sorted order: switch-1 comes before switch-2
@@ -183,7 +355,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the config secret contains only the second switch")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).NotTo(ContainSubstring("[switch:switch-1]"))
 			g.Expect(config).To(ContainSubstring("[switch:switch-2]"))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
@@ -193,7 +365,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the config secret contains only the header")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(Equal(switchConfigHeader))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
 
@@ -220,7 +392,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying password-auth config contains password field")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:pw-switch]"))
 			g.Expect(config).To(ContainSubstring("password=secret123"))
 			g.Expect(config).NotTo(ContainSubstring("key_file="))
@@ -250,7 +422,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 		By("verifying publickey-auth config contains key_file field")
 		expectedKeyFile := credentialPath + "/aa-bb-cc-dd-ee-02.key"
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:pk-switch]"))
 			g.Expect(config).To(ContainSubstring("key_file=" + expectedKeyFile))
 			g.Expect(config).To(ContainSubstring("username=sshuser"))
@@ -258,7 +430,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the credentials secret contains the SSH key file")
 		Eventually(func(g Gomega) {
-			credData := getCredentialSecret(ctx, c, namespace.Name)
+			credData := getCredentialSecret(ctx, c, switchSecretsNamespace)
 			g.Expect(credData).To(HaveKey("aa-bb-cc-dd-ee-02.key"))
 			g.Expect(string(credData["aa-bb-cc-dd-ee-02.key"])).To(ContainSubstring("BEGIN RSA PRIVATE KEY"))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
@@ -269,7 +441,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying config is empty after credential type test cleanup")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(Equal(switchConfigHeader))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
 
@@ -296,7 +468,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying config has the original password")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("password=old-password"))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
 
@@ -309,7 +481,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying config is updated with the new password")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("password=new-password"))
 			g.Expect(config).NotTo(ContainSubstring("password=old-password"))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
@@ -317,7 +489,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 		By("cleaning up rotation test switch")
 		Expect(c.Delete(ctx, rotatingSwitch)).To(Succeed())
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(Equal(switchConfigHeader))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
 
@@ -340,7 +512,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the config secret contains only the header (bad switch is skipped)")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(Equal(switchConfigHeader))
 			g.Expect(config).NotTo(ContainSubstring("[switch:missing-creds-switch]"))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
@@ -360,7 +532,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the config secret is now populated")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:missing-creds-switch]"))
 			g.Expect(config).To(ContainSubstring("password=secret123"))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
@@ -375,7 +547,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 		By("cleaning up missing creds test switch")
 		Expect(c.Delete(ctx, missingCredsSwitch)).To(Succeed())
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(Equal(switchConfigHeader))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
 
@@ -415,7 +587,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the Owns() watch triggers reconciliation and config is populated")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:bad-creds-switch]"))
 			g.Expect(config).To(ContainSubstring("password=fixed-password"))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
@@ -430,7 +602,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 		By("cleaning up misconfigured creds test switch")
 		Expect(c.Delete(ctx, badCredsSwitch)).To(Succeed())
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(Equal(switchConfigHeader))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
 
@@ -464,7 +636,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying all three switches appear in config sorted by name")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:switch-a]"))
 			g.Expect(config).To(ContainSubstring("[switch:switch-b]"))
 			g.Expect(config).To(ContainSubstring("[switch:switch-c]"))
@@ -481,7 +653,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying config has only switch-a and switch-c")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:switch-a]"))
 			g.Expect(config).NotTo(ContainSubstring("[switch:switch-b]"))
 			g.Expect(config).To(ContainSubstring("[switch:switch-c]"))
@@ -493,7 +665,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying config has only the header comment")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(Equal(switchConfigHeader))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
 	})
@@ -527,7 +699,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying config contains port=8443")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:switch-with-port]"))
 			g.Expect(config).To(ContainSubstring("port=8443"))
 		}, e2eConfig.GetIntervals(specName, "wait-secret-updated")...).Should(Succeed())
@@ -551,7 +723,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying the no-port switch config does NOT contain port=")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:switch-no-port]"))
 			// Extract the switch-no-port section and verify it doesn't contain port=
 			sections := strings.Split(config, "[switch:")
@@ -582,7 +754,7 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 
 		By("verifying config contains insecure=true for the insecure switch")
 		Eventually(func(g Gomega) {
-			config := getSwitchConfig(ctx, c, namespace.Name)
+			config := getSwitchConfig(ctx, c, switchSecretsNamespace)
 			g.Expect(config).To(ContainSubstring("[switch:switch-insecure]"))
 			// Extract the switch-insecure section and verify it contains insecure=true
 			sections := strings.Split(config, "[switch:")
@@ -597,7 +769,10 @@ var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch")
 	AfterEach(func() {
 		DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 		if !skipCleanup {
-			Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, nil)
+			if additionalNamespace != nil {
+				Cleanup(ctx, clusterProxy, additionalNamespace, cancelAdditionalNamespaceWatches, e2eConfig, additionalNamespaceCleanup)
+			}
+			Cleanup(ctx, clusterProxy, namespace, cancelWatches, e2eConfig, mainNamespaceCleanup)
 		}
 	})
 })

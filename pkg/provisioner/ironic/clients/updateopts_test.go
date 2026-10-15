@@ -478,3 +478,225 @@ func TestSanitisedValue(t *testing.T) {
 	}
 	assert.Exactly(t, safe, sanitisedValue(unsafe))
 }
+
+func TestRedactSensitiveURL(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "empty is unchanged",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "plain URL without secrets is unchanged",
+			in:   "https://example.com/images/image.qcow2",
+			want: "https://example.com/images/image.qcow2",
+		},
+		{
+			name: "benign query params are preserved as-is",
+			in:   "https://example.com/image.qcow2?version=2&format=qcow2",
+			want: "https://example.com/image.qcow2?version=2&format=qcow2",
+		},
+		{
+			name: "embedded userinfo credentials are removed",
+			in:   "https://user:pass@example.com/image.qcow2",
+			want: "https://example.com/image.qcow2",
+		},
+		{
+			name: "username-only userinfo is removed",
+			in:   "https://user@example.com/image.qcow2",
+			want: "https://example.com/image.qcow2",
+		},
+		{
+			name: "AWS signature query param is redacted",
+			in:   "https://example.com/image.qcow2?X-Amz-Signature=abc123&foo=bar",
+			want: "https://example.com/image.qcow2?X-Amz-Signature=REDACTED&foo=bar",
+		},
+		{
+			name: "token query param is redacted",
+			in:   "https://example.com/image.qcow2?token=supersecret",
+			want: "https://example.com/image.qcow2?token=REDACTED",
+		},
+		{
+			name: "access_token query param is redacted",
+			in:   "https://example.com/image.qcow2?access_token=supersecret",
+			want: "https://example.com/image.qcow2?access_token=REDACTED",
+		},
+		{
+			name: "password query param is redacted",
+			in:   "https://example.com/image.qcow2?password=hunter2",
+			want: "https://example.com/image.qcow2?password=REDACTED",
+		},
+		{
+			name: "secret query param is redacted",
+			in:   "https://example.com/image.qcow2?secret=hunter2&keep=1",
+			want: "https://example.com/image.qcow2?keep=1&secret=REDACTED",
+		},
+		{
+			name: "redaction is case-insensitive on param name",
+			in:   "https://example.com/image.qcow2?Signature=abc",
+			want: "https://example.com/image.qcow2?Signature=REDACTED",
+		},
+		{
+			name: "both userinfo and signed params are handled",
+			in:   "https://user:pass@example.com/image.qcow2?sig=abc&keep=1",
+			want: "https://example.com/image.qcow2?keep=1&sig=REDACTED",
+		},
+		{
+			name: "GCS signed URL params are redacted",
+			in:   "https://storage.googleapis.com/bucket/image.qcow2?X-Goog-Signature=abc&X-Goog-Credential=def",
+			want: "https://storage.googleapis.com/bucket/image.qcow2?X-Goog-Credential=REDACTED&X-Goog-Signature=REDACTED",
+		},
+		{
+			name: "Swift temp_url_sig is redacted",
+			in:   "https://swift.example.com/v1/img.qcow2?temp_url_sig=abc&temp_url_expires=123",
+			want: "https://swift.example.com/v1/img.qcow2?temp_url_expires=123&temp_url_sig=REDACTED",
+		},
+		{
+			name: "unparsable input is redacted wholesale",
+			in:   "://not a url",
+			want: "<redacted>",
+		},
+		{
+			name: "malformed query is redacted wholesale",
+			in:   "https://example.com/image.qcow2?token=secret;evil=1",
+			want: "https://example.com/image.qcow2?REDACTED",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, RedactSensitiveURL(tt.in))
+		})
+	}
+}
+
+func TestRedactSensitiveText(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "empty is unchanged",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "text without a URL is unchanged",
+			in:   "Deploy failed: could not connect to BMC",
+			want: "Deploy failed: could not connect to BMC",
+		},
+		{
+			name: "URL embedded in an error message is redacted",
+			in:   "failed to download image from https://example.com/image.qcow2?X-Amz-Signature=abc123 (404)",
+			want: "failed to download image from https://example.com/image.qcow2?X-Amz-Signature=REDACTED (404)",
+		},
+		{
+			name: "embedded userinfo is stripped",
+			in:   "error fetching https://user:pass@example.com/image.qcow2 for node",
+			want: "error fetching https://example.com/image.qcow2 for node",
+		},
+		{
+			name: "multiple URLs are each redacted",
+			in:   "primary https://example.com/a?token=one secondary https://example.com/b?sig=two",
+			want: "primary https://example.com/a?token=REDACTED secondary https://example.com/b?sig=REDACTED",
+		},
+		{
+			name: "uppercase scheme is still redacted",
+			in:   "failed to download HTTPS://user:pass@example.com/image.qcow2?token=abc",
+			want: "failed to download https://example.com/image.qcow2?token=REDACTED",
+		},
+		{
+			name: "mixed-case scheme is still redacted",
+			in:   "failed to download Https://example.com/image.qcow2?X-Amz-Signature=abc",
+			want: "failed to download https://example.com/image.qcow2?X-Amz-Signature=REDACTED",
+		},
+		{
+			name: "uppercase OCI scheme is still redacted",
+			in:   "pull failed from OCI://user:pass@registry.test/image:tag",
+			want: "pull failed from oci://registry.test/image:tag",
+		},
+		{
+			name: "a checksum URL is redacted",
+			in:   "https://user:pass@example.com/image.qcow2.md5sum?token=abc",
+			want: "https://example.com/image.qcow2.md5sum?token=REDACTED",
+		},
+		{
+			name: "a bare checksum digest is left untouched",
+			in:   "97830b5e5b6d4d1c1f0f0d0e7a0f4f7e",
+			want: "97830b5e5b6d4d1c1f0f0d0e7a0f4f7e",
+		},
+		{
+			name: "a prefixed checksum digest is left untouched",
+			in:   "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			want: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		},
+		{
+			name: "trailing sentence punctuation is not treated as part of the URL",
+			in:   "failed to download https://example.com/image.qcow2?token=abc.",
+			want: "failed to download https://example.com/image.qcow2?token=REDACTED.",
+		},
+		{
+			name: "a parenthesised URL keeps its closing bracket",
+			in:   "image (https://example.com/image.qcow2?sig=abc) is gone",
+			want: "image (https://example.com/image.qcow2?sig=REDACTED) is gone",
+		},
+		{
+			name: "scheme-less urllib3 request path is redacted",
+			in:   "HTTPSConnectionPool(host='example.com', port=443): Max retries exceeded with url: /image.qcow2?X-Amz-Signature=abc123",
+			want: "HTTPSConnectionPool(host='example.com', port=443): Max retries exceeded with url: /image.qcow2?X-Amz-Signature=REDACTED",
+		},
+		{
+			name: "a bare sensitive param pair is redacted",
+			in:   "deploy failed, request was token=supersecret",
+			want: "deploy failed, request was token=REDACTED",
+		},
+		{
+			name: "a bare password pair is redacted",
+			in:   "deploy failed, request was password=hunter2",
+			want: "deploy failed, request was password=REDACTED",
+		},
+		{
+			name: "a benign param pair is left untouched",
+			in:   "deploy failed, request was version=2",
+			want: "deploy failed, request was version=2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, RedactSensitiveText(tt.in))
+		})
+	}
+}
+
+func TestRedactSensitiveMap(t *testing.T) {
+	assert.Nil(t, RedactSensitiveMap(nil))
+
+	iinfo := map[string]any{
+		"image_source":      "https://user:pass@example.com/image.qcow2?X-Amz-Signature=abc&keep=1",
+		"boot_iso":          "HTTPS://example.com/boot.iso?token=secret",
+		"image_pull_secret": "dockerconfigjson-contents",
+		"image_type":        "whole-disk",
+		"root_device":       map[string]string{"name": "/dev/sda"},
+		"capabilities":      nil,
+	}
+
+	safe := RedactSensitiveMap(iinfo)
+
+	assert.Equal(t, "https://example.com/image.qcow2?X-Amz-Signature=REDACTED&keep=1", safe["image_source"])
+	assert.Equal(t, "https://example.com/boot.iso?token=REDACTED", safe["boot_iso"])
+	assert.Equal(t, "<redacted>", safe["image_pull_secret"])
+	// Non-sensitive values are passed through untouched.
+	assert.Equal(t, "whole-disk", safe["image_type"])
+	assert.Equal(t, map[string]string{"name": "/dev/sda"}, safe["root_device"])
+	assert.Nil(t, safe["capabilities"])
+
+	// The original map must not be modified.
+	assert.Equal(t, "https://user:pass@example.com/image.qcow2?X-Amz-Signature=abc&keep=1", iinfo["image_source"])
+	assert.Equal(t, "dockerconfigjson-contents", iinfo["image_pull_secret"])
+}

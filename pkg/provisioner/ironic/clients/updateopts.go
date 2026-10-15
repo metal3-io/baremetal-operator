@@ -2,7 +2,10 @@ package clients
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -10,6 +13,165 @@ import (
 )
 
 type UpdateOptsData map[string]any
+
+// redactedValue replaces the value of a field whose name marks it as a
+// credential, so the value never reaches status, events or logs.
+const redactedValue = "<redacted>"
+
+// redactedURLValue replaces the value of a sensitive URL query parameter. It
+// avoids angle brackets so url.Values.Encode does not percent-escape it.
+const redactedURLValue = "REDACTED"
+
+// sensitiveURLQueryParams are query parameter names (compared
+// case-insensitively) whose values may carry credential or signed access
+// tokens and must not be leaked in status, events or logs.
+var sensitiveURLQueryParams = map[string]struct{}{
+	"token":                {},
+	"access_token":         {},
+	"accesstoken":          {},
+	"password":             {},
+	"secret":               {},
+	"signature":            {},
+	"sig":                  {},
+	"x-amz-signature":      {},
+	"x-amz-credential":     {},
+	"x-amz-security-token": {},
+	"x-goog-signature":     {}, // GCS V4 signed URL
+	"x-goog-credential":    {}, // GCS V4 signed URL
+	"temp_url_sig":         {}, // OpenStack Swift TempURL
+}
+
+// URL schemes are case-insensitive (RFC 3986 section 3.1), so match them that
+// way: an Ironic error mentioning HTTPS://user:pass@host must be redacted too.
+var urlInTextRegexp = regexp.MustCompile(`(?i)(?:https?|file|oci)://[^\s"'<>]+`)
+
+// sensitiveParamRegexp matches a "name=value" pair for any sensitive parameter
+// name outside a full URL. Ironic's LastError embeds urllib3 messages that
+// repeat the request without its scheme, e.g. "Max retries exceeded with url:
+// /image.qcow2?X-Amz-Signature=...", which urlInTextRegexp cannot match. The
+// pattern is derived from sensitiveURLQueryParams so the two cannot drift.
+var sensitiveParamRegexp = func() *regexp.Regexp {
+	names := make([]string, 0, len(sensitiveURLQueryParams))
+	for name := range sensitiveURLQueryParams {
+		names = append(names, regexp.QuoteMeta(name))
+	}
+	slices.Sort(names) // keep the generated pattern deterministic
+
+	return regexp.MustCompile(`(?i)\b(` + strings.Join(names, "|") + `)=[^&\s"'<>]*`)
+}()
+
+// urlTrailingPunctuation is stripped from a URL matched inside prose: Ironic
+// ends sentences and wraps URLs in brackets, and those characters are not part
+// of the URL.
+const urlTrailingPunctuation = `.,;:!?)]}`
+
+// RedactSensitiveURL redacts embedded credentials (user:pass@host) and the
+// values of known-sensitive query parameters from a bare URL, so pre-signed or
+// credentialed image URLs are not disclosed in status, events or logs. Input
+// that cannot be parsed as a URL may still hold credentials, so it is redacted
+// wholesale rather than returned as-is.
+func RedactSensitiveURL(raw string) string {
+	if raw == "" {
+		return raw
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		// Unparsable input may still contain credentials, so fail closed.
+		return redactedValue
+	}
+
+	// Strip embedded credentials (user:pass@host).
+	u.User = nil
+
+	// Redact sensitive query parameters.
+	if u.RawQuery != "" {
+		q, perr := url.ParseQuery(u.RawQuery)
+		if perr != nil {
+			// Malformed query: fail safe rather than risk leaking a value
+			// that ParseQuery would silently drop.
+			u.RawQuery = redactedURLValue
+		} else {
+			changed := false
+			for key := range q {
+				if _, ok := sensitiveURLQueryParams[strings.ToLower(key)]; ok {
+					q.Set(key, redactedURLValue)
+					changed = true
+				}
+			}
+			if changed {
+				u.RawQuery = q.Encode()
+			}
+		}
+	}
+
+	return u.String()
+}
+
+// RedactSensitiveText redacts any URLs embedded inside an arbitrary string,
+// such as Ironic's LastError or a log value (RedactSensitiveURL only handles a
+// string that is itself a bare URL). Sensitive "name=value" pairs are redacted
+// even outside a full URL, because Ironic wraps urllib3 errors that repeat the
+// request path without its scheme.
+func RedactSensitiveText(s string) string {
+	if s == "" {
+		return s
+	}
+
+	s = urlInTextRegexp.ReplaceAllStringFunc(s, redactURLMatch)
+
+	return sensitiveParamRegexp.ReplaceAllStringFunc(s, redactParamMatch)
+}
+
+// redactURLMatch redacts a URL matched inside a larger string, preserving any
+// trailing punctuation that the match greedily consumed.
+func redactURLMatch(match string) string {
+	raw := strings.TrimRight(match, urlTrailingPunctuation)
+
+	return RedactSensitiveURL(raw) + match[len(raw):]
+}
+
+// redactParamMatch redacts the value of a sensitive "name=value" pair, keeping
+// the name and any trailing punctuation. Trimming the value is safe because it
+// is discarded anyway.
+func redactParamMatch(match string) string {
+	name, _, found := strings.Cut(match, "=")
+	if !found {
+		return match
+	}
+	trimmed := strings.TrimRight(match, urlTrailingPunctuation)
+
+	return name + "=" + redactedURLValue + match[len(trimmed):]
+}
+
+// RedactSensitiveMap returns a copy of a map of Ironic node data (InstanceInfo,
+// DriverInfo, ...) that is safe to log: values of keys that name a credential
+// are replaced wholesale, and URLs in string values have their embedded
+// credentials and signed query parameters redacted. The input is not modified.
+func RedactSensitiveMap(data map[string]any) map[string]any {
+	if data == nil {
+		return nil
+	}
+
+	safe := make(map[string]any, len(data))
+	for k, v := range data {
+		if isSensitiveOption(strings.ToLower(k)) {
+			safe[k] = redactedValue
+			continue
+		}
+		safe[k] = redactLogValue(v)
+	}
+	return safe
+}
+
+// redactLogValue redacts string log values that contain a URL, leaving
+// non-string values untouched.
+func redactLogValue(v any) any {
+	if s, ok := v.(string); ok {
+		return RedactSensitiveText(s)
+	}
+	return v
+}
 
 func optionValueEqual(current, value any) bool {
 	if reflect.DeepEqual(current, value) {
@@ -88,7 +250,7 @@ func sanitisedValue(data any) any {
 	for _, k := range value.MapKeys() {
 		safeDatumValue := value.MapIndex(k)
 		if strings.Contains(k.String(), "password") || strings.Contains(k.String(), "secret") {
-			safeDatumValue = reflect.ValueOf("<redacted>")
+			safeDatumValue = reflect.ValueOf(redactedValue)
 		}
 		safeValue.SetMapIndex(k, safeDatumValue)
 	}
@@ -106,14 +268,14 @@ func getUpdateOperation(name string, currentData map[string]any, desiredValue an
 	desiredValue = deref(desiredValue)
 	if desiredValue != nil {
 		if !(present && optionValueEqual(deref(current), desiredValue)) {
-			logValue := sanitisedValue(desiredValue)
+			logValue := redactLogValue(sanitisedValue(desiredValue))
 			if isSensitiveOption(name) {
-				logValue = "<redacted>"
+				logValue = redactedValue
 			}
 			if present {
-				oldLogValue := sanitisedValue(current)
+				oldLogValue := redactLogValue(sanitisedValue(current))
 				if isSensitiveOption(name) {
-					oldLogValue = "<redacted>"
+					oldLogValue = redactedValue
 				}
 				log.Info("updating option data",
 					"value", logValue,

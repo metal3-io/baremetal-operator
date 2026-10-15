@@ -3119,6 +3119,8 @@ spec:
     kind: HostNetworkAttachment
     listKind: HostNetworkAttachmentList
     plural: hostnetworkattachments
+    shortNames:
+    - hna
     singular: hostnetworkattachment
   scope: Namespaced
   versions:

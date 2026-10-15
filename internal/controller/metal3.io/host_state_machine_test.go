@@ -1163,6 +1163,52 @@ func TestProvisioningSecretAccessErrorRetriesWithoutDeprovision(t *testing.T) {
 	assert.Equal(t, 0, h.Status.ProvisioningFailCount)
 }
 
+func TestProvisioningCancelledClearsSecretAccessError(t *testing.T) {
+	const failCount = 2
+	h := host(metal3api.StateProvisioning).
+		SetStatusError(metal3api.OperationalStatusError, metal3api.SecretAccessError, `could not retrieve userData secret "user-data": not found`, 1).
+		build()
+	// Removing the image cancels provisioning while the host is still waiting
+	// on the Secret.
+	h.Spec.Image = nil
+	h.Status.ProvisioningFailCount = failCount
+	prov := newMockProvisioner()
+	reconciler := testNewReconciler(h)
+	hsm := newHostStateMachine(h, reconciler, prov, true)
+	info := makeDefaultReconcileInfo(h)
+
+	result := hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateDeprovisioning, h.Status.Provisioning.State)
+	assert.Empty(t, h.Status.ErrorType)
+	assert.Empty(t, h.Status.ErrorMessage)
+	assert.Equal(t, metal3api.OperationalStatusOK, h.Status.OperationalStatus)
+	assert.Equal(t, failCount, h.Status.ProvisioningFailCount)
+	assert.Equal(t, 0, prov.provisionCalls)
+	assert.True(t, result.Dirty())
+}
+
+func TestProvisioningCancelledFatalErrorIncrementsFailCount(t *testing.T) {
+	message := "Image provisioning failed"
+	h := host(metal3api.StateProvisioning).
+		SetStatusError(metal3api.OperationalStatusError, metal3api.ProvisioningError, message, 1).
+		build()
+	h.Spec.Image = nil
+	prov := newMockProvisioner()
+	reconciler := testNewReconciler(h)
+	hsm := newHostStateMachine(h, reconciler, prov, true)
+	info := makeDefaultReconcileInfo(h)
+
+	hsm.ReconcileState(t.Context(), info)
+
+	assert.Equal(t, metal3api.StateDeprovisioning, h.Status.Provisioning.State)
+	assert.Equal(t, 1, h.Status.ProvisioningFailCount)
+	assert.Equal(t, metal3api.ProvisioningError, h.Status.ErrorType)
+	assert.Equal(t, message, h.Status.ErrorMessage)
+	assert.Equal(t, metal3api.OperationalStatusError, h.Status.OperationalStatus)
+	assert.Equal(t, 0, prov.provisionCalls)
+}
+
 func TestProvisioningErrorDeprovisions(t *testing.T) {
 	h := host(metal3api.StateProvisioning).
 		SetStatusError(metal3api.OperationalStatusError, metal3api.ProvisioningError, "Image provisioning failed", 1).

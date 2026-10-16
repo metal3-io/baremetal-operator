@@ -93,6 +93,7 @@ intervals:
   hostclaims/wait-associated: [ "10s", "1s" ]
   hostclaims/wait-deleted: [ "20s", "10ms" ]
   networking/wait-hna-deleted: [ "30s", "500ms" ]
+  default/wait-dataimage-attached: [ "5m", "1s" ]
 
 kindExtraPortMappings:
 # Expose Ironic ports so they are reachable outside of kind

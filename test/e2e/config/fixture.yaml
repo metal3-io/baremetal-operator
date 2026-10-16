@@ -67,6 +67,7 @@ intervals:
   hostclaims/wait-associated: [ "10s", "1s" ]
   hostclaims/wait-deleted: [ "5s", "10ms" ]
   networking/wait-hna-deleted: [ "30s", "500ms" ]
+  default/wait-dataimage-attached: [ "1m", "1s" ]
 
 bmoUpgradeSpecs:
 - deployIronic: false

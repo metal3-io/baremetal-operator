@@ -134,6 +134,8 @@ func TestRegisterCreateNode(t *testing.T) {
 	assert.Equal(t, createdNode.UUID, provID)
 	assert.Empty(t, createdNode.DeployInterface)
 	assert.Equal(t, "agent", createdNode.InspectInterface)
+	// The driver is only looked up for hosts with inspection disabled.
+	assert.NotContains(t, ironic.Requests, "/v1/drivers/test;")
 }
 
 func TestRegisterCreateNodeFastInspection(t *testing.T) {
@@ -170,6 +172,8 @@ func TestRegisterCreateNodeFastInspection(t *testing.T) {
 	assert.NotEmpty(t, createdNode.UUID)
 	assert.Equal(t, createdNode.UUID, provID)
 	assert.Equal(t, "redfish", createdNode.InspectInterface)
+	// The driver is only looked up for hosts with inspection disabled.
+	assert.NotContains(t, ironic.Requests, "/v1/drivers/redfish;")
 }
 
 func TestRegisterFastInspectionUnsupported(t *testing.T) {
@@ -194,6 +198,123 @@ func TestRegisterFastInspectionUnsupported(t *testing.T) {
 		t.Fatalf("error from Register: %s", err)
 	}
 	assert.Contains(t, result.ErrorMessage, "does not support fast (out-of-band) inspection")
+}
+
+func TestRegisterCreateNodeInspectionDisabled(t *testing.T) {
+	testCases := []struct {
+		Scenario          string
+		DriverCode        int
+		DriverResponse    string
+		ExpectedInterface string
+		ExpectedError     string
+	}{
+		{
+			Scenario:          "no-inspect enabled",
+			DriverCode:        http.StatusOK,
+			DriverResponse:    `{"enabled_inspect_interfaces": ["agent", "no-inspect"]}`,
+			ExpectedInterface: "no-inspect",
+		},
+		{
+			Scenario:          "no-inspect not enabled",
+			DriverCode:        http.StatusOK,
+			DriverResponse:    `{"enabled_inspect_interfaces": ["agent", "redfish"]}`,
+			ExpectedInterface: "agent",
+		},
+		{
+			Scenario:       "driver lookup fails",
+			DriverCode:     http.StatusInternalServerError,
+			DriverResponse: "{}",
+			ExpectedError:  "cannot load information about driver test",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := makeHost()
+			// A MAC is required when inspection is disabled
+			host.Spec.BootMACAddress = "aa:bb:cc:dd:ee:ff"
+			host.Spec.Image = nil
+			host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+			var createdNode *nodes.Node
+			createdPorts := []ports.Port{}
+
+			createCallback := func(node nodes.Node) {
+				createdNode = &node
+			}
+
+			ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+			ironic.AddDefaultResponse("/v1/drivers/test", "GET", tc.DriverCode, tc.DriverResponse)
+			ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+			ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+			ironic.AddDefaultResponse("/v1/ports/detail", "GET", http.StatusOK, `{"ports": []}`)
+			ironic.Start()
+			defer ironic.Stop()
+
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+			require.NoError(t, err)
+
+			result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisableInspection: true}, false, false)
+			assert.Contains(t, ironic.Requests, "/v1/drivers/test;")
+			if tc.ExpectedError != "" {
+				// A transient error: no failure is recorded on the host
+				// and no node is created with a guessed interface.
+				require.ErrorContains(t, err, tc.ExpectedError)
+				assert.Empty(t, result.ErrorMessage)
+				assert.Nil(t, createdNode)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Empty(t, result.ErrorMessage)
+			require.NotNil(t, createdNode)
+			assert.Equal(t, tc.ExpectedInterface, createdNode.InspectInterface)
+		})
+	}
+}
+
+func TestRegisterExistingNodeInspectionDisabled(t *testing.T) {
+	// Existing nodes keep their inspect interface, so there is no reason
+	// to look up the driver for them.
+	host := makeHost()
+	host.Spec.BootMACAddress = "aa:bb:cc:dd:ee:ff"
+
+	createCallback := func(node nodes.Node) {
+		t.Fatal("create callback should not be invoked for existing node")
+	}
+
+	ironic := testserver.NewIronic(t).WithDrivers().CreateNodes(createCallback).Node(nodes.Node{
+		Name:             host.Namespace + nameSeparator + host.Name,
+		UUID:             host.Status.Provisioning.ID,
+		ProvisionState:   string(nodes.Manageable),
+		InspectInterface: "agent",
+	}).NodeUpdate(nodes.Node{
+		UUID: host.Status.Provisioning.ID,
+	})
+	createdPorts := []ports.Port{}
+	ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+	ironic.AddDefaultResponse("/v1/ports/detail", "GET", http.StatusOK, `{"ports": []}`)
+	ironic.Start()
+	defer ironic.Stop()
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	require.NoError(t, err)
+
+	result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisableInspection: true}, false, false)
+	require.NoError(t, err)
+	assert.Empty(t, result.ErrorMessage)
+	assert.NotContains(t, ironic.Requests, "/v1/drivers/test;")
+	// Register sends more than one PATCH for an existing node, so check
+	// all of them.
+	requests := ironic.GetNodeUpdateRequestsFor(host.Status.Provisioning.ID)
+	require.NotEmpty(t, requests)
+	for _, updates := range requests {
+		for _, update := range updates {
+			assert.NotEqual(t, "/inspect_interface", update.Path)
+		}
+	}
 }
 
 func TestRegisterExistingNode(t *testing.T) {

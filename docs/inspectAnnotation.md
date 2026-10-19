@@ -18,6 +18,13 @@ The `inspect.metal3.io: disabled` annotation is still honored for
 backward compatibility. Do not set both the annotation and
 `spec.inspectionMode` to conflicting values; the webhook rejects that.
 
+When a host with inspection disabled is registered, the node is created
+with Ironic's `no-inspect` inspect interface if Ironic has it enabled for
+the host's driver, so Ironic refuses to inspect it. Otherwise the `agent`
+interface is used. Existing nodes keep their inspect interface. If
+inspection is requested later, the interface is changed before inspection
+starts.
+
 When inspection is disabled, hardware details can be supplied with the
 `inspect.metal3.io/hardwaredetails` annotation. That annotation is
 consumed:

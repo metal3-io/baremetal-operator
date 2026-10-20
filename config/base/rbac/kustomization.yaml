@@ -21,8 +21,3 @@ resources:
 - metrics_auth_role_binding.yaml
 - metrics_reader_role.yaml
 - metrics_service.yaml
-# Switch Management stores output Secrets in IRONIC_NAMESPACE when set, or
-# POD_NAMESPACE otherwise. These namespaced permissions allow access in the
-# co-located BMO/Ironic namespace when namespace-scoped RBAC is used.
-- switch_secrets_role.yaml
-- switch_secrets_role_binding.yaml

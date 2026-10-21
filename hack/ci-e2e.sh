@@ -70,24 +70,27 @@ VBMC_IMAGE="${VBMC_IMAGE:-quay.io/metal3-io/vbmc}"
 SUSHY_EMULATOR_IMAGE="${SUSHY_EMULATOR_IMAGE:-quay.io/metal3-io/sushy-tools:latest}"
 SUSHY_EMULATOR_PORT="${SUSHY_EMULATOR_PORT:-8000}"
 
-# Default to the required tests.
+# Default to the required tier, the one gating every PR.
 export GINKGO_LABEL_FILTER="${GINKGO_LABEL_FILTER:-required}"
 
 # Compatibility: the project-infra Jenkins job still selects the upgrade tests
-# via GINKGO_FOCUS. Map it to the optional label filter.
+# via GINKGO_FOCUS. Map it to the upgrade label filter.
 # TODO: Remove once the Jenkins job no longer passes GINKGO_FOCUS.
 GINKGO_FOCUS="${GINKGO_FOCUS:-}"
 case "${GINKGO_FOCUS,,}" in
   *upgrade*)
-    export GINKGO_LABEL_FILTER="optional"
+    export GINKGO_LABEL_FILTER="upgrade"
     unset GINKGO_FOCUS
     ;;
 esac
 
-# The optional tier (upgrade tests) creates its own clusters, so the default
-# management cluster must not deploy Ironic/BMO/cert-manager.
+# The upgrade specs create their own clusters and deploy their own
+# Ironic/BMO/cert-manager, so the shared stack must not be deployed for them.
+# They run in their own job, never alongside the other tiers, so the filter is
+# matched exactly: anything else (e.g. "required && !upgrade") selects specs
+# that need the shared stack and must leave the deployments enabled.
 case "${GINKGO_LABEL_FILTER,,}" in
-  *optional*)
+  upgrade)
     export DEPLOY_IRONIC="false"
     export DEPLOY_BMO="false"
     export DEPLOY_CERT_MANAGER="false"
@@ -317,5 +320,4 @@ if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
     "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml"
 fi
 
-# Run the e2e tests
 make test-e2e

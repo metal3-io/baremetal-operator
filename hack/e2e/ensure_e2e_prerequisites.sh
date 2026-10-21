@@ -23,7 +23,8 @@ declare -A PACKAGES=(
   [tar]=""
   [libvirt-daemon-system]=""
   [qemu-kvm]="qemu-system-x86"
-  [virt-manager]=""
+  [virtinst]=""
+  [libvirt-clients]=""
 )
 
 declare -A TOOLS=(

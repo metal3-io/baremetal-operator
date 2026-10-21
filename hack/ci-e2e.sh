@@ -267,7 +267,9 @@ pub_ssh_key=$(cut -d " " -f "1,2" "${IMAGE_DIR}/ssh_testkey.pub")
 # We use the systemrescue ISO and their script for customizing it.
 if [[ ! -f "${IMAGE_DIR}/sysrescue-out.iso" ]];then
   pushd "${IMAGE_DIR}"
-  wget --no-verbose -O sysrescue-customize "https://gitlab.com/systemrescue/systemrescue-sources/-/raw/main/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false"
+  # Pin the customization script to the same release as ISO_FILE above, so the
+  # recipe format cannot drift from the ISO it customizes.
+  wget --no-verbose -O sysrescue-customize "https://gitlab.com/systemrescue/systemrescue-sources/-/raw/${SYSRESCUE_VERSION}/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false"
   chmod +x sysrescue-customize
 
   mkdir -p recipe/iso_add/sysrescue.d

@@ -232,5 +232,6 @@ configuration.
 Creating a HostNetworkAttachment requires the `IronicNetworking` feature gate.
 
 See [HostNetworkAttachment
-CR](../apis/metal3.io/v1alpha1/hostnetworkattachment_types.go)
+CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/HostNetworkAttachment/v1alpha1)
+or check the source code at `apis/metal3.io/v1alpha1/hostnetworkattachment_types.go`
 for a detailed API description.

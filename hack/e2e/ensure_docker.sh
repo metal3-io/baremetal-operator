@@ -54,7 +54,8 @@ install_docker_ubuntu() {
 
     sudo apt-get install -y ca-certificates curl
     sudo install -m 0755 -d /etc/apt/keyrings
-    sudo curl -fsSL \
+    sudo curl --proto '=https' --tlsv1.3 -fsSL \
+        --retry 3 --retry-delay 5 --max-time 120 \
         -o /etc/apt/keyrings/docker.asc \
         "${DOCKER_DOWNLOAD_URL}/gpg"
     sudo chmod a+r /etc/apt/keyrings/docker.asc

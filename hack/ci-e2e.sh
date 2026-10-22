@@ -174,7 +174,13 @@ cache_image() {
 if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
     cache_image https://download.cirros-cloud.net/"${CIRROS_VERSION}/${IMAGE_FILE}"
 fi
-if [[ ! -f "${IMAGE_DIR}/${ISO_FILE}" ]]; then
+# The live-ISO spec is skipped for BMCs without ISO support, so there is no
+# need to download the ISO for the redfish and ipmi protocols.
+NEED_ISO="true"
+if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "ipmi" ]]; then
+    NEED_ISO="false"
+fi
+if [[ "${NEED_ISO}" == "true" ]] && [[ ! -f "${IMAGE_DIR}/${ISO_FILE}" ]]; then
     wget --no-verbose -O "${IMAGE_DIR}/${ISO_FILE}" https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/"${SYSRESCUE_VERSION}"/"${ISO_FILE}"/download
 fi
 
@@ -265,7 +271,7 @@ pub_ssh_key=$(cut -d " " -f "1,2" "${IMAGE_DIR}/ssh_testkey.pub")
 # Build an ISO image with baked ssh key
 # See https://www.system-rescue.org/scripts/sysrescue-customize/
 # We use the systemrescue ISO and their script for customizing it.
-if [[ ! -f "${IMAGE_DIR}/sysrescue-out.iso" ]];then
+if [[ "${NEED_ISO}" == "true" ]] && [[ ! -f "${IMAGE_DIR}/sysrescue-out.iso" ]]; then
   pushd "${IMAGE_DIR}"
   wget --no-verbose -O sysrescue-customize "https://gitlab.com/systemrescue/systemrescue-sources/-/raw/main/airootfs/usr/share/sysrescue/bin/sysrescue-customize?inline=false"
   chmod +x sysrescue-customize

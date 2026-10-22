@@ -17,7 +17,7 @@ on:
         default: ${{ github.ref }}
       timeout-minutes:
         type: number
-        default: 90
+        default: 120
 
 permissions: {}
 

@@ -28,6 +28,9 @@ jobs:
     timeout-minutes: ${{ inputs.timeout-minutes }}
 
     steps:
+    - name: Record job start time
+      run: echo "E2E_JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ inputs.ref }}
@@ -49,11 +52,18 @@ jobs:
       env:
         BMC_PROTOCOL: ${{ inputs.bmc-protocol }}
         GINKGO_LABEL_FILTER: "${{ inputs.ginkgo-label-filter }}"
+        JOB_TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
       # We need a new shell to pick up the new group. That is why we do the sudo -s -u $USER ...
       # Remove the pre-installed go version. We install the exact version we need.
       run: |
         sudo usermod -a -G libvirt $USER
         sudo rm /usr/bin/go
+        remaining_seconds=$((JOB_TIMEOUT_MINUTES * 60 - $(date +%s) + E2E_JOB_STARTED_AT - 300))
+        if (( remaining_seconds <= 0 )); then
+          echo "No time remains to run E2E tests before the artifact collection window"
+          exit 1
+        fi
+        export GINKGO_TIMEOUT="${remaining_seconds}s"
         sudo -s -u $USER --preserve-env bash ${{ github.workspace }}/hack/ci-e2e.sh
 
     - name: Upload artifacts

@@ -20,11 +20,15 @@ import (
 	"k8s.io/component-base/featuregate"
 )
 
-const FeatureIronicNetworking featuregate.Feature = "IronicNetworking"
+const (
+	FeatureHostClaims       featuregate.Feature = "HostClaims"
+	FeatureIronicNetworking featuregate.Feature = "IronicNetworking"
+)
 
 var (
 	availableFeatures = map[featuregate.Feature]featuregate.FeatureSpec{
 		FeatureIronicNetworking: {Default: false, PreRelease: featuregate.Beta},
+		FeatureHostClaims:       {Default: false, PreRelease: featuregate.Alpha},
 	}
 
 	CurrentFeatureGate = featuregate.NewFeatureGate()

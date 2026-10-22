@@ -915,6 +915,13 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastAttemptedImage *Image `json:"lastAttemptedImage,omitempty"`
 
+	// InspectionFailCount records how many times inspection has failed
+	// consecutively. It is incremented each time the inspecting state
+	// encounters an error and is cleared on successful inspection or
+	// when the user requests a new inspection via annotation.
+	// +kubebuilder:default:=0
+	InspectionFailCount int `json:"inspectionFailCount"`
+
 	// Conditions defines current service state of the BareMetalHost.
 	// +optional
 	// +listType=map

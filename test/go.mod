@@ -25,8 +25,8 @@ require (
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd
 	libvirt.org/go/libvirt v1.12007.0
-	sigs.k8s.io/cluster-api v1.14.2
-	sigs.k8s.io/cluster-api/test v1.14.2
+	sigs.k8s.io/cluster-api v1.14.3
+	sigs.k8s.io/cluster-api/test v1.14.3
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/kind v0.33.0
 	sigs.k8s.io/kustomize/api v0.21.2

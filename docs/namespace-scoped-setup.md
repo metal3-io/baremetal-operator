@@ -173,6 +173,24 @@ manifests.
     namespace: baremetal-operator-system
   ```
 
+## Switch output Secrets
+
+When `IronicNetworking` is enabled, BMO writes the switch configuration and
+credentials Secrets named by `IRONIC_SWITCH_CONFIGS_SECRET` and
+`IRONIC_SWITCH_CREDENTIALS_SECRET` to `IRONIC_NAMESPACE`, or to the BMO pod
+namespace (`POD_NAMESPACE`) when `IRONIC_NAMESPACE` is unset. The BMO service
+account needs `get`, `list`, `update`, and `watch` access to Secrets in that
+namespace.
+
+The repository's `namespace-scoped` Kustomize component adds this Secret access
+in BMO's deployment namespace, covering these Secrets when they are co-located
+with BMO. For manual setups, grant the same Secret permissions in BMO's
+deployment namespace. If `IRONIC_NAMESPACE` points to a different namespace,
+grant those permissions there as well. You can do this by adding that namespace
+to the namespaces with the manager Role and RoleBinding above, or by creating a
+Secret-only Role and RoleBinding there for BMO's service account. Setting
+`IRONIC_NAMESPACE` alone does not grant access.
+
 ## Current Restrictions and Known Issues
 
 * **Predefined Watched Namespaces:** Due to limitations in `controller-runtime`,

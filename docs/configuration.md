@@ -26,8 +26,8 @@ base `DEPLOY_KERNEL_URL`. The same pattern applies to
 `IRONIC_NAME` -- The name of the [Ironic resource][IronicCR] to take
 configuration from.
 
-`IRONIC_NAMESPACE` -- The namespace of the Ironic resource. Only used when
-`IRONIC_NAME` is set. Defaults to `WATCH_NAMESPACE`.
+`IRONIC_NAMESPACE` -- The namespace of the Ironic resource when `IRONIC_NAME`
+is set.
 
 `IRONIC_ENDPOINT` -- The URL for the operator to use when talking to
 Ironic. Not used when `IRONIC_NAME` is set.
@@ -115,11 +115,13 @@ Override to `noop` for test environments without a virtual switch.
 
 `IRONIC_SWITCH_CONFIGS_SECRET` -- The name of the Secret to be populated with
 switch configuration data used by the Ironic standalone networking
-implementation. Required when `IronicNetworking` is enabled.
+implementation. Required when `IronicNetworking` is enabled.  This Secret
+must exist in the `IRONIC_NAMESPACE` (if set) or, otherwise, `POD_NAMESPACE`.
 
 `IRONIC_SWITCH_CREDENTIALS_SECRET` -- The name of the Secret to be populated
 with switch credentials used by the Ironic standalone networking
-implementation. Required when `IronicNetworking` is enabled.
+implementation. Required when `IronicNetworking` is enabled.  This Secret
+must exist in the `IRONIC_NAMESPACE` (if set) or, otherwise, `POD_NAMESPACE`.
 
 `IRONIC_SWITCH_CREDENTIALS_PATH` -- Contains the path where switch credential
 secrets are mounted in the Ironic pod so that configuration data can be written

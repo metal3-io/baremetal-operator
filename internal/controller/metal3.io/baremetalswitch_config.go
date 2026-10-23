@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -55,6 +56,13 @@ type credentialSecretNotFoundError struct {
 
 func (e *credentialSecretNotFoundError) Error() string { return e.msg }
 
+// duplicateSwitchError indicates that a switch conflicts with an older switch.
+type duplicateSwitchError struct {
+	msg string
+}
+
+func (e *duplicateSwitchError) Error() string { return e.msg }
+
 // switchConfigResult holds the per-switch config entries and any collected
 // SSH private key files for publickey-authenticated switches. Both maps
 // are keyed per-switch: configEntries by switch name, keyFiles by MAC address.
@@ -64,43 +72,95 @@ type switchConfigResult struct {
 	// keyFiles maps "<mac-address>.key" to SSH private key bytes for
 	// publickey-authenticated switches.
 	keyFiles map[string][]byte
-	// credentialErrors maps switch name to the credential error that caused
-	// the switch to be skipped during config generation. Values are either
-	// *credentialConfigError or *credentialSecretNotFoundError.
-	credentialErrors map[string]error
+	// errors maps switch UIDs to errors that caused the switches to be skipped
+	// during config generation, including credential and duplicate conflicts.
+	errors map[types.UID]error
 }
 
 // generateSwitchConfig generates the INI-format switch configuration for ironic-networking.
 // It returns per-switch config entries and a map of key files for publickey switches.
 // Switches with credential errors are skipped with a warning log instead of failing
 // the entire config generation.
-func generateSwitchConfig(ctx context.Context, c client.Client, sm secretutils.SecretManager, namespace, credentialsPath string, logger logr.Logger) (*switchConfigResult, error) {
-	// List all BareMetalSwitch resources in the namespace
+func generateSwitchConfig(ctx context.Context, c client.Client, sm secretutils.SecretManager, credentialsPath string, logger logr.Logger) (*switchConfigResult, error) {
 	switchList := &metal3api.BareMetalSwitchList{}
-	if err := c.List(ctx, switchList, client.InNamespace(namespace)); err != nil {
+	if err := c.List(ctx, switchList); err != nil {
 		return nil, fmt.Errorf("failed to list BareMetalSwitch resources: %w", err)
 	}
 
+	// Process older switches first so they win duplicate names and MAC addresses.
+	// Namespace and name provide stable tie-breaks.
+	slices.SortFunc(switchList.Items, compareBareMetalSwitches)
+
 	result := &switchConfigResult{
-		configEntries:    make(map[string][]byte),
-		keyFiles:         make(map[string][]byte),
-		credentialErrors: make(map[string]error),
+		configEntries: make(map[string][]byte),
+		keyFiles:      make(map[string][]byte),
+		errors:        make(map[types.UID]error),
 	}
 
-	// Generate config for each switch
+	seenNames := make(map[string]*metal3api.BareMetalSwitch, len(switchList.Items))
+	seenMACAddresses := make(map[string]*metal3api.BareMetalSwitch, len(switchList.Items))
 	for i := range switchList.Items {
-		if err := writeSwitchEntry(ctx, sm, &switchList.Items[i], credentialsPath, result.configEntries, result.keyFiles); err != nil {
+		sw := &switchList.Items[i]
+		var duplicateReasons []string
+		if existing, exists := seenNames[sw.Name]; exists {
+			duplicateReasons = append(duplicateReasons, fmt.Sprintf(
+				"name %q conflicts with %s/%s", sw.Name, existing.Namespace, existing.Name))
+		}
+		// MAC addresses are case-insensitive, and the CRD allows either case.
+		macAddressKey := strings.ToLower(sw.Spec.MACAddress)
+		if existing, exists := seenMACAddresses[macAddressKey]; exists {
+			duplicateReasons = append(duplicateReasons, fmt.Sprintf(
+				"MAC address %q conflicts with %s/%s", sw.Spec.MACAddress, existing.Namespace, existing.Name))
+		}
+		if len(duplicateReasons) > 0 {
+			result.errors[sw.UID] = &duplicateSwitchError{msg: fmt.Sprintf(
+				"BareMetalSwitch %s/%s is a duplicate: %s",
+				sw.Namespace, sw.Name, strings.Join(duplicateReasons, "; "),
+			)}
+			logger.Info("skipping duplicate BareMetalSwitch",
+				"namespace", sw.Namespace, "switch", sw.Name,
+				"duplicateReasons", duplicateReasons)
+			continue
+		}
+		// A skipped duplicate does not reserve its other identifier, allowing an
+		// otherwise unique switch to be included in the generated config.
+		seenNames[sw.Name] = sw
+		seenMACAddresses[macAddressKey] = sw
+
+		if err := writeSwitchEntry(ctx, sm, sw, credentialsPath, result.configEntries, result.keyFiles); err != nil {
 			if errors.As(err, new(*credentialConfigError)) || errors.As(err, new(*credentialSecretNotFoundError)) {
 				logger.Info("skipping switch due to credential error",
-					"switch", switchList.Items[i].Name, "error", err)
-				result.credentialErrors[switchList.Items[i].Name] = err
+					"namespace", sw.Namespace, "switch", sw.Name, "error", err)
+				result.errors[sw.UID] = err
 				continue
 			}
-			return nil, fmt.Errorf("failed to generate config for switch %s: %w", switchList.Items[i].Name, err)
+			return nil, fmt.Errorf("failed to generate config for switch %s/%s: %w", sw.Namespace, sw.Name, err)
 		}
 	}
 
 	return result, nil
+}
+
+func compareBareMetalSwitches(a, b metal3api.BareMetalSwitch) int {
+	if a.CreationTimestamp.Before(&b.CreationTimestamp) {
+		return -1
+	}
+	if b.CreationTimestamp.Before(&a.CreationTimestamp) {
+		return 1
+	}
+	if a.Namespace < b.Namespace {
+		return -1
+	}
+	if a.Namespace > b.Namespace {
+		return 1
+	}
+	if a.Name < b.Name {
+		return -1
+	}
+	if a.Name > b.Name {
+		return 1
+	}
+	return 0
 }
 
 // switchConfigData holds the template data for generating a switch's INI config entry.
@@ -257,12 +317,12 @@ func writeSwitchEntry(ctx context.Context, sm secretutils.SecretManager, sw *met
 	return nil
 }
 
-// updateSwitchConfigSecret generates switch configuration from BareMetalSwitch CRDs
-// and updates both the switch config secret and the switch credentials secret.
+// updateSwitchConfigSecret generates switch configuration from all visible
+// BareMetalSwitch CRDs and updates both output secrets in secretNamespace.
 // It returns the switchConfigResult so the caller can inspect per-switch credential errors.
-func updateSwitchConfigSecret(ctx context.Context, c client.Client, sm secretutils.SecretManager, namespace, configSecretName, credentialSecretName, credentialPath string, logger logr.Logger) (*switchConfigResult, error) {
-	// Generate the switch config from BareMetalSwitch CRDs
-	result, err := generateSwitchConfig(ctx, c, sm, namespace, credentialPath, logger)
+func updateSwitchConfigSecret(ctx context.Context, c client.Client, sm secretutils.SecretManager, secretNamespace, configSecretName, credentialSecretName, credentialPath string, logger logr.Logger) (*switchConfigResult, error) {
+	// Generate the switch config from all BareMetalSwitch CRDs visible to BMO.
+	result, err := generateSwitchConfig(ctx, c, sm, credentialPath, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -282,14 +342,14 @@ func updateSwitchConfigSecret(ctx context.Context, c client.Client, sm secretuti
 	}
 
 	// Update the switch configs secret
-	if err := updateSecretData(ctx, c, sm, namespace, configSecretName, map[string][]byte{
+	if err := updateSecretData(ctx, c, sm, secretNamespace, configSecretName, map[string][]byte{
 		switchConfigKey: configBuf.Bytes(),
-	}); err != nil {
+	}, logger); err != nil {
 		return nil, fmt.Errorf("failed to update switch configs secret: %w", err)
 	}
 
 	// Update the switch credentials secret
-	if err := updateSecretData(ctx, c, sm, namespace, credentialSecretName, result.keyFiles); err != nil {
+	if err := updateSecretData(ctx, c, sm, secretNamespace, credentialSecretName, result.keyFiles, logger); err != nil {
 		return nil, fmt.Errorf("failed to update switch credentials secret: %w", err)
 	}
 
@@ -300,7 +360,7 @@ func updateSwitchConfigSecret(ctx context.Context, c client.Client, sm secretuti
 // data is fully replaced with newData. The SecretManager is used to fetch the
 // secret so that unlabelled secrets are found via the API reader and
 // automatically labelled for the filtered cache.
-func updateSecretData(ctx context.Context, c client.Client, sm secretutils.SecretManager, namespace, secretName string, newData map[string][]byte) error {
+func updateSecretData(ctx context.Context, c client.Client, sm secretutils.SecretManager, namespace, secretName string, newData map[string][]byte, logger logr.Logger) error {
 	secret, err := sm.ObtainSecret(ctx, types.NamespacedName{
 		Name:      secretName,
 		Namespace: namespace,
@@ -319,6 +379,7 @@ func updateSecretData(ctx context.Context, c client.Client, sm secretutils.Secre
 	if err := c.Update(ctx, secret); err != nil {
 		return fmt.Errorf("failed to update secret %s: %w", secretName, err)
 	}
+	logger.Info("updated BareMetalSwitch output secret data", "namespace", namespace, "secret", secretName)
 
 	return nil
 }

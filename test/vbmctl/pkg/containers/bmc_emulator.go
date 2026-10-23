@@ -77,6 +77,8 @@ func createEmulatorInstance(ctx context.Context, instance *bmcEmulatorInstance) 
 		HostConfig: &container.HostConfig{
 			NetworkMode: "host",
 			Binds:       volumeMountsToBinds(instance.volumeMounts),
+			// Restart the container if it exits or the host reboots, unless it was stopped.
+			RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyUnlessStopped},
 		},
 		NetworkingConfig: nil,
 		Platform:         nil,

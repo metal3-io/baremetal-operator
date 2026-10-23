@@ -21,9 +21,13 @@
 //	}
 //	err := containers.CreateRunningContainer(ctx, "BMC emulator", opts)
 //
-// The function checks whether the container already exists before creating it,
-// and starts it regardless of whether it was freshly created or was previously
-// stopped.
+// The function pulls the image if it is not present, then creates and starts
+// the container. If a container with the same name already exists, running or
+// not, it returns an error wrapping ErrContainerExists and changes nothing.
+//
+// CreateImageServerInstance and CreateBMCEmulatorInstance create their
+// containers with the unless-stopped restart policy, so Docker starts them
+// again after a host reboot.
 //
 // Containers can be removed forcefully using DeleteContainer:
 //

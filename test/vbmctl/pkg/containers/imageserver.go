@@ -54,6 +54,8 @@ func CreateImageServerInstance(ctx context.Context, cfg *vbmctlapi.ImageServerCo
 					},
 				},
 			},
+			// Restart the container if it exits or the host reboots, unless it was stopped.
+			RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyUnlessStopped},
 		},
 		NetworkingConfig: nil,
 		Platform:         nil,

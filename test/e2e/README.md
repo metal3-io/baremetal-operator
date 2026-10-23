@@ -143,6 +143,44 @@ regarding BMCs should be stored in a yaml file, whose path is exported to
 [bmcs-redfish-virtualmedia.yaml](config/bmcs-redfish-virtualmedia.yaml)
 to understand the file structure).
 
+## TLS-hardened IPA (Ironic Python Agent) downloads
+
+The image server used in CI (managed by `vbmctl`, see
+[test/vbmctl](../vbmctl)) caches the Ironic Python Agent (IPA) kernel/ramdisk
+tarball, the cirros disk image and the SystemRescue ISO. By default, Ironic's
+`ramdisk-downloader` init container fetches the IPA tarball from this server.
+
+`ci-e2e.sh` generates a self-signed TLS certificate for the image server using
+`openssl` and configures Ironic to download the IPA tarball over HTTPS,
+validating the image server's certificate via `spec.tls.trustedCA`
+(`data/ironic-standalone-operator/components/trusted-ca`). `vbmctl` has no
+built-in TLS support; instead, the certificate/key and a static nginx
+configuration file adding an HTTPS server block
+(`config/nginx-tls.conf`) are mounted into the image server container using
+the generic `extraMounts`/`extraPorts` fields of its `imageServer` config
+(see `config/vbmctl.yaml.tmpl` and [test/vbmctl](../vbmctl)).
+The `ramdisk-downloader` init container itself is replaced via
+`spec.overrides.initContainers` (an experimental ironic-standalone-operator
+feature, enabled via `FEATURE_GATES=Overrides=true`) so that `CURL_CA_BUNDLE`
+can be set, since ironic-standalone-operator does not otherwise pass this
+through.
+
+The disk image (`IMAGE_URL`) and the live-ISO (`ISO_IMAGE_URL`) are served
+from the same image server over HTTPS as well, so that the whole provisioning
+flow is exercised with TLS. Ironic is also configured to pass `ipa-insecure=0`
+to IPA through `spec.deployRamdisk.extraKernelParams`, which makes IPA verify
+the certificates of the servers it talks to and download from. The CA
+certificate is injected into the ramdisk by ironic-image (from
+`spec.tls.trustedCA`).
+
+> **Note:** ironic-image always adds its own `ipa-insecure=<value>` (default
+> `1`) to the kernel parameters *before* the ones from `extraKernelParams`, so
+> the parameter appears twice on the kernel command line. IPA reads the
+> command line into a dictionary, so the last occurrence is the effective one.
+> `ipa-insecure=0` must therefore stay at the end of `extraKernelParams`.
+> `VerifyIronicManagedBoot` checks the effective value from `/proc/cmdline`
+> in the e2e tests.
+
 ## Tests
 
 Here is a list of the currently implemented tests. As mentioned above, we divide

@@ -18,6 +18,27 @@ import (
 var ErrNetworkExists = errors.New("cannot create network, it already exists")
 var ErrNetworkNotFound = errors.New("given network was not found")
 
+// ErrContainerExists is returned when vbmctl is asked to create a container
+// that already exists, whether it is running or not.
+var ErrContainerExists = errors.New("already exists")
+
+// dockerClient is the part of *client.Client used by CreateRunningContainer.
+type dockerClient interface {
+	ContainerList(ctx context.Context, options client.ContainerListOptions) (client.ContainerListResult, error)
+	ImageInspect(ctx context.Context, imageID string, inspectOpts ...client.ImageInspectOption) (client.ImageInspectResult, error)
+	ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error)
+	ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error)
+	ContainerStart(ctx context.Context, containerID string, options client.ContainerStartOptions) (client.ContainerStartResult, error)
+	ContainerRemove(ctx context.Context, containerID string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error)
+	Close() error
+}
+
+// newDockerClient returns the client used by CreateRunningContainer. Unit
+// tests replace it with a fake.
+var newDockerClient = func() (dockerClient, error) {
+	return client.New(client.FromEnv, client.WithUserAgent("vbmctl/"+config.Version))
+}
+
 func ensureVbmctlPrefix(name string) string {
 	if !strings.HasPrefix(name, "vbmctl-") {
 		return "vbmctl-" + name
@@ -25,7 +46,7 @@ func ensureVbmctlPrefix(name string) string {
 	return name
 }
 
-func getContainerStatus(ctx context.Context, containerName string, apiClient *client.Client) (status container.ContainerState, uuid string, err error) {
+func getContainerStatus(ctx context.Context, containerName string, apiClient dockerClient) (status container.ContainerState, uuid string, err error) {
 	// Use a name filter (anchored regex for exact match) and limit to 1
 	// to avoid fetching all containers. Returns empty strings without error if not found.
 	list, err := apiClient.ContainerList(ctx, client.ContainerListOptions{
@@ -40,52 +61,63 @@ func getContainerStatus(ctx context.Context, containerName string, apiClient *cl
 	return list.Items[0].State, list.Items[0].ID, nil
 }
 
+// pullImageIfMissing pulls the image if it is not already present locally.
+func pullImageIfMissing(ctx context.Context, apiClient dockerClient, humanName, image string) error {
+	if _, err := apiClient.ImageInspect(ctx, image); err == nil {
+		return nil
+	}
+	//nolint:forbidigo // CLI output is intentional
+	fmt.Printf("Pulling image %s ...\n", image)
+	rc, err := apiClient.ImagePull(ctx, image, client.ImagePullOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to pull image %q for %s container: %w", image, humanName, err)
+	}
+	if err := rc.Wait(ctx); err != nil {
+		return fmt.Errorf("failed to pull image %q: %w", image, err)
+	}
+	return nil
+}
+
+// CreateRunningContainer creates and starts a container, pulling its image
+// first if it is not present. It returns an error wrapping ErrContainerExists
+// if a container with the same name already exists, whether it is running or
+// not. If the new container cannot be started, it is removed again.
 func CreateRunningContainer(ctx context.Context, humanName string, opts *client.ContainerCreateOptions) error {
-	apiClient, err := client.New(client.FromEnv, client.WithUserAgent("vbmctl/"+config.Version))
+	apiClient, err := newDockerClient()
 	if err != nil {
 		return err
 	}
 	defer apiClient.Close()
 
-	// need to check if the container is already running to avoid creating multiple instances
 	status, containerID, err := getContainerStatus(ctx, opts.Name, apiClient)
 	if err != nil {
 		return fmt.Errorf("failed to get status for container %q: %w", opts.Name, err)
 	}
 	if containerID != "" {
-		//nolint:forbidigo // CLI output is intentional
-		fmt.Printf("Found %s container: %s (id: %s) status: %s\n", humanName, opts.Name, containerID[:12], status)
-		if status == "running" {
-			return nil
-		}
-		// container exists but is not running, we can start it below
-	} else {
-		// Pull the image if it is not already present locally
-		if _, err := apiClient.ImageInspect(ctx, opts.Config.Image); err != nil {
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Pulling image %s ...\n", opts.Config.Image)
-			rc, err := apiClient.ImagePull(ctx, opts.Config.Image, client.ImagePullOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to pull image %q for %s container: %w", opts.Config.Image, humanName, err)
-			}
-			if err := rc.Wait(ctx); err != nil {
-				return fmt.Errorf("failed to pull image %q: %w", opts.Config.Image, err)
-			}
-		}
-
-		// Create the container
-		resp, err := apiClient.ContainerCreate(ctx, *opts)
-		if err != nil {
-			return fmt.Errorf("failed to create %s container: %w", humanName, err)
-		}
-		containerID = resp.ID
+		return fmt.Errorf("%s container %s %w (%s), delete it first, for example with \"docker rm -f %s\"",
+			humanName, opts.Name, ErrContainerExists, status, opts.Name)
 	}
 
-	if _, err := apiClient.ContainerStart(ctx, containerID, client.ContainerStartOptions{}); err != nil {
+	err = pullImageIfMissing(ctx, apiClient, humanName, opts.Config.Image)
+	if err != nil {
+		return err
+	}
+
+	resp, err := apiClient.ContainerCreate(ctx, *opts)
+	if err != nil {
+		return fmt.Errorf("failed to create %s container: %w", humanName, err)
+	}
+
+	if _, err := apiClient.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
+		// Remove the container created above, so that it does not make the
+		// next create fail with ErrContainerExists.
+		if _, rmErr := apiClient.ContainerRemove(ctx, resp.ID, client.ContainerRemoveOptions{Force: true}); rmErr != nil {
+			return fmt.Errorf("failed to start the %s container: %w (removing it also failed: %w)", humanName, err, rmErr)
+		}
 		return fmt.Errorf("failed to start the %s container: %w", humanName, err)
 	}
 	//nolint:forbidigo // CLI output is intentional
-	fmt.Printf("Started the %s container: %s (id: %s)\n", humanName, opts.Name, containerID[:12])
+	fmt.Printf("Started the %s container: %s (id: %s)\n", humanName, opts.Name, resp.ID[:12])
 
 	return nil
 }

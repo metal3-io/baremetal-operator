@@ -110,6 +110,12 @@ vbmctl delete bmc-emulator
 vbmctl --help
 ```
 
+The image server and BMC emulator containers are created with the Docker
+restart policy `unless-stopped`, so they start again after a host reboot.
+`vbmctl create` fails if one of these containers already exists, running or
+stopped. Delete it first with `vbmctl delete image-server`,
+`vbmctl delete bmc-emulator` or `vbmctl delete bml`.
+
 ### Bare Metal Lab Workflow
 
 The recommended workflow is to define your VMs in a configuration file and use

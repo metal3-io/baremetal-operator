@@ -14,7 +14,7 @@
 #
 # The author stage keeps BMO at /bmo-src, not bmo-builder's /bmo, so this build
 # fails unless both sides record their BMO packages as module@version.
-ARG BUILD_IMAGE=docker.io/golang:1.26.10@sha256:c141012f2b79382f9cb7438104ae0cd324cc548c1a605f393ef7402b87a1bd8b
+ARG BUILD_IMAGE=docker.io/golang:1.26.10@sha256:672c944cfd07599b5f1bb179869270cdc94c6254e41db4d431259693cb286b82
 ARG MODULE_VERSION=v0.0.0-dev
 
 FROM $BUILD_IMAGE AS bmo-builder

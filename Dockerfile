@@ -1,6 +1,6 @@
 # Support FROM override
-ARG BUILD_IMAGE=docker.io/golang:1.26.10@sha256:c141012f2b79382f9cb7438104ae0cd324cc548c1a605f393ef7402b87a1bd8b
-ARG BASE_IMAGE=gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd
+ARG BUILD_IMAGE=docker.io/golang:1.26.10@sha256:672c944cfd07599b5f1bb179869270cdc94c6254e41db4d431259693cb286b82
+ARG BASE_IMAGE=gcr.io/distroless/base-debian13:nonroot@sha256:a557d784ac275c287d2bdf3172f47bece8d2a0ef3c0fdefb712e95084a04a562
 
 # Shared SDK stage: pinned Go toolchain, modules, and checked-out tree.
 # Downstream builder stages copy from here so we pay the `go mod download`

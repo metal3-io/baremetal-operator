@@ -36,12 +36,19 @@ Please note that the script installs Go in `/usr/local/go`. If you want to invok
 the e2e Makefile target directly with `make test-e2e`, you may need to adjust your
 `PATH` accordingly.
 
-Currently there are two sets of tests, which cannot be ran together in the same
-cluster. One is the "optional" set, currently consists of only the
-upgrade tests (`upgrade_*_test.go`), and the "required" set, which are the ones
-required to run in every BMO PR. Every spec is labeled (via Ginkgo's
-`Label(...)`) with its tier (`required` or `optional`), plus additional area
-labels (e.g. `provision`, `inspection`, `firmware`).
+Currently there are two sets of tests. One is the "optional" set, consisting of
+the upgrade tests (`upgrade_*_test.go`) and the slower specs that are unlikely
+to break on a typical change (firmware settings and firmware components), and
+the "required" set, which are the ones required to run in every BMO PR. Every
+spec is labeled (via Ginkgo's `Label(...)`) with its tier (`required` or
+`optional`), plus additional area labels (e.g. `provision`, `inspection`,
+`firmware`).
+
+The upgrade specs create their own clusters and deploy their own
+Ironic/BMO/cert-manager, so they cannot run in the same cluster as the other
+specs. `hack/ci-e2e.sh` therefore runs the suite in two passes, splitting on the
+`upgrade` label: everything else first, against the shared management cluster,
+then the upgrade specs with the deployments disabled.
 
 Which tier(s) run is controlled entirely by the `GINKGO_LABEL_FILTER` env var,
 a single [Ginkgo label-filter expression](https://onsi.github.io/ginkgo/#spec-labels)
@@ -178,3 +185,7 @@ both redfish and ipmi protocols in CI.
   Operator works by creating a BareMetalHost with external inspection. Then
   upgrade the Bare Metal Operator and check the BareMetalHost can be
   provisioned with the upgraded version.
+- Host Firmware Settings: Check that firmware settings can be applied and
+  updated, both during provisioning and via servicing. Only runs with Redfish.
+- Host Firmware Components: Check that a BIOS firmware update is applied during
+  cleaning and via servicing. Only runs with Redfish.

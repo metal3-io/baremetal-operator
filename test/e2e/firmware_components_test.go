@@ -48,7 +48,7 @@ func waitForBIOSFirmwareUpdate(ctx context.Context, cl client.Client, hfc *metal
 	}, intervals...).Should(Succeed())
 }
 
-var _ = Describe("Host Firmware Components", Label("required", "firmware-components", "ironic"), func() {
+var _ = Describe("Host Firmware Components", Label("optional", "firmware-components", "ironic"), func() {
 	var (
 		specName      = "firmware-components"
 		namespace     *corev1.Namespace

@@ -84,15 +84,13 @@ case "${GINKGO_FOCUS,,}" in
     ;;
 esac
 
-# The optional tier (upgrade tests) creates its own clusters, so the default
-# management cluster must not deploy Ironic/BMO/cert-manager.
+# The upgrade specs create their own clusters and deploy their own
+# Ironic/BMO/cert-manager, so they cannot share the management cluster every
+# other spec uses. Decide by the "upgrade" label rather than by tier, so the
+# optional tier can also hold specs that need the shared stack.
 case "${GINKGO_LABEL_FILTER,,}" in
-  *optional*)
-    export DEPLOY_IRONIC="false"
-    export DEPLOY_BMO="false"
-    export DEPLOY_CERT_MANAGER="false"
-    export GINKGO_NODES=1
-    ;;
+  *optional*|*upgrade*) RUN_UPGRADE_SPECS="true" ;;
+  *)                    RUN_UPGRADE_SPECS="false" ;;
 esac
 
 # Set CI_E2E_SKIP_INSTALLATION/CI_E2E_SKIP_BUILDING/CI_E2E_SKIP_SETUP to "true"
@@ -325,5 +323,16 @@ if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
     "${REPO_ROOT}/test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml"
 fi
 
-# Run the e2e tests
-make test-e2e
+# Run everything except the upgrade specs against the shared management
+# cluster created by the suite.
+GINKGO_LABEL_FILTER="(${GINKGO_LABEL_FILTER}) && !upgrade" make test-e2e
+
+# Then the upgrade specs, which create their own clusters and deploy their own
+# stack. They get a separate artifact folder, since the junit report filename is
+# fixed and the second run would otherwise overwrite the first one's.
+if [[ "${RUN_UPGRADE_SPECS}" == "true" ]]; then
+  DEPLOY_IRONIC="false" DEPLOY_BMO="false" DEPLOY_CERT_MANAGER="false" \
+  GINKGO_NODES=1 \
+  ARTIFACTS="${REPO_ROOT}/test/e2e/_artifacts/upgrade" \
+  GINKGO_LABEL_FILTER="(${GINKGO_LABEL_FILTER}) && upgrade" make test-e2e
+fi

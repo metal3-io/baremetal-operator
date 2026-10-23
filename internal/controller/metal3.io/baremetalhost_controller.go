@@ -72,6 +72,7 @@ type BareMetalHostReconciler struct {
 	APIReader              client.Reader
 	Recorder               record.EventRecorder
 	MaxProvisioningRetries int
+	MaxInspectionRetries   int
 	AllowedHNANamespaces   []string
 }
 
@@ -1152,6 +1153,39 @@ func (r *BareMetalHostReconciler) actionInspecting(ctx context.Context, prov pro
 	refresh := inspectionRefreshRequested(info.host)
 	forceReboot, _ := hasRebootAnnotation(info, true)
 
+	// User requested a fresh inspection via annotation: reset fail count.
+	if refresh {
+		info.host.Status.InspectionFailCount = 0
+	}
+
+	limit := r.MaxInspectionRetries
+	if limit > 0 && info.host.Status.InspectionFailCount >= limit {
+		info.log.Info("inspection retry limit reached, not retrying",
+			"failCount", info.host.Status.InspectionFailCount,
+			"limit", limit)
+		return recordActionFailure(info, metal3api.InspectionError,
+			fmt.Sprintf("inspection failed %d times, retry limit (%d) reached; "+
+				"set inspect.metal3.io annotation to retry or use inspectionMode: disabled to skip",
+				info.host.Status.InspectionFailCount, limit))
+	}
+
+	// Check if previous inspection attempt failed and we are retrying
+	if info.host.Status.ErrorType == metal3api.InspectionError {
+		info.host.Status.InspectionFailCount++
+		info.log.Info("inspection failed, incrementing fail count",
+			"inspectionFailCount", info.host.Status.InspectionFailCount)
+
+		if limit > 0 && info.host.Status.InspectionFailCount >= limit {
+			info.log.Info("inspection retry limit reached, not retrying",
+				"failCount", info.host.Status.InspectionFailCount,
+				"limit", limit)
+			return recordActionFailure(info, metal3api.InspectionError,
+				fmt.Sprintf("inspection failed %d times, retry limit (%d) reached; "+
+					"set inspect.metal3.io annotation to retry or use inspectionMode: disabled to skip",
+					info.host.Status.InspectionFailCount, limit))
+		}
+	}
+
 	provResult, started, details, err := prov.InspectHardware(
 		ctx,
 		provisioner.InspectData{
@@ -1201,6 +1235,7 @@ func (r *BareMetalHostReconciler) actionInspecting(ctx context.Context, prov pro
 	}
 
 	clearError(info.host)
+	info.host.Status.InspectionFailCount = 0
 	info.host.Status.HardwareDetails = details
 
 	// Create HardwareData with the same name and namesapce as BareMetalHost

@@ -1909,3 +1909,127 @@ func TestProvisioningRetryLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestInspectionRetryLimit(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+
+		Host                 *metal3api.BareMetalHost
+		MaxInspectionRetries int
+
+		ExpectedState             metal3api.ProvisioningState
+		ExpectedInspectionFail    int
+		ExpectedOperationalStatus metal3api.OperationalStatus
+	}{
+		{
+			Scenario: "retry-limit-reached-stays-inspecting-error",
+			Host: func() *metal3api.BareMetalHost {
+				h := host(metal3api.StateInspecting).build()
+				h.Status.ErrorType = metal3api.InspectionError
+				h.Status.ErrorMessage = "inspection failed"
+				h.Status.InspectionFailCount = 4
+				return h
+			}(),
+			MaxInspectionRetries: 5,
+
+			ExpectedState:             metal3api.StateInspecting,
+			ExpectedInspectionFail:    5,
+			ExpectedOperationalStatus: metal3api.OperationalStatusError,
+		},
+		{
+			Scenario: "subsequent-reconcile-preserves-limit-count",
+			Host: func() *metal3api.BareMetalHost {
+				h := host(metal3api.StateInspecting).build()
+				h.Status.ErrorType = metal3api.InspectionError
+				h.Status.ErrorMessage = "retry limit reached"
+				h.Status.InspectionFailCount = 5
+				return h
+			}(),
+			MaxInspectionRetries: 5,
+
+			ExpectedState:             metal3api.StateInspecting,
+			ExpectedInspectionFail:    5,
+			ExpectedOperationalStatus: metal3api.OperationalStatusError,
+		},
+		{
+			Scenario: "below-retry-limit-succeeds",
+			Host: func() *metal3api.BareMetalHost {
+				h := host(metal3api.StateInspecting).build()
+				h.Status.ErrorType = metal3api.InspectionError
+				h.Status.ErrorMessage = "inspection failed"
+				h.Status.InspectionFailCount = 2
+				return h
+			}(),
+			MaxInspectionRetries: 5,
+
+			// Mock always returns details, so inspection completes and count resets
+			ExpectedState:             metal3api.StatePreparing,
+			ExpectedInspectionFail:    0,
+			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
+		},
+		{
+			Scenario: "limit-zero-disables-retry-limit",
+			Host: func() *metal3api.BareMetalHost {
+				h := host(metal3api.StateInspecting).build()
+				h.Status.ErrorType = metal3api.InspectionError
+				h.Status.ErrorMessage = "inspection failed"
+				h.Status.InspectionFailCount = 100
+				return h
+			}(),
+			MaxInspectionRetries: 0,
+
+			// Limit disabled, mock succeeds, count resets
+			ExpectedState:             metal3api.StatePreparing,
+			ExpectedInspectionFail:    0,
+			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
+		},
+		{
+			Scenario: "successful-inspection-resets-fail-count",
+			Host: func() *metal3api.BareMetalHost {
+				h := host(metal3api.StateInspecting).build()
+				h.Status.InspectionFailCount = 3
+				return h
+			}(),
+			MaxInspectionRetries: 5,
+
+			ExpectedState:             metal3api.StatePreparing,
+			ExpectedInspectionFail:    0,
+			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
+		},
+		{
+			Scenario: "inspection-refresh-resets-fail-count",
+			Host: func() *metal3api.BareMetalHost {
+				h := host(metal3api.StateAvailable).SaveHostProvisioningSettings().build()
+				h.Status.InspectionFailCount = 5
+				if h.Annotations == nil {
+					h.Annotations = map[string]string{}
+				}
+				h.Annotations[metal3api.InspectAnnotationPrefix] = ""
+				return h
+			}(),
+			MaxInspectionRetries: 5,
+
+			ExpectedState:             metal3api.StateInspecting,
+			ExpectedInspectionFail:    0,
+			ExpectedOperationalStatus: metal3api.OperationalStatusOK,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			prov := newMockProvisioner()
+			prov.setHasCapacity(true)
+			reconciler := testNewReconciler(tc.Host)
+			reconciler.MaxInspectionRetries = tc.MaxInspectionRetries
+			hsm := newHostStateMachine(tc.Host, reconciler, prov, true)
+			info := makeDefaultReconcileInfo(tc.Host)
+
+			hsm.ReconcileState(t.Context(), info)
+
+			assert.Equal(t, tc.ExpectedState, tc.Host.Status.Provisioning.State)
+			assert.Equal(t, tc.ExpectedInspectionFail, tc.Host.Status.InspectionFailCount)
+			assert.Equal(t, tc.ExpectedOperationalStatus, tc.Host.Status.OperationalStatus)
+		})
+	}
+}
+

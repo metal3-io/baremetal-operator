@@ -190,6 +190,7 @@ func main() {
 	var restConfigBurst int
 	var controllerConcurrency int
 	var maxProvisioningRetries int
+	var maxInspectionRetries int
 	var leaseDurationSeconds string
 	var renewDeadlineSeconds string
 	var retryPeriodSeconds string
@@ -250,6 +251,8 @@ func main() {
 		"Number of CRs of each type to process simultaneously")
 	flag.IntVar(&maxProvisioningRetries, "max-provisioning-retries", 5, //nolint:mnd
 		"Maximum number of provisioning retries before giving up. Set to 0 to disable the limit (infinite retries).")
+	flag.IntVar(&maxInspectionRetries, "max-inspection-retries", 5, //nolint:mnd
+		"Maximum number of inspection retries before giving up. Set to 0 to disable the limit (infinite retries).")
 
 	flag.StringVar(&leaseDurationSeconds, "lease-duration-seconds", os.Getenv("LEASE_DURATION_SECONDS"), "Leader election duration in seconds.")
 	flag.StringVar(&renewDeadlineSeconds, "renew-deadline-seconds", os.Getenv("RENEW_DEADLINE_SECONDS"), "Leader election renew deadline duration in seconds.")
@@ -457,6 +460,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	if maxInspectionRetries < 0 {
+		setupLog.Error(fmt.Errorf("invalid value %d", maxInspectionRetries),
+			"--max-inspection-retries must be 0 (unlimited) or a positive integer")
+		os.Exit(1)
+	}
+
 	allowedHNANamespaces := make([]string, 0, len(watchNamespaces))
 	for ns := range watchNamespaces {
 		allowedHNANamespaces = append(allowedHNANamespaces, ns)
@@ -471,6 +480,7 @@ func main() {
 		ProvisionerFactory:     provisionerFactory,
 		APIReader:              mgr.GetAPIReader(),
 		MaxProvisioningRetries: maxProvisioningRetries,
+		MaxInspectionRetries:   maxInspectionRetries,
 		AllowedHNANamespaces:   allowedHNANamespaces,
 	}).SetupWithManager(mgr, preprovImgEnable, maxConcurrency); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BareMetalHost")

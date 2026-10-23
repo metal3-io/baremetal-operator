@@ -1107,6 +1107,14 @@ spec:
                   The name of the profile matching the hardware details.
                   Hardware profiles are deprecated and should not be relied on.
                 type: string
+              inspectionFailCount:
+                default: 0
+                description: |-
+                  InspectionFailCount records how many times inspection has failed
+                  consecutively. It is incremented each time the inspecting state
+                  encounters an error and is cleared on successful inspection or
+                  when the user requests a new inspection via annotation.
+                type: integer
               lastAttemptedImage:
                 description: |-
                   LastAttemptedImage stores the full image spec of the last provisioning
@@ -1600,6 +1608,7 @@ spec:
             required:
             - errorCount
             - errorMessage
+            - inspectionFailCount
             - operationalStatus
             - poweredOn
             - provisioning

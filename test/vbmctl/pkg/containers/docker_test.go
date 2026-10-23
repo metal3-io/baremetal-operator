@@ -6,6 +6,7 @@ package containers
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
@@ -23,11 +24,16 @@ type fakeDockerClient struct {
 	containers map[string]container.ContainerState
 	// listErr is returned by ContainerList if set.
 	listErr error
+	// startErr is returned by ContainerStart if set.
+	startErr error
+	// removeErr is returned by ContainerRemove if set.
+	removeErr error
 
-	// created and started record the calls to ContainerCreate and
-	// ContainerStart.
+	// created, started and removed record the calls to ContainerCreate,
+	// ContainerStart and ContainerRemove.
 	created []client.ContainerCreateOptions
 	started []string
+	removed []string
 }
 
 func (f *fakeDockerClient) ContainerList(_ context.Context, options client.ContainerListOptions) (client.ContainerListResult, error) {
@@ -61,7 +67,12 @@ func (f *fakeDockerClient) ContainerCreate(_ context.Context, options client.Con
 
 func (f *fakeDockerClient) ContainerStart(_ context.Context, containerID string, _ client.ContainerStartOptions) (client.ContainerStartResult, error) {
 	f.started = append(f.started, containerID)
-	return client.ContainerStartResult{}, nil
+	return client.ContainerStartResult{}, f.startErr
+}
+
+func (f *fakeDockerClient) ContainerRemove(_ context.Context, containerID string, _ client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
+	f.removed = append(f.removed, containerID)
+	return client.ContainerRemoveResult{}, f.removeErr
 }
 
 func (f *fakeDockerClient) Close() error {
@@ -103,6 +114,8 @@ func checkCreated(t *testing.T, f *fakeDockerClient, name string) {
 
 func TestCreateImageServerInstance(t *testing.T) {
 	listErr := errors.New("cannot connect to the Docker daemon")
+	startErr := errors.New("port is already allocated")
+	removeErr := errors.New("cannot remove container")
 
 	tests := []struct {
 		name        string
@@ -110,6 +123,7 @@ func TestCreateImageServerInstance(t *testing.T) {
 		wantErr     error
 		wantMsg     string
 		wantCreated string
+		wantRemoved bool
 	}{
 		{
 			name:        "container does not exist",
@@ -133,6 +147,22 @@ func TestCreateImageServerInstance(t *testing.T) {
 			docker:  &fakeDockerClient{listErr: listErr},
 			wantErr: listErr,
 		},
+		{
+			name:        "container cannot be started",
+			docker:      &fakeDockerClient{startErr: startErr},
+			wantErr:     startErr,
+			wantMsg:     "failed to create image server container: failed to start the image server container: port is already allocated",
+			wantCreated: "vbmctl-image-server",
+			wantRemoved: true,
+		},
+		{
+			name:        "container cannot be started or removed",
+			docker:      &fakeDockerClient{startErr: startErr, removeErr: removeErr},
+			wantErr:     removeErr,
+			wantMsg:     "failed to create image server container: failed to start the image server container: port is already allocated (removing it also failed: cannot remove container)",
+			wantCreated: "vbmctl-image-server",
+			wantRemoved: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -153,6 +183,13 @@ func TestCreateImageServerInstance(t *testing.T) {
 				t.Errorf("expected error %q, got %q", tt.wantMsg, err.Error())
 			}
 			checkCreated(t, tt.docker, tt.wantCreated)
+			var wantRemoved []string
+			if tt.wantRemoved {
+				wantRemoved = []string{fakeContainerID}
+			}
+			if !slices.Equal(tt.docker.removed, wantRemoved) {
+				t.Errorf("expected removed containers %v, got %v", wantRemoved, tt.docker.removed)
+			}
 		})
 	}
 }

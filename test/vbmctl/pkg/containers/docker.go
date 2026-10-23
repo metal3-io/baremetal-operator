@@ -29,6 +29,7 @@ type dockerClient interface {
 	ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error)
 	ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error)
 	ContainerStart(ctx context.Context, containerID string, options client.ContainerStartOptions) (client.ContainerStartResult, error)
+	ContainerRemove(ctx context.Context, containerID string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error)
 	Close() error
 }
 
@@ -80,7 +81,7 @@ func pullImageIfMissing(ctx context.Context, apiClient dockerClient, humanName, 
 // CreateRunningContainer creates and starts a container, pulling its image
 // first if it is not present. It returns an error wrapping ErrContainerExists
 // if a container with the same name already exists, whether it is running or
-// not.
+// not. If the new container cannot be started, it is removed again.
 func CreateRunningContainer(ctx context.Context, humanName string, opts *client.ContainerCreateOptions) error {
 	apiClient, err := newDockerClient()
 	if err != nil {
@@ -108,6 +109,11 @@ func CreateRunningContainer(ctx context.Context, humanName string, opts *client.
 	}
 
 	if _, err := apiClient.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
+		// Remove the container created above, so that it does not make the
+		// next create fail with ErrContainerExists.
+		if _, rmErr := apiClient.ContainerRemove(ctx, resp.ID, client.ContainerRemoveOptions{Force: true}); rmErr != nil {
+			return fmt.Errorf("failed to start the %s container: %w (removing it also failed: %w)", humanName, err, rmErr)
+		}
 		return fmt.Errorf("failed to start the %s container: %w", humanName, err)
 	}
 	//nolint:forbidigo // CLI output is intentional

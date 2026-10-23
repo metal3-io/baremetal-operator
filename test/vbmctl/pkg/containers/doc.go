@@ -23,7 +23,8 @@
 //
 // The function pulls the image if it is not present, then creates and starts
 // the container. If a container with the same name already exists, running or
-// not, it returns an error wrapping ErrContainerExists and changes nothing.
+// not, it returns an error wrapping ErrContainerExists and changes nothing. If
+// the new container cannot be started, it is removed again.
 //
 // CreateImageServerInstance and CreateBMCEmulatorInstance create their
 // containers with the unless-stopped restart policy, so Docker starts them

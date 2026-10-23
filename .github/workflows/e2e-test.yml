@@ -58,12 +58,7 @@ jobs:
       run: |
         sudo usermod -a -G libvirt $USER
         sudo rm /usr/bin/go
-        remaining_seconds=$((JOB_TIMEOUT_MINUTES * 60 - $(date +%s) + E2E_JOB_STARTED_AT - 300))
-        if (( remaining_seconds <= 0 )); then
-          echo "No time remains to run E2E tests before the artifact collection window"
-          exit 1
-        fi
-        export GINKGO_TIMEOUT="${remaining_seconds}s"
+        export E2E_JOB_DEADLINE=$((E2E_JOB_STARTED_AT + JOB_TIMEOUT_MINUTES * 60))
         sudo -s -u $USER --preserve-env bash ${{ github.workspace }}/hack/ci-e2e.sh
 
     - name: Upload artifacts

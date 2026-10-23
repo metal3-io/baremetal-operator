@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/drivers"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
@@ -22,6 +23,9 @@ import (
 
 const (
 	defaultInspectInterface = "agent"
+	// noInspectInterface makes Ironic refuse to inspect the node. It is
+	// used for new nodes of hosts with inspection disabled.
+	noInspectInterface = "no-inspect"
 )
 
 func bmcAddressMatches(ironicNode *nodes.Node, driverInfo map[string]any) bool {
@@ -288,7 +292,44 @@ func inspectInterfaceForMode(mode metal3api.InspectionMode, bmcAccess bmc.Access
 	return defaultInspectInterface
 }
 
+// inspectInterfaceEnabled checks whether Ironic has the given inspect
+// interface enabled for the driver (hardware type).
+func (p *ironicProvisioner) inspectInterfaceEnabled(ctx context.Context, driver, iface string) (bool, error) {
+	details, err := drivers.GetDriverDetails(ctx, p.client, driver).Extract()
+	if err != nil {
+		return false, fmt.Errorf("cannot load information about driver %s: %w", driver, err)
+	}
+	return slices.Contains(details.EnabledInspectInterfaces, iface), nil
+}
+
+// inspectInterfaceForEnroll returns the inspect interface for a new node.
+// Hosts with inspection disabled get no-inspect if Ironic has it enabled,
+// since older and custom Ironic deployments may not enable it. The driver
+// is only looked up here, so existing nodes and hosts with inspection
+// enabled cause no extra API calls.
+func (p *ironicProvisioner) inspectInterfaceForEnroll(ctx context.Context, data provisioner.ManagementAccessData, bmcAccess bmc.AccessDetails) (string, error) {
+	if !data.DisableInspection {
+		return inspectInterfaceForMode(data.InspectionMode, bmcAccess), nil
+	}
+
+	enabled, err := p.inspectInterfaceEnabled(ctx, bmcAccess.Driver(), noInspectInterface)
+	if err != nil {
+		return "", err
+	}
+	if !enabled {
+		p.log.Info("inspect interface not enabled in ironic, using the default",
+			"interface", noInspectInterface, "default", defaultInspectInterface, "driver", bmcAccess.Driver())
+		return defaultInspectInterface, nil
+	}
+	return noInspectInterface, nil
+}
+
 func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.ManagementAccessData, bmcAccess bmc.AccessDetails, driverInfo map[string]any) (ironicNode *nodes.Node, retry bool, err error) {
+	inspectInterface, err := p.inspectInterfaceForEnroll(ctx, data, bmcAccess)
+	if err != nil {
+		return nil, true, err
+	}
+
 	nodeCreateOpts := nodes.CreateOpts{
 		Driver:              bmcAccess.Driver(),
 		BIOSInterface:       bmcAccess.BIOSInterface(),
@@ -297,7 +338,7 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 		DriverInfo:          driverInfo,
 		FirmwareInterface:   bmcAccess.FirmwareInterface(),
 		DeployInterface:     p.deployInterface(data),
-		InspectInterface:    inspectInterfaceForMode(data.InspectionMode, bmcAccess),
+		InspectInterface:    inspectInterface,
 		ManagementInterface: bmcAccess.ManagementInterface(),
 		PowerInterface:      bmcAccess.PowerInterface(),
 		RAIDInterface:       bmcAccess.RAIDInterface(),

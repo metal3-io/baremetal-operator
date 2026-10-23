@@ -177,6 +177,21 @@ func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.Upd
 	return
 }
 
+// GetNodeUpdateRequestsFor returns the content of all update requests for the
+// specified node, in the order they were received.
+func (m *IronicMock) GetNodeUpdateRequestsFor(id string) (requests [][]nodes.UpdateOperation) {
+	for _, r := range m.FullRequests {
+		if r.pattern != v1node+id || r.method != http.MethodPatch {
+			continue
+		}
+		var updates []nodes.UpdateOperation
+		_ = json.Unmarshal([]byte(r.body), &updates)
+		requests = append(requests, updates)
+	}
+
+	return
+}
+
 // GetLastNodeStatesProvisionUpdateRequestFor returns the content of the last provisioning request for the specified node.
 func (m *IronicMock) GetLastNodeStatesProvisionUpdateRequestFor(id string) (update nodes.ProvisionStateOpts) {
 	if bodyRaw, ok := m.GetLastRequestFor(v1node+id+"/states/provision", http.MethodPut); ok {

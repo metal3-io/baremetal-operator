@@ -201,12 +201,15 @@ func TestCreateBMCEmulatorInstance(t *testing.T) {
 		docker       *fakeDockerClient
 		wantErr      error
 		wantCreated  string
+		wantBinds    []string
 	}{
 		{
 			name:         "vbmc container does not exist",
 			emulatorType: vbmctlapi.BMCEmulatorTypeVBMC,
 			docker:       &fakeDockerClient{},
 			wantCreated:  "vbmctl-vbmc",
+			// The libvirt socket directory, not the socket files.
+			wantBinds: []string{"/var/run/libvirt:/var/run/libvirt:Z"},
 		},
 		{
 			name:         "stopped vbmc container exists",
@@ -219,6 +222,7 @@ func TestCreateBMCEmulatorInstance(t *testing.T) {
 			emulatorType: vbmctlapi.BMCEmulatorTypeSushyTools,
 			docker:       &fakeDockerClient{},
 			wantCreated:  "vbmctl-sushy-tools",
+			wantBinds:    []string{"/var/run/libvirt:/var/run/libvirt:Z"},
 		},
 		{
 			name:         "running sushy-tools container exists",
@@ -239,6 +243,12 @@ func TestCreateBMCEmulatorInstance(t *testing.T) {
 				t.Fatalf("expected error wrapping %v, got: %v", tt.wantErr, err)
 			}
 			checkCreated(t, tt.docker, tt.wantCreated)
+			if tt.wantCreated == "" {
+				return
+			}
+			if binds := tt.docker.created[0].HostConfig.Binds; !slices.Equal(binds, tt.wantBinds) {
+				t.Errorf("expected binds %q, got %q", tt.wantBinds, binds)
+			}
 		})
 	}
 }

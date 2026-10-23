@@ -102,9 +102,14 @@ func createVBMCEmulatorInstance(ctx context.Context, cfg *vbmctlapi.BMCEmulatorC
 	instance := &bmcEmulatorInstance{
 		image:         cfg.Image,
 		containerName: ensureVbmctlPrefix(vbmctlapi.BMCEmulatorTypeVBMC),
+		// Mount the directory that holds the libvirt sockets, as for
+		// sushy-tools, not the socket files. Docker creates a missing bind
+		// source as a directory, so if it starts the container at boot
+		// before libvirt, file mounts would put directories where libvirt
+		// creates its sockets. A file mount also keeps pointing at the old
+		// socket when libvirt creates its sockets again.
 		volumeMounts: []volumeMount{
-			{hostPath: "/var/run/libvirt/libvirt-sock", bindSpec: "/var/run/libvirt/libvirt-sock"},
-			{hostPath: "/var/run/libvirt/libvirt-sock-ro", bindSpec: "/var/run/libvirt/libvirt-sock-ro"},
+			{hostPath: "/var/run/libvirt", bindSpec: "/var/run/libvirt:Z"},
 		},
 		env: map[string]string{},
 		cmd: nil,

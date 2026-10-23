@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
@@ -44,8 +45,7 @@ func newConfigInitCmd() *cobra.Command {
 				return fmt.Errorf("failed to save config: %w", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Created config file: %s\n", output)
+			fmt.Fprintf(os.Stdout, "Created config file: %s\n", output)
 			return nil
 		},
 	}
@@ -66,23 +66,18 @@ func newConfigViewCmd() *cobra.Command {
 				return err
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Libvirt URI: %s\n", cfg.Spec.Libvirt.URI)
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Storage Pool: %s at %s\n", cfg.Spec.Pool.Name, cfg.Spec.Pool.Path)
+			fmt.Fprintf(os.Stdout, "Libvirt URI: %s\n", cfg.Spec.Libvirt.URI)
+			fmt.Fprintf(os.Stdout, "Storage Pool: %s at %s\n", cfg.Spec.Pool.Name, cfg.Spec.Pool.Path)
 
 			if len(cfg.Spec.VMs) > 0 {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("Configured VMs:")
+				fmt.Fprintln(os.Stdout, "Configured VMs:")
 				for _, vm := range cfg.Spec.VMs {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("  - %s (memory: %dMB, vcpus: %d)\n", vm.Name, vm.Memory, vm.VCPUs)
+					fmt.Fprintf(os.Stdout, "  - %s (memory: %dMB, vcpus: %d)\n", vm.Name, vm.Memory, vm.VCPUs)
 				}
 			}
 
 			if cfg.Spec.ImageServer != nil {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Image Server:\n  Image: %s\n  Host Port: %d\n  Container Port: %d\n  Data Dir: %s\n  Container Name: %s\n",
+				fmt.Fprintf(os.Stdout, "Image Server:\n  Image: %s\n  Host Port: %d\n  Container Port: %d\n  Data Dir: %s\n  Container Name: %s\n",
 					cfg.Spec.ImageServer.Image,
 					cfg.Spec.ImageServer.Port,
 					cfg.Spec.ImageServer.ContainerPort,
@@ -96,14 +91,12 @@ func newConfigViewCmd() *cobra.Command {
 				if cfg.Spec.BMCEmulator.Type == vbmctlapi.BMCEmulatorTypeSushyTools {
 					sushyConfig = &cfg.Spec.BMCEmulator.SushyToolsConfig
 				}
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("BMC Emulator:\n  Emulator Type: %s\n  Image: %s\n",
+				fmt.Fprintf(os.Stdout, "BMC Emulator:\n  Emulator Type: %s\n  Image: %s\n",
 					cfg.Spec.BMCEmulator.Type,
 					cfg.Spec.BMCEmulator.Image)
 
 				if sushyConfig != nil {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("  Config File: %s\n  Listening: %s\n",
+					fmt.Fprintf(os.Stdout, "  Config File: %s\n  Listening: %s\n",
 						func() string {
 							if sushyConfig.ConfigFile == "" {
 								return "(not specified)"

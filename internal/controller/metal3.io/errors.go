@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"fmt"
+
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 )
 
 // EmptyBMCAddressError is returned when the BMC address field
@@ -43,4 +45,30 @@ type NoDataInSecretError struct {
 
 func (e NoDataInSecretError) Error() string {
 	return fmt.Sprintf("Secret %s does not contain key %s", e.secret, e.key)
+}
+
+// SecretAccessError is returned when a Secret referenced by the host cannot
+// be retrieved because it does not exist or is not accessible. Callers include
+// configuration data (userData, networkData, or metaData) and OCI image auth.
+// It wraps the underlying error so callers can still inspect it with
+// errors.Is/As (for example k8serrors.IsNotFound).
+type SecretAccessError struct {
+	secret string
+	key    string
+	err    error
+}
+
+func (e SecretAccessError) Error() string {
+	return fmt.Sprintf("could not retrieve %s secret %q: %v", e.key, e.secret, e.err)
+}
+
+func (e SecretAccessError) Unwrap() error {
+	return e.err
+}
+
+// isRetryableSecretAccessStatus reports whether the host is waiting for a
+// referenced Secret. That condition is retried without leaving provisioning.
+// Retryability is the SecretAccessError type, not the text of ErrorMessage.
+func isRetryableSecretAccessStatus(host *metal3api.BareMetalHost) bool {
+	return host.Status.ErrorType == metal3api.SecretAccessError
 }

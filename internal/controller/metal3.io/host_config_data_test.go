@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -11,10 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 // TestNoDataInSecretErrorAs verifies that errors.As works correctly with
@@ -36,6 +40,105 @@ func TestNoDataInSecretErrorAs(t *testing.T) {
 	// doesn't match a value type error
 	if errors.As(err, new(*NoDataInSecretError)) {
 		t.Fatal("errors.As with new(*NoDataInSecretError) should NOT match value type errors - if this passes, the Go behavior changed")
+	}
+}
+
+func TestSecretAccessError(t *testing.T) {
+	testCases := []struct {
+		name       string
+		getErr     error
+		wantAccess bool
+	}{
+		{
+			name:       "not found",
+			getErr:     k8serrors.NewNotFound(corev1.Resource("secrets"), "missing-user-data"),
+			wantAccess: true,
+		},
+		{
+			name:       "forbidden",
+			getErr:     k8serrors.NewForbidden(corev1.Resource("secrets"), "missing-user-data", errors.New("no access")),
+			wantAccess: true,
+		},
+		{
+			name:   "conflict",
+			getErr: k8serrors.NewConflict(corev1.Resource("secrets"), "missing-user-data", errors.New("conflict")),
+		},
+		{
+			name:   "unavailable",
+			getErr: k8serrors.NewServiceUnavailable("etcd timeout"),
+		},
+		{
+			name:   "unrelated",
+			getErr: errors.New("connection reset"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			getErr := tc.getErr
+			c := fakeclient.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+					if _, ok := obj.(*corev1.Secret); ok {
+						return getErr
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
+			}).Build()
+			hcd := newUserDataConfig(t, c)
+
+			_, err := hcd.UserData(t.Context())
+			require.Error(t, err)
+
+			var secretErr SecretAccessError
+			if !tc.wantAccess {
+				assert.NotErrorAs(t, err, &secretErr)
+				assert.ErrorIs(t, err, getErr)
+				return
+			}
+
+			require.ErrorAs(t, err, &secretErr)
+			assert.Equal(t, "missing-user-data", secretErr.secret)
+			assert.Equal(t, "userData", secretErr.key)
+			assert.ErrorIs(t, err, getErr)
+		})
+	}
+}
+
+func TestSecretUpdateConflictNotWrapped(t *testing.T) {
+	secret := newSecret("user-data", map[string]string{"userData": "somedata"})
+	conflictErr := k8serrors.NewConflict(corev1.Resource("secrets"), secret.Name, errors.New("conflict"))
+	c := fakeclient.NewClientBuilder().WithObjects(secret).WithInterceptorFuncs(interceptor.Funcs{
+		Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+			if _, ok := obj.(*corev1.Secret); ok {
+				return conflictErr
+			}
+			return c.Update(ctx, obj, opts...)
+		},
+	}).Build()
+	hcd := newUserDataConfig(t, c)
+	hcd.host.Spec.UserData.Name = secret.Name
+
+	_, err := hcd.UserData(t.Context())
+	require.Error(t, err)
+
+	var secretErr SecretAccessError
+	assert.NotErrorAs(t, err, &secretErr)
+	assert.ErrorIs(t, err, conflictErr)
+}
+
+func newUserDataConfig(t *testing.T, c client.Client) *hostConfigData {
+	t.Helper()
+	host := newHost("host", &metal3api.BareMetalHostSpec{
+		UserData: &corev1.SecretReference{
+			Name:      "missing-user-data",
+			Namespace: namespace,
+		},
+	})
+	baselog := ctrl.Log.WithName("controllers").WithName("BareMetalHost")
+	return &hostConfigData{
+		host:          host,
+		log:           baselog.WithName("host_config_data"),
+		secretManager: secretutils.NewSecretManager(baselog, c, c),
 	}
 }
 

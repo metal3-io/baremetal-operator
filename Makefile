@@ -60,14 +60,15 @@ export GOFLAGS=
 # GINKGO_FOCUS/GINKGO_SKIP are regex-based and kept only for ad-hoc developer
 # runs (see test/e2e/README.md). Tier selection (which specs run in a given
 # CI job) is controlled exclusively by GINKGO_LABEL_FILTER, a Ginkgo
-# label-filter expression. Left empty by default, so that `make test-e2e`
-# invoked directly (e.g. for the fixture provider) runs the whole suite.
-# Specs that don't make sense without a real Ironic (e.g. automated
-# cleaning) skip themselves via DEPLOY_IRONIC checks instead of being
-# filtered out here.
+# label-filter expression. It defaults to "!scalability" so that
+# `make test-e2e` (e.g. the fixture provider) runs the whole suite except the
+# heavy, opt-in scalability specs. Run those explicitly with
+# GINKGO_LABEL_FILTER=scalability. Specs that don't make sense without a real
+# Ironic (e.g. automated cleaning) skip themselves via DEPLOY_IRONIC checks
+# instead of being filtered out here.
 GINKGO_FOCUS ?=
 GINKGO_SKIP ?=
-GINKGO_LABEL_FILTER ?=
+GINKGO_LABEL_FILTER ?= !scalability
 GINKGO_NODES ?= 2
 GINKGO_TIMEOUT ?= 3h
 GINKGO_POLL_PROGRESS_AFTER ?= 60m

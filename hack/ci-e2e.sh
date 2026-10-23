@@ -4,12 +4,16 @@
 # Description: This script sets up the environment and runs E2E tests for the
 #              BMO project. It uses either vbmc or sushy-tools based on
 #              the BMC_PROTOCOL environment variable.
-#              Supported protocols are: ipmi, redfish, redfish-virtualmedia
-#              and fixture.
+#              Supported protocols are: ipmi, redfish, redfish-virtualmedia,
+#              fake and fixture.
 #              VBMC is used for ipmi and sushy-tools for both redfish protocols.
 #              fixture uses BMO's fixture provisioner, with no Ironic or VMs.
+#              fake uses Ironic with the sushy-tools fake driver and fake-IPA
+#              instead of VMs. It is meant for the scalability tests and runs
+#              only those by default. The number of hosts is set with
+#              SCALABILITY_NUM_HOSTS.
 #              By default, redfish-virtualmedia will be used.
-# Usage:       export BMC_PROTOCOL="redfish"  # Or "ipmi", "redfish-virtualmedia" or "fixture"
+# Usage:       export BMC_PROTOCOL="redfish"  # Or "ipmi", "redfish-virtualmedia", "fake" or "fixture"
 #              ./ci-e2e.sh
 # -----------------------------------------------------------------------------
 
@@ -22,8 +26,12 @@ cd "${REPO_ROOT}" || exit 1
 "${REPO_ROOT}"/hack/check-e2e.sh
 
 BMC_PROTOCOL="${BMC_PROTOCOL:-"redfish-virtualmedia"}"
+BMO_E2E_FAKE="false"
 if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "redfish-virtualmedia" ]]; then
   export BMO_E2E_EMULATOR="sushy-tools"
+elif [[ "${BMC_PROTOCOL}" == "fake" ]]; then
+  export BMO_E2E_EMULATOR="sushy-tools"
+  BMO_E2E_FAKE="true"
 elif [[ "${BMC_PROTOCOL}" == "ipmi" ]]; then
   export BMO_E2E_EMULATOR="vbmc"
 elif [[ "${BMC_PROTOCOL}" == "fixture" ]]; then
@@ -36,10 +44,20 @@ fi
 echo "BMC_PROTOCOL=${BMC_PROTOCOL}"
 echo "BMO_E2E_EMULATOR=${BMO_E2E_EMULATOR}"
 
+FAKE_IPA_CONTAINER="fake-ipa"
+
 # Gather artifacts/logs on exit, including when setup or tests fail.
 collect_artifacts() {
   set +e
   mkdir -p "${REPO_ROOT}/test/e2e/_artifacts"
+  if [[ "${BMO_E2E_FAKE}" == "true" ]]; then
+    local containers_dir="${REPO_ROOT}/test/e2e/_artifacts/logs/containers"
+    mkdir -p "${containers_dir}"
+    for name in "${FAKE_IPA_CONTAINER}" vbmctl-sushy-tools vbmctl-sushy-tools-e2e; do
+      docker logs "${name}" > "${containers_dir}/${name}.log" 2>&1
+    done
+    docker rm -f "${FAKE_IPA_CONTAINER}"
+  fi
   if [[ "${BMO_E2E_EMULATOR}" != "fixture" ]]; then
     local logs_dir="${REPO_ROOT}/test/e2e/_artifacts/logs"
     mkdir -p "${logs_dir}/qemu"
@@ -64,11 +82,30 @@ if [[ "${BMO_E2E_EMULATOR}" == "fixture" ]]; then
 fi
 
 export E2E_CONF_FILE="${REPO_ROOT}/test/e2e/config/ironic.yaml"
-export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
+if [[ "${BMO_E2E_FAKE}" == "true" ]]; then
+  # There are no VMs with fake hardware. The suite still needs a BMC config
+  # with an entry per Ginkgo node, but the scalability tests do not use it.
+  export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-redfish.yaml"
+else
+  export E2E_BMCS_CONF_FILE="${REPO_ROOT}/test/e2e/config/bmcs-${BMC_PROTOCOL}.yaml"
+fi
 
 VBMC_IMAGE="${VBMC_IMAGE:-quay.io/metal3-io/vbmc}"
 SUSHY_EMULATOR_IMAGE="${SUSHY_EMULATOR_IMAGE:-quay.io/metal3-io/sushy-tools:latest}"
 SUSHY_EMULATOR_PORT="${SUSHY_EMULATOR_PORT:-8000}"
+
+if [[ "${BMO_E2E_FAKE}" == "true" ]]; then
+  # Fake hardware can only run the specs that do not need a real VM, and the
+  # scalability specs are serial.
+  export GINKGO_LABEL_FILTER="${GINKGO_LABEL_FILTER:-scalability}"
+  export GINKGO_NODES="${GINKGO_NODES:-1}"
+  # Used for both the fake systems below and the tests.
+  export SCALABILITY_NUM_HOSTS="${SCALABILITY_NUM_HOSTS:-10}"
+  # BMO with the scalability settings, and Ironic that accepts plain HTTP from
+  # fake-IPA.
+  export BMO_KUSTOMIZATION="${BMO_KUSTOMIZATION:-../../config/overlays/e2e-scalability}"
+  export IRONIC_KUSTOMIZATION="${IRONIC_KUSTOMIZATION:-data/ironic-standalone-operator/ironic/overlays/e2e-fake}"
+fi
 
 # Default to the required tests.
 export GINKGO_LABEL_FILTER="${GINKGO_LABEL_FILTER:-required}"
@@ -206,7 +243,7 @@ fi
 # The live-ISO spec is skipped for BMCs without ISO support, so there is no
 # need to download the ISO for the redfish and ipmi protocols.
 NEED_ISO="true"
-if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "ipmi" ]]; then
+if [[ "${BMC_PROTOCOL}" == "redfish" ]] || [[ "${BMC_PROTOCOL}" == "ipmi" ]] || [[ "${BMO_E2E_FAKE}" == "true" ]]; then
     NEED_ISO="false"
 fi
 if [[ "${NEED_ISO}" == "true" ]] && [[ ! -f "${IMAGE_DIR}/${ISO_FILE}" ]]; then
@@ -222,15 +259,67 @@ if [[ ! -f "${IMAGE_DIR}/${IPA_FILE}" ]]; then
     cache_image https://tarballs.opendev.org/openstack/ironic-python-agent/dib/"${IPA_FILE}"
 fi
 
+# Run fake-IPA, the fake Ironic Python Agent, on the host network. It listens
+# for power state notifications from the sushy-tools fake driver (port 9999) and
+# then acts as the agent of the fake host: it looks up and heartbeats to Ironic.
+launch_fake_ipa() {
+  local ironic_ip="${IRONIC_PROVISIONING_IP:-192.168.222.2}"
+  local ironic_port="${IRONIC_PROVISIONING_PORT:-6385}"
+  local ironic_url="https://${ironic_ip}:${ironic_port}"
+  local fake_ipa_image="${FAKE_IPA_IMAGE:-quay.io/metal3-io/fake-ipa:latest}"
+  local fake_ipa_dir="${REPO_ROOT}/test/e2e/config/fake-ipa"
+
+  mkdir -p "${fake_ipa_dir}"
+  # FAKE_IPA_ADVERTISE_ADDRESS_IP is the address Ironic uses to reach the
+  # agent. That is this host, on the bridge of the libvirt network.
+  cat > "${fake_ipa_dir}/config.py" << EOF
+FAKE_IPA_API_URL = "${ironic_url}"
+FAKE_IPA_INSPECTION_CALLBACK_URL = "${ironic_url}/v1/continue_inspection"
+FAKE_IPA_ADVERTISE_ADDRESS_IP = "${IP_ADDRESS}"
+FAKE_IPA_INSECURE = True
+FAKE_IPA_MIN_BOOT_TIME = 20
+FAKE_IPA_MAX_BOOT_TIME = 30
+EOF
+
+  docker rm -f "${FAKE_IPA_CONTAINER}" 2> /dev/null || true
+  docker run -d --net host --name "${FAKE_IPA_CONTAINER}" \
+    -v "${fake_ipa_dir}:/root/cert:ro" \
+    -e CONFIG=/root/cert/config.py \
+    "${fake_ipa_image}"
+}
+
 if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
   # shellcheck disable=SC2016
   envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR},${IMAGE_SERVER_TLS_CERT_FILE},${IMAGE_SERVER_TLS_KEY_FILE},${IMAGE_SERVER_NGINX_CONF_FILE}' < \
     "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
     "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
+  VBMCTL_CONFIG="${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
+  if [[ "${BMO_E2E_FAKE}" == "true" ]]; then
+    # No VMs: the BMHs point to fake Redfish systems.
+    VBMCTL_CONFIG="${REPO_ROOT}/test/e2e/config/vbmctl-fake.yaml"
+    export SUSHY_FAKE_CONFIG="${REPO_ROOT}/test/e2e/config/sushy-fake.conf"
+    "${REPO_ROOT}/hack/e2e/generate_sushy_fake_config.sh" \
+      "${SCALABILITY_NUM_HOSTS}" "${IP_ADDRESS}" "${BMO_E2E_LISTEN_PORT}" "${SUSHY_FAKE_CONFIG}"
+    # shellcheck disable=SC2016
+    envsubst '${BMO_E2E_IMAGE},${SUSHY_FAKE_CONFIG},${IMAGE_DIR}' < \
+      "${REPO_ROOT}/test/e2e/config/vbmctl-fake.yaml.tmpl" > "${VBMCTL_CONFIG}"
+  else
+    # shellcheck disable=SC2016
+    envsubst '${BMO_E2E_EMULATOR},${IP_ADDRESS},${BMO_E2E_IMAGE},${BMO_E2E_LISTEN_PORT},${IMAGE_DIR}' < \
+      "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > "${VBMCTL_CONFIG}"
+  fi
+
+  # Clean up any leftover VMs/networks/containers from a previous run before
+  # provisioning a fresh lab.
+  ./bin/vbmctl -c "${VBMCTL_CONFIG}" delete bml 2>/dev/null || true
 
   # Create VMs to act as BMHs in the tests and the libvirt network. Create
   # also image server and E2E emulator containers.
-  ./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml
+  ./bin/vbmctl -c "${VBMCTL_CONFIG}" create bml
+
+  if [[ "${BMO_E2E_FAKE}" == "true" ]]; then
+    launch_fake_ipa
+  fi
 fi
 
 # Wait for the sushy-tools BMC emulator to become reachable on the provisioning

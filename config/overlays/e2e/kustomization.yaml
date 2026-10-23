@@ -21,6 +21,7 @@ resources:
 - ./upgrade-ironic
 - ./hostclaims-infra
 - ./hostclaims-tenant
+- ./scalability
 - ./cluster-role.yaml
 
 components:

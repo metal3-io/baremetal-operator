@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# Sets the BMO controller concurrency used by the e2e scalability tests.
+# The manager container loads the ironic ConfigMap with envFrom, and BMO reads
+# BMO_CONCURRENCY when --controller-concurrency is not set.
+
+configMapGenerator:
+- name: ironic
+  namespace: baremetal-operator-system
+  behavior: merge
+  literals:
+  - BMO_CONCURRENCY=8

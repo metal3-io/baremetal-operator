@@ -7,6 +7,9 @@ artifacts*.tar.gz
 test/e2e/images
 test/e2e/data/ironic-standalone-operator/ironic/base/ironic.yaml
 test/e2e/config/vbmctl.yaml
+test/e2e/config/vbmctl-fake.yaml
+test/e2e/config/sushy-fake.conf
+test/e2e/config/fake-ipa
 out
 
 # Created by https://www.gitignore.io/api/go

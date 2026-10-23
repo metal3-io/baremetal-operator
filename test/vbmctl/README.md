@@ -130,6 +130,9 @@ vbmctl create bml
 vbmctl delete bml
 ```
 
+`vbmctl create` fails if a libvirt network or VM with the same name already
+exists. Delete the old resources first, for example with `vbmctl delete bml`.
+
 ### Configuration File
 
 vbmctl supports YAML configuration files. Create a `vbmctl.yaml` file:

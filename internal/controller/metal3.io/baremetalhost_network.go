@@ -18,6 +18,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -277,16 +279,16 @@ func (r *BareMetalHostReconciler) clearNetworkInterfaceValidation(host *metal3ap
 	return false, nil
 }
 
-// getAvailableNICNames returns a sorted list of available NIC names.
+// getAvailableNICNames returns a sorted list of unique available NIC names.
 func (r *BareMetalHostReconciler) getAvailableNICNames(nics []metal3api.NIC) []string {
-	names := make([]string, 0)
+	seen := make(map[string]bool, len(nics))
 	for _, nic := range nics {
 		if nic.Name != "" {
-			names = append(names, nic.Name)
+			seen[nic.Name] = true
 		}
 	}
-	sort.Strings(names)
-	return names
+
+	return slices.Sorted(maps.Keys(seen))
 }
 
 // buildNICNameToMACMap builds a map from NIC name to MAC address.

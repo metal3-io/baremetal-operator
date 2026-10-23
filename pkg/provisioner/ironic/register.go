@@ -373,7 +373,9 @@ func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *
 		}
 	}
 
-	p.log.Info("creating ports for node", "nodeUUID", ironicNode.UUID, "MACs", slices.Collect(maps.Keys(portsToCreate)))
+	if len(portsToCreate) > 0 {
+		p.log.Info("creating ports for node", "nodeUUID", ironicNode.UUID, "MACs", slices.Collect(maps.Keys(portsToCreate)))
+	}
 
 	for _, nic := range portsToCreate {
 		err = p.createNodePort(ctx, ironicNode.UUID, nic)

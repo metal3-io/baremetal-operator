@@ -25,6 +25,7 @@ TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/$(BIN_DIR))
 CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
+CONVERSION_GEN = $(TOOLS_BIN_DIR)/conversion-gen
 GINKGO = tools/bin/ginkgo
 DEPLOY_CLI = tools/bin/deploy-cli
 CONTAINER_RUNTIME = docker
@@ -223,19 +224,19 @@ manifest-lint: ## Run manifest validation
 build: generate manifests manager tools build-e2e ## Build everything
 
 .PHONY: manager
-manager: generate lint ironic-plugin demo-plugin ## Build manager binary and bundled provisioner plugins
+manager: generate ironic-plugin demo-plugin ## Build manager binary and bundled provisioner plugins
 	go build $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) -o bin/$(OPERATOR_NAME) main.go
 
 .PHONY: run
-run: generate lint manifests ironic-plugin ## Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate manifests ironic-plugin ## Run against the configured Kubernetes cluster in ~/.kube/config
 	PROVISIONER_PLUGIN_DIR=$(BIN_DIR) go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=ironic -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: demo
-demo: generate lint manifests demo-plugin ## Run in demo mode
+demo: generate manifests demo-plugin ## Run in demo mode
 	PROVISIONER_PLUGIN_DIR=$(BIN_DIR) go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=demo -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: run-test-mode
-run-test-mode: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
+run-test-mode: generate manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=fixture -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: install
@@ -253,6 +254,9 @@ deploy: $(KUSTOMIZE) manifests  ## Deploy controller in the configured Kubernete
 
 $(CONTROLLER_GEN): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/controller-tools/cmd/controller-gen
+
+$(CONVERSION_GEN): $(TOOLS_DIR)/go.mod
+	cd hack/tools; go build -o $(abspath $@) k8s.io/code-generator/cmd/conversion-gen
 
 $(KUSTOMIZE): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v5
@@ -317,9 +321,18 @@ set-manifest-image-ipa-downloader: $(KUSTOMIZE) manifests
 	cd ironic-deployment/base && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic-ipa-downloader=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: generate
-generate: $(CONTROLLER_GEN) ## Generate code
+generate: generate-controller-gen generate-conversion-gen ## Generate all code
+
+generate-controller-gen:  $(CONTROLLER_GEN) ## Generate code
 	cd apis; $(abspath $<) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 	$< object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+
+generate-conversion-gen: $(CONVERSION_GEN) ## Generate conversion code
+	cd apis; $(abspath $<) \
+		--go-header-file ../hack/boilerplate.go.txt \
+		--output-file zz_generated.conversion.go \
+		./metal3.io/v1alpha1
 
 ## --------------------------------------
 ## Docker Targets

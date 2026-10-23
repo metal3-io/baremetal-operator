@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/go-github v17.0.0+incompatible
+	github.com/saschagrunert/go-modiff v1.4.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/oauth2 v0.37.0
 	k8s.io/code-generator v0.36.5

@@ -10,7 +10,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.15.0
 	github.com/metal3-io/baremetal-operator/apis v0.5.1
 	github.com/metal3-io/baremetal-operator/pkg/hardwareutils v0.5.1
-	github.com/metal3-io/ironic-standalone-operator/api v0.11.0
+	github.com/metal3-io/ironic-standalone-operator/api v0.12.0
 	github.com/onsi/ginkgo/v2 v2.33.1
 	github.com/onsi/gomega v1.44.0
 	github.com/prometheus/client_golang v1.24.1

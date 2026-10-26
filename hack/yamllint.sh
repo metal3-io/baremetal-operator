@@ -18,8 +18,10 @@ if [ "${IS_CONTAINER}" != "false" ]; then
         safe_name=$(echo "${md_file}" | sed 's#[/.]#_#g')
         awk -v base="${safe_name}" -v dir="${SNIPPET_DIR}" '
             BEGIN { count = 0 }
-            /^```(yaml|yml)/ { in_block = 1; next }
-            /^```/ && in_block {
+            # Fences may be indented (e.g. under list items); strip that indent from the snippet.
+            !in_block && /^[ \t]*```(yaml|yml)/ { in_block = 1; indent = index($0, "`") - 1; next }
+            # Closing fence: backticks only (\r for CRLF checkouts), at most 3 columns deeper than the opening one.
+            in_block && /^[ \t]*```+[ \t\r]*$/ && index($0, "`") - 1 <= indent + 3 {
                 if (block != "") {
                     count++
                     file = sprintf("%s/%s_snippet_%03d.yaml", dir, base, count)
@@ -30,7 +32,11 @@ if [ "${IS_CONTAINER}" != "false" ]; then
                 in_block = 0
                 next
             }
-            in_block { block = (block == "" ? $0 : block "\n" $0) }
+            in_block {
+                # Like Markdown, strip up to the fence indent, even from lines indented less.
+                for (i = 0; i < indent && $0 ~ /^[ \t]/; i++) $0 = substr($0, 2)
+                block = (block == "" ? $0 : block "\n" $0)
+            }
         ' "${md_file}"
     done
 

@@ -187,7 +187,7 @@ manifests.
 
   **Example Error Log:**
 
-    ```yaml
+    ```text
   "level": "error",
   "ts": 1754219075.4855175,
   "logger": "controller-runtime.cache.UnhandledError",

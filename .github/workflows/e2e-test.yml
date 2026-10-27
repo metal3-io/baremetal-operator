@@ -45,6 +45,23 @@ jobs:
         echo '{"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json
         sudo systemctl restart docker
 
+    # The SystemRescue ISO is only needed for redfish-virtualmedia (NEED_ISO in hack/ci-e2e.sh).
+    # Downloading it from SourceForge mirrors can take 30+ minutes, so cache it per version.
+    # ci-e2e.sh skips the download when the file already exists.
+    - name: Get SystemRescue ISO file name
+      id: sysrescue-iso
+      if: inputs.bmc-protocol == 'redfish-virtualmedia'
+      run: |
+        version="$(sed -n 's/^SYSRESCUE_VERSION="\(.*\)"$/\1/p' hack/ci-e2e.sh)"
+        echo "file=systemrescue-${version:?SYSRESCUE_VERSION not found in hack/ci-e2e.sh}-amd64.iso" >> "$GITHUB_OUTPUT"
+
+    - name: Cache SystemRescue ISO
+      if: inputs.bmc-protocol == 'redfish-virtualmedia'
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      with:
+        path: test/e2e/images/${{ steps.sysrescue-iso.outputs.file }}
+        key: ${{ steps.sysrescue-iso.outputs.file }}
+
     - name: Run BMO e2e Tests
       env:
         BMC_PROTOCOL: ${{ inputs.bmc-protocol }}

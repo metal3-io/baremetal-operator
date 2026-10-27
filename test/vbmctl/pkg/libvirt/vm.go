@@ -137,6 +137,12 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 					if volErr := m.deleteVMVolumes(ctx, name); volErr != nil {
 						log.Printf("Warning: failed to delete volumes for %s: %v\n", name, volErr)
 					}
+					// Pool is automatically created when creating the VMs, so we can try to
+					// delete it here.
+					if err = m.pool.DeletePool(ctx, m.opts); err != nil {
+						// Don't fail whole command if pool deletion fails
+						log.Printf("Warning: failed to delete storage pool: %v\n", err)
+					}
 				}
 				return nil
 			}
@@ -152,7 +158,7 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 	}
 
 	if state == libvirt.DOMAIN_RUNNING || state == libvirt.DOMAIN_PAUSED {
-		if err := domain.Destroy(); err != nil {
+		if err = domain.Destroy(); err != nil {
 			return fmt.Errorf("failed to destroy domain: %w", err)
 		}
 		log.Printf("Destroyed running domain %s\n", name)
@@ -173,6 +179,12 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 		if err := m.deleteVMVolumes(ctx, name); err != nil {
 			return fmt.Errorf("failed to delete volumes for %s: %w", name, err)
 		}
+		// Pool is automatically created when creating the VMs, so we can
+		// delete it here.
+		if err := m.pool.DeletePool(ctx, m.opts); err != nil {
+			// Don't fail whole command if pool deletion fails
+			log.Printf("Warning: failed to delete storage pool: %v\n", err)
+		}
 	}
 
 	return nil
@@ -180,9 +192,15 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 
 // deleteVMVolumes deletes all volumes associated with a VM.
 // It looks for volumes with names matching the pattern "{vmName}-*".
+// A missing pool is treated as success: the pool is removed automatically
+// once it is empty, so there are no volumes left to delete.
 func (m *VMManager) deleteVMVolumes(ctx context.Context, vmName string) error {
 	volumes, err := m.pool.ListVolumes(ctx, m.opts.PoolName)
 	if err != nil {
+		var libvirtErr libvirt.Error
+		if errors.As(err, &libvirtErr) && libvirtErr.Code == libvirt.ERR_NO_STORAGE_POOL {
+			return nil
+		}
 		log.Printf("Warning: failed to list volumes in pool %s: %v\n", m.opts.PoolName, err)
 		return err
 	}

@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 
-REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 cd "${REPO_ROOT}" || exit 1
 
-docker rm -f vbmctl-vbmc
-docker rm -f vbmctl-image-server-e2e
-docker rm -f vbmctl-sushy-tools
+if [[ ! -r "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" ]]; then
+    echo "vbmctl.yaml not found, skipping e2e cleanup with vbmctl"
+else
+    ./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" delete bml
+fi
 
+# Keeping BMH cleanup for legacy reasons.
 "${REPO_ROOT}/tools/bmh_test/clean_local_bmh_test_setup.sh" "^bmo-e2e-"
 
 rm -rf "${REPO_ROOT}/test/e2e/_artifacts"
@@ -15,15 +18,3 @@ KEEP_E2E_IMAGES="${KEEP_E2E_IMAGES:-false}"
 if [[ "${KEEP_E2E_IMAGES,,}" != "true" ]]; then
     rm -rf "${REPO_ROOT}/test/e2e/images"
 fi
-
-# Clear network
-virsh -c qemu:///system net-destroy baremetal-e2e
-virsh -c qemu:///system net-undefine baremetal-e2e
-
-# Clean volume pool directory
-rm -rf /tmp/pool_oo/*
-
-# Clean volume pool
-virsh -c qemu:///system pool-destroy baremetal-e2e || true
-virsh -c qemu:///system pool-delete baremetal-e2e || true
-virsh -c qemu:///system pool-undefine baremetal-e2e || true

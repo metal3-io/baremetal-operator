@@ -21,9 +21,11 @@ backward compatibility. Do not set both the annotation and
 When a host with inspection disabled is registered, the node is created
 with Ironic's `no-inspect` inspect interface if Ironic has it enabled for
 the host's driver, so Ironic refuses to inspect it. Otherwise the `agent`
-interface is used. Existing nodes keep their inspect interface. If
-inspection is requested later, the interface is changed before inspection
-starts.
+interface is used. Existing nodes are switched to `no-inspect` as well
+while they are in the `enroll`, `manageable` or `available` Ironic state.
+Ironic refuses interface changes in most other states, so provisioned hosts
+keep their inspect interface until they are deprovisioned. If inspection is
+requested later, the interface is changed before inspection starts.
 
 When inspection is disabled, hardware details can be supplied with the
 `inspect.metal3.io/hardwaredetails` annotation. That annotation is

@@ -23,7 +23,7 @@ import (
 const (
 	defaultInspectInterface = "agent"
 	// noInspectInterface makes Ironic refuse to inspect the node. It is
-	// used for new nodes of hosts with inspection disabled.
+	// used for hosts with inspection disabled.
 	noInspectInterface = "no-inspect"
 )
 
@@ -161,6 +161,20 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 
 		// The updater only updates disable_power_off if it has changed
 		updater.SetTopLevelOpt("disable_power_off", data.DisablePowerOff, ironicNode.DisablePowerOff)
+
+		// Switch the inspect interface only in enroll, manageable and
+		// available. Ironic refuses to change interfaces in most other
+		// states (for example active), and in inspect wait the change
+		// would break the running inspection. Ironic checks the interface
+		// against the node's driver, which can differ from the BMC's after
+		// an address change.
+		if data.DisableInspection && p.inspectInterfaceEnabled(ironicNode.Driver, noInspectInterface) {
+			switch nodes.ProvisionState(ironicNode.ProvisionState) {
+			case nodes.Enroll, nodes.Manageable, nodes.Available:
+				updater.SetTopLevelOpt("inspect_interface", noInspectInterface, ironicNode.InspectInterface)
+			default:
+			}
+		}
 
 		if p.config.enableNetworking {
 			updater.SetTopLevelOpt("network_interface", p.config.networkInterface, ironicNode.NetworkInterface)

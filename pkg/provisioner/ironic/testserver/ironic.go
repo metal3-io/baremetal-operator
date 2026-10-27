@@ -99,7 +99,8 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 				"rel": "bookmark"
 			  }
 			],
-			"name": "test"
+			"name": "test",
+			"enabled_inspect_interfaces": ["agent", "no-inspect"]
 		}]
 	}
 	`, http.StatusOK)

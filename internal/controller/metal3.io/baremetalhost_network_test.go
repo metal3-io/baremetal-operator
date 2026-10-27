@@ -40,6 +40,56 @@ func nicsFromHost(host *metal3api.BareMetalHost) []metal3api.NIC {
 	return nil
 }
 
+func TestHostNetworkAttachmentToBMHs(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, metal3api.AddToScheme(scheme))
+
+	attachment := &metal3api.HostNetworkAttachment{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-attachment", Namespace: "infra-ns"},
+	}
+	bmhSameNamespace := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{Name: "same-namespace", Namespace: "infra-ns"},
+		Spec: metal3api.BareMetalHostSpec{
+			NetworkInterfaces: []metal3api.NetworkInterface{
+				{HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: attachment.Name}},
+			},
+		},
+	}
+	bmhCrossNamespace := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{Name: "cross-namespace", Namespace: "tenant-ns"},
+		Spec: metal3api.BareMetalHostSpec{
+			NetworkInterfaces: []metal3api.NetworkInterface{
+				{HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: attachment.Name, Namespace: attachment.Namespace}},
+			},
+		},
+	}
+	bmhSameNameDifferentNamespace := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{Name: "different-namespace", Namespace: "tenant-ns"},
+		Spec: metal3api.BareMetalHostSpec{
+			NetworkInterfaces: []metal3api.NetworkInterface{
+				{HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: attachment.Name}},
+			},
+		},
+	}
+
+	reconciler := &BareMetalHostReconciler{
+		Client: fakeclient.NewClientBuilder().
+			WithScheme(scheme).
+			WithRuntimeObjects(bmhSameNamespace, bmhCrossNamespace, bmhSameNameDifferentNamespace).
+			WithIndex(&metal3api.BareMetalHost{}, bmhNetworkAttachmentIndexField, indexBMHHostNetworkAttachments).
+			Build(),
+	}
+
+	requests := reconciler.hostNetworkAttachmentToBMHs(context.Background(), attachment)
+	got := make([]string, 0, len(requests))
+	for _, request := range requests {
+		got = append(got, request.NamespacedName.String())
+	}
+	assert.ElementsMatch(t, []string{"infra-ns/same-namespace", "tenant-ns/cross-namespace"}, got)
+
+	assert.Empty(t, reconciler.hostNetworkAttachmentToBMHs(context.Background(), bmhSameNamespace))
+}
+
 func TestValidateNetworkInterfaces(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = metal3api.AddToScheme(scheme)

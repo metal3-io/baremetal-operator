@@ -31,7 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const bmhNetworkAttachmentIndexField = ".spec.networkInterfaces.hostNetworkAttachment.name"
 
 // hardwareDetailsFromInfo extracts HardwareDetails, preferring the HardwareData
 // resource and falling back to host.Status.HardwareDetails for hosts where
@@ -49,6 +53,52 @@ func nicsFromInfo(info *reconcileInfo) []metal3api.NIC {
 		return hwDetails.NIC
 	}
 	return nil
+}
+
+func indexBMHHostNetworkAttachments(object client.Object) []string {
+	bmh, ok := object.(*metal3api.BareMetalHost)
+	if !ok {
+		return nil
+	}
+
+	attachments := make([]string, 0, len(bmh.Spec.NetworkInterfaces))
+	for _, netIf := range bmh.Spec.NetworkInterfaces {
+		if netIf.HostNetworkAttachment.Name == "" {
+			continue
+		}
+
+		namespace := netIf.HostNetworkAttachment.Namespace
+		if namespace == "" {
+			namespace = bmh.Namespace
+		}
+		attachments = append(attachments, fmt.Sprintf("%s/%s", namespace, netIf.HostNetworkAttachment.Name))
+	}
+
+	return attachments
+}
+
+func (r *BareMetalHostReconciler) hostNetworkAttachmentToBMHs(ctx context.Context, object client.Object) []ctrl.Request {
+	attachment, ok := object.(*metal3api.HostNetworkAttachment)
+	if !ok {
+		return nil
+	}
+
+	bmhList := &metal3api.BareMetalHostList{}
+	indexKey := fmt.Sprintf("%s/%s", attachment.Namespace, attachment.Name)
+	if err := r.List(ctx, bmhList, client.MatchingFields{bmhNetworkAttachmentIndexField: indexKey}); err != nil {
+		r.Log.Error(err, "failed to list BMHs referencing HostNetworkAttachment",
+			"namespace", attachment.Namespace, "name", attachment.Name)
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(bmhList.Items))
+	for i := range bmhList.Items {
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKeyFromObject(&bmhList.Items[i]),
+		})
+	}
+
+	return requests
 }
 
 // preparePortConfigs resolves and validates the network interfaces for a host

@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	containers "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/containers"
@@ -65,8 +66,7 @@ func newDeleteVMCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete VM: %w", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleted VM %s (and its volumes)\n", name)
+			fmt.Fprintf(os.Stdout, "Deleted VM %s (and its volumes)\n", name)
 			return nil
 		},
 	}
@@ -95,8 +95,7 @@ func newDeleteBMLCmd() *cobra.Command {
 			defer func() { _, _ = conn.Close() }()
 
 			if len(cfg.Spec.VMs) == 0 {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("No VMs defined in configuration, skipping VM deletion.")
+				fmt.Fprintln(os.Stdout, "No VMs defined in configuration, skipping VM deletion.")
 			} else {
 				var vmManager *libvirt.VMManager
 
@@ -113,18 +112,15 @@ func newDeleteBMLCmd() *cobra.Command {
 					names[i] = vm.Name
 				}
 
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Deleting bare metal lab (%d VMs)...\n", len(names))
+				fmt.Fprintf(os.Stdout, "Deleting bare metal lab (%d VMs)...\n", len(names))
 				err = vmManager.DeleteAll(ctx, names, true)
 				if err != nil {
 					return err
 				}
 
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("Deleted VMs (and their volumes):")
+				fmt.Fprintln(os.Stdout, "Deleted VMs (and their volumes):")
 				for _, name := range names {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("  - %s\n", name)
+					fmt.Fprintf(os.Stdout, "  - %s\n", name)
 				}
 			}
 
@@ -132,14 +128,11 @@ func newDeleteBMLCmd() *cobra.Command {
 			err = network.DeleteAllVeth(ctx, cfg.Spec.VethPairs)
 			if err != nil {
 				// Don't fail whole command if veth deletion fails
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("failed to delete veth pairs: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Warning: failed to delete veth pairs: %v\n", err)
 			} else {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("Deleted veth pairs:")
+				fmt.Fprintln(os.Stdout, "Deleted veth pairs:")
 				for _, pair := range cfg.Spec.VethPairs {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("  - between %s and %s\n", pair.Link1, pair.Link2)
+					fmt.Fprintf(os.Stdout, "  - between %s and %s\n", pair.Link1, pair.Link2)
 				}
 			}
 
@@ -153,57 +146,46 @@ func newDeleteBMLCmd() *cobra.Command {
 				networks[i] = network.Name
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleting libvirt networks (%d networks)...\n", len(networks))
+			fmt.Fprintf(os.Stdout, "Deleting libvirt networks (%d networks)...\n", len(networks))
 
 			if err = networkManager.DeleteNetworks(ctx, networks); err != nil {
 				// Don't fail whole command if network deletion fails
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Warning: failed to delete network: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Warning: failed to delete network: %v\n", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Deleted networks:")
+			fmt.Fprintln(os.Stdout, "Deleted networks:")
 			for _, name := range networks {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - %s\n", name)
+				fmt.Fprintf(os.Stdout, "  - %s\n", name)
 			}
 
 			err = containers.DeleteBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
 			if err != nil {
 				// Don't fail whole command if network deletion fails
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Warning: failed to delete Docker network: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Warning: failed to delete Docker network: %v\n", err)
 			}
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Deleted Docker networks:")
+			fmt.Fprintln(os.Stdout, "Deleted Docker networks:")
 			for _, net := range cfg.Spec.DockerNetworks {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - name: %s\n", net.Name)
+				fmt.Fprintf(os.Stdout, "  - name: %s\n", net.Name)
 			}
 
 			if cfg.Spec.ImageServer != nil {
 				err := containers.DeleteImageServerInstance(ctx, cfg.Spec.ImageServer.ContainerName)
 				// don't fail the whole command if image server deletion fails, just log the error
 				if err != nil {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("%v\n", err)
+					fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 				}
 			} else {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("No image server configuration found in the config file.")
+				fmt.Fprintln(os.Stdout, "No image server configuration found in the config file.")
 			}
 
 			if cfg.Spec.BMCEmulator != nil {
 				err := containers.DeleteBMCEmulatorInstance(ctx, cfg.Spec.BMCEmulator.Type)
 				// don't fail the whole command if BMC emulator deletion fails, just log the error
 				if err != nil {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("%v\n", err)
+					fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 				}
 			} else {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("No BMC emulator configuration found in the config file.")
+				fmt.Fprintln(os.Stdout, "No BMC emulator configuration found in the config file.")
 			}
 
 			return nil
@@ -244,8 +226,7 @@ func newDeleteNetworkCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete network: %w", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleted network %s\n", name)
+			fmt.Fprintf(os.Stdout, "Deleted network %s\n", name)
 			return nil
 		},
 	}

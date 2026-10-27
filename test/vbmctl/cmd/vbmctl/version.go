@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	"github.com/spf13/cobra"
@@ -17,8 +18,7 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print the version",
 		Long:  "Print the version of vbmctl.",
 		Run: func(_ *cobra.Command, _ []string) {
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("vbmctl version %s\n", config.Version)
+			fmt.Fprintf(os.Stdout, "vbmctl version %s\n", config.Version)
 		},
 	}
 }

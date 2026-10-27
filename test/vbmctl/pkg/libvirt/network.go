@@ -13,8 +13,18 @@ import (
 	"libvirt.org/go/libvirt"
 )
 
+// ErrAlreadyExists is returned when vbmctl is asked to create a libvirt
+// network or VM that already exists.
+var ErrAlreadyExists = errors.New("already exists")
+
+// networkConnection is the part of *libvirt.Connect used by NetworkManager.
+type networkConnection interface {
+	LookupNetworkByName(name string) (*libvirt.Network, error)
+	NetworkDefineXML(xmlConfig string) (*libvirt.Network, error)
+}
+
 type NetworkManager struct {
-	conn     *libvirt.Connect
+	conn     networkConnection
 	renderer *TemplateRenderer
 }
 
@@ -35,31 +45,31 @@ func NewNetworkManager(conn *libvirt.Connect) (*NetworkManager, error) {
 	}, nil
 }
 
+// CreateNetwork defines and starts a libvirt network. It returns an error
+// wrapping ErrAlreadyExists if a network with the same name already exists.
 func (m *NetworkManager) CreateNetwork(_ context.Context, cfg vbmctlapi.NetworkConfig) (*Network, error) {
+	if err := m.checkNotExists(cfg.Name); err != nil {
+		return nil, err
+	}
+
 	// Render network XML
 	networkXML, err := m.renderer.RenderNetwork(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render VM template: %w", err)
 	}
 
-	// Check if network exists, define a new if it does not
-	network, err := m.conn.LookupNetworkByName(cfg.Name)
-	if err == nil {
-		log.Printf("network %s already exists, continuing with existing network", cfg.Name)
-	} else {
-		network, err = m.conn.NetworkDefineXML(networkXML)
-		if err != nil {
-			return nil, fmt.Errorf("failed to define network from XML: %w", err)
-		}
-		// Start the network
-		err = network.Create()
-		if err != nil {
-			return nil, fmt.Errorf("failed to start defined network %s: %w", cfg.Name, err)
-		}
-		err = network.SetAutostart(true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set autostart for network %s: %w", cfg.Name, err)
-		}
+	network, err := m.conn.NetworkDefineXML(networkXML)
+	if err != nil {
+		return nil, fmt.Errorf("failed to define network from XML: %w", err)
+	}
+	// Start the network
+	err = network.Create()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start defined network %s: %w", cfg.Name, err)
+	}
+	err = network.SetAutostart(true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set autostart for network %s: %w", cfg.Name, err)
 	}
 
 	// Get network information
@@ -86,6 +96,20 @@ func (m *NetworkManager) CreateNetwork(_ context.Context, cfg vbmctlapi.NetworkC
 	}, nil
 }
 
+// checkNotExists returns an error wrapping ErrAlreadyExists if a libvirt
+// network with the given name exists.
+func (m *NetworkManager) checkNotExists(name string) error {
+	network, err := m.conn.LookupNetworkByName(name)
+	if err == nil {
+		_ = network.Free()
+		return fmt.Errorf("network %s %w", name, ErrAlreadyExists)
+	}
+	if !errors.Is(err, libvirt.ERR_NO_NETWORK) {
+		return fmt.Errorf("failed to lookup network %s: %w", name, err)
+	}
+	return nil
+}
+
 func (m *NetworkManager) CreateNetworks(ctx context.Context, configs []vbmctlapi.NetworkConfig) ([]*Network, error) {
 	networks := make([]*Network, 0, len(configs))
 	for _, cfg := range configs {
@@ -98,7 +122,7 @@ func (m *NetworkManager) CreateNetworks(ctx context.Context, configs []vbmctlapi
 					log.Printf("Warning: failed to clean up network %s: %v\n", created.Name, delErr)
 				}
 			}
-			return nil, fmt.Errorf("failed to create network %s: %w", network.Name, err)
+			return nil, fmt.Errorf("failed to create network %s: %w", cfg.Name, err)
 		}
 		networks = append(networks, network)
 	}

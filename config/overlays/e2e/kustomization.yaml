@@ -17,6 +17,7 @@ resources:
 - ./network-data
 - ./provisioning-ops
 - ./re-inspection
+- ./scalability-fakeipa
 - ./upgrade-bmo
 - ./upgrade-ironic
 - ./hostclaims-infra

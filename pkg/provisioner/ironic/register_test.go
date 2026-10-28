@@ -217,6 +217,11 @@ func TestRegisterCreateNodeInspectionDisabled(t *testing.T) {
 			InspectInterfaces: map[string][]string{"test": {"agent"}, "ipmi": {"agent", "no-inspect"}},
 			ExpectedInterface: "agent",
 		},
+		{
+			Scenario:          "driver without any inspect interface enabled",
+			InspectInterfaces: map[string][]string{"test": nil},
+			ExpectedInterface: "agent",
+		},
 	}
 
 	for _, tc := range testCases {

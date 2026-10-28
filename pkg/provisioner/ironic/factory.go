@@ -225,7 +225,9 @@ func (f ironicProvisionerFactory) initAvailableFeature(ctx context.Context, clie
 }
 
 // checkIronicConductor checks that Ironic has drivers loaded and returns the
-// enabled inspect interfaces of each driver.
+// enabled inspect interfaces of each driver. A driver without any enabled
+// inspect interface still counts as loaded; its hosts keep the default
+// inspect interface.
 func (f ironicProvisionerFactory) checkIronicConductor(ctx context.Context, client *gophercloud.ServiceClient) (map[string][]string, error) {
 	pager := drivers.ListDrivers(client, drivers.ListDriversOpts{
 		Detail: true,
@@ -234,12 +236,14 @@ func (f ironicProvisionerFactory) checkIronicConductor(ctx context.Context, clie
 		return nil, pager.Err
 	}
 
+	driverCount := 0
 	inspectInterfaces := make(map[string][]string)
 	err := pager.EachPage(ctx, func(_ context.Context, page pagination.Page) (bool, error) {
 		actual, driverErr := drivers.ExtractDrivers(page)
 		if driverErr != nil {
 			return false, driverErr
 		}
+		driverCount += len(actual)
 		for _, driver := range actual {
 			inspectInterfaces[driver.Name] = driver.EnabledInspectInterfaces
 		}
@@ -250,7 +254,7 @@ func (f ironicProvisionerFactory) checkIronicConductor(ctx context.Context, clie
 		return nil, fmt.Errorf("%w: unexpected error from the drivers API", provisioner.ErrNotReady)
 	}
 
-	if len(inspectInterfaces) == 0 {
+	if driverCount == 0 {
 		return nil, fmt.Errorf("%w: no drivers loaded in ironic", provisioner.ErrNotReady)
 	}
 

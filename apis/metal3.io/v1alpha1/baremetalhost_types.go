@@ -357,6 +357,12 @@ const (
 // BMCDetails contains the information necessary to communicate with
 // the bare metal controller module on host.
 type BMCDetails struct {
+	// SerialConsoleAddress optionally supplies an IPMI URL for serial-over-LAN
+	// when the management protocol does not identify the console endpoint.
+	// Credentials come from the BMC Secret, optionally using the
+	// serialConsoleUsername and serialConsolePassword keys.
+	// +optional
+	SerialConsoleAddress string `json:"serialConsoleAddress,omitempty"`
 
 	// Address holds the URL for accessing the controller on the network.
 	// The scheme part designates the driver to use with the host.
@@ -932,6 +938,13 @@ type BareMetalHostStatus struct {
 
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
+	// DeprovisioningGeneration increases whenever the host enters deprovisioning.
+	// Companion requests can bind to it to detect workload handoffs even when
+	// intermediate provisioning state updates are not observed.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	DeprovisioningGeneration int64 `json:"deprovisioningGeneration,omitempty"`
+
 	// An indicator for what the provisioner is doing with the host.
 	State ProvisioningState `json:"state"`
 

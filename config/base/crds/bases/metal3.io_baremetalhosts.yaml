@@ -110,6 +110,13 @@ spec:
                       insecure because it allows a man-in-the-middle to intercept the
                       connection.
                     type: boolean
+                  serialConsoleAddress:
+                    description: |-
+                      SerialConsoleAddress optionally supplies an IPMI URL for serial-over-LAN
+                      when the management protocol does not identify the console endpoint.
+                      Credentials come from the BMC Secret, optionally using the
+                      serialConsoleUsername and serialConsolePassword keys.
+                    type: string
                 required:
                 - address
                 - credentialsName
@@ -1265,6 +1272,14 @@ spec:
                     required:
                     - method
                     type: object
+                  deprovisioningGeneration:
+                    description: |-
+                      DeprovisioningGeneration increases whenever the host enters deprovisioning.
+                      Companion requests can bind to it to detect workload handoffs even when
+                      intermediate provisioning state updates are not observed.
+                    format: int64
+                    minimum: 0
+                    type: integer
                   firmware:
                     description: |-
                       The firmware settings that have been applied.
@@ -1703,6 +1718,13 @@ spec:
                       insecure because it allows a man-in-the-middle to intercept the
                       connection.
                     type: boolean
+                  serialConsoleAddress:
+                    description: |-
+                      SerialConsoleAddress optionally supplies an IPMI URL for serial-over-LAN
+                      when the management protocol does not identify the console endpoint.
+                      Credentials come from the BMC Secret, optionally using the
+                      serialConsoleUsername and serialConsolePassword keys.
+                    type: string
                 required:
                 - address
                 - credentialsName
@@ -2858,6 +2880,14 @@ spec:
                     required:
                     - method
                     type: object
+                  deprovisioningGeneration:
+                    description: |-
+                      DeprovisioningGeneration increases whenever the host enters deprovisioning.
+                      Companion requests can bind to it to detect workload handoffs even when
+                      intermediate provisioning state updates are not observed.
+                    format: int64
+                    minimum: 0
+                    type: integer
                   firmware:
                     description: |-
                       The firmware settings that have been applied.

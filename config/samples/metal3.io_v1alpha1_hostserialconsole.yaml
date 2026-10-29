@@ -1,0 +1,6 @@
+apiVersion: metal3.io/v1alpha1
+kind: HostSerialConsole
+metadata:
+  name: worker-0
+  namespace: metal3
+spec: {}

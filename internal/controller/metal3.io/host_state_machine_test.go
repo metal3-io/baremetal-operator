@@ -41,6 +41,24 @@ func testNewReconciler(host *metal3api.BareMetalHost) *BareMetalHostReconciler {
 	return reconciler
 }
 
+func TestDeprovisioningGenerationAdvancesOnlyOnTransition(t *testing.T) {
+	h := host(metal3api.StateProvisioned).build()
+	h.Status.Provisioning.DeprovisioningGeneration = 3
+	p := newMockProvisioner()
+	hsm := newHostStateMachine(h, testNewReconciler(h), p, true)
+	info := makeDefaultReconcileInfo(h)
+	hsm.NextState = metal3api.StateDeprovisioning
+	p.setHasCapacity(false)
+	require.NotNil(t, hsm.updateHostStateFrom(t.Context(), metal3api.StateProvisioned, info))
+	require.Equal(t, int64(3), h.Status.Provisioning.DeprovisioningGeneration)
+	require.Equal(t, metal3api.StateProvisioned, h.Status.Provisioning.State)
+	p.setHasCapacity(true)
+	require.Nil(t, hsm.updateHostStateFrom(t.Context(), metal3api.StateProvisioned, info))
+	require.Equal(t, int64(4), h.Status.Provisioning.DeprovisioningGeneration)
+	require.Nil(t, hsm.updateHostStateFrom(t.Context(), metal3api.StateDeprovisioning, info))
+	require.Equal(t, int64(4), h.Status.Provisioning.DeprovisioningGeneration)
+}
+
 //nolint:dupl
 func TestProvisioningCapacity(t *testing.T) {
 	testCases := []struct {

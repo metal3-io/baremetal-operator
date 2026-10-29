@@ -62,7 +62,8 @@ vbmctl config init
 # View current configuration
 vbmctl config view
 
-# Create a single virtual machine
+# Create a single virtual machine. If the store pool does not
+# exist, it will be created automatically.
 vbmctl create vm --name test-vm --memory 4096 --vcpus 2
 
 # Create network with default values (default name: baremetal-e2e)
@@ -79,6 +80,7 @@ vbmctl create vm \
   --ip-address 192.168.222.100
 
 # Create a bare metal lab (all VMs and networks defined in spec.vms of the config file)
+# If the store pool does not exist, it will be created automatically.
 vbmctl create bml
 
 # Create an image server with default settings. Please note that if
@@ -91,10 +93,12 @@ vbmctl create bmc-emulator
 # Check status
 vbmctl status
 
-# Delete a VM (also deletes its volumes)
+# Delete a VM (also deletes its volumes). The storage pool will also be removed
+# if it contains no volumes.
 vbmctl delete vm test-vm
 
-# Delete the bare metal lab (all VMs defined in spec.vms of the config file)
+# Delete the bare metal lab (all VMs defined in spec.vms of the config file).
+# The storage pool will also be removed if it contains no volumes.
 vbmctl delete bml
 
 # Create network with default values

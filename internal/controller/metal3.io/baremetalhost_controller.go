@@ -2620,8 +2620,10 @@ func credentialsFromSecret(bmcCredsSecret *corev1.Secret) *bmc.Credentials {
 	//
 	// which introduces a trailing newline.
 	return &bmc.Credentials{
-		Username: strings.TrimSpace(string(bmcCredsSecret.Data["username"])),
-		Password: strings.TrimSpace(string(bmcCredsSecret.Data["password"])),
+		Username:              strings.TrimSpace(string(bmcCredsSecret.Data["username"])),
+		Password:              strings.TrimSpace(string(bmcCredsSecret.Data["password"])),
+		SerialConsoleUsername: strings.TrimSpace(string(bmcCredsSecret.Data["serialConsoleUsername"])),
+		SerialConsolePassword: strings.TrimSpace(string(bmcCredsSecret.Data["serialConsolePassword"])),
 	}
 }
 

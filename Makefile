@@ -26,6 +26,11 @@ CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
 CONVERSION_GEN = $(TOOLS_BIN_DIR)/conversion-gen
+SETUP_ENVTEST = $(TOOLS_BIN_DIR)/setup-envtest
+# Match controller-runtime v0.24.1; pin the release index and its asset checksums.
+SETUP_ENVTEST_REV = 3be3f1bf2b2fcc6b5c9510d55c6a9972294653d0
+ENVTEST_INDEX = https://raw.githubusercontent.com/kubernetes-sigs/controller-tools/9014a239137001ce60a674e72e086d2554c4083d/envtest-releases.yaml
+ENVTEST_K8S_VERSION ?= 1.36.0
 GINKGO = tools/bin/ginkgo
 DEPLOY_CLI = tools/bin/deploy-cli
 CONTAINER_RUNTIME = docker
@@ -121,7 +126,18 @@ DEPLOY_CONFIG ?= default
 
 # Run tests
 .PHONY: test
-test: generate lint manifests unit ## Run common developer tests
+test: generate lint manifests unit test-envtest ## Run common developer tests
+
+$(SETUP_ENVTEST):
+	GOBIN=$(TOOLS_BIN_DIR) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(SETUP_ENVTEST_REV)
+
+.PHONY: test-envtest
+test-envtest: $(SETUP_ENVTEST) manifests ## Validate console resources against a local API server
+	@assets="$${KUBEBUILDER_ASSETS:-}"; \
+	if [[ -z "$${assets}" ]]; then \
+	  assets="$$($(SETUP_ENVTEST) --index $(ENVTEST_INDEX) use -p path $(ENVTEST_K8S_VERSION))" || exit 1; \
+	fi; \
+	KUBEBUILDER_ASSETS="$${assets}" go test -tags=integration ./internal/controller/metal3.io -run TestHostSerialConsoleAPIServer $(GO_TEST_FLAGS)
 
 .PHONY: unit
 unit: ## Run unit tests

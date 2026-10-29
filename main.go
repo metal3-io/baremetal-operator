@@ -175,6 +175,11 @@ func setupWebhooks(ctx context.Context, mgr ctrl.Manager) {
 		os.Exit(1)
 	}
 
+	if err := (&webhooks.HostSerialConsole{Client: mgr.GetAPIReader()}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HostSerialConsole")
+		os.Exit(1)
+	}
+
 	if err := (&webhooks.HostFirmwareComponents{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HostFirmwareComponents")
 		os.Exit(1)

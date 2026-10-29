@@ -93,7 +93,8 @@ type ironicProvisioner struct {
 	// the UUID of the node in Ironic
 	nodeID string
 	// the address of the BMC
-	bmcAddress string
+	bmcAddress           string
+	serialConsoleAddress string
 	// port configurations keyed by MAC address
 	portConfigs map[string]*provisioner.PortConfig
 	// whether to disable SSL certificate verification

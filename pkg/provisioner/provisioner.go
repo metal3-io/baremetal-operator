@@ -40,6 +40,7 @@ type HostData struct {
 	DisableCertificateVerification bool
 	BootMACAddress                 string
 	ProvisionerID                  string
+	SerialConsoleAddress           string
 }
 
 func BuildHostData(host metal3api.BareMetalHost, bmcCreds bmc.Credentials) HostData {
@@ -50,6 +51,7 @@ func BuildHostData(host metal3api.BareMetalHost, bmcCreds bmc.Credentials) HostD
 		DisableCertificateVerification: host.Spec.BMC.DisableCertificateVerification,
 		BootMACAddress:                 host.Spec.BootMACAddress,
 		ProvisionerID:                  host.Status.Provisioning.ID,
+		SerialConsoleAddress:           host.Spec.BMC.SerialConsoleAddress,
 	}
 }
 

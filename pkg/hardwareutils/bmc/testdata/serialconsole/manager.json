@@ -1,0 +1,16 @@
+{
+  "@odata.id": "/redfish/v1/Managers/1",
+  "SerialConsole": {
+    "ServiceEnabled": true,
+    "ConnectTypesSupported": ["IPMI"],
+    "MaxConcurrentSessions": 1
+  },
+  "NetworkProtocol": {
+    "@odata.id": "/redfish/v1/Managers/1/NetworkProtocol"
+  },
+  "Links": {
+    "ManagerForServers": [
+      {"@odata.id": "/redfish/v1/Systems/1"}
+    ]
+  }
+}

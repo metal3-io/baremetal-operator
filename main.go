@@ -555,6 +555,12 @@ func main() {
 	}
 
 	// +kubebuilder:scaffold:builder
+	if err = (&metal3iocontroller.HostSerialConsoleReconciler{
+		Client: mgr.GetClient(), APIReader: mgr.GetAPIReader(), ProvisionerFactory: provisionerFactory,
+	}).SetupWithManager(mgr, maxConcurrency); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HostSerialConsole")
+		os.Exit(1)
+	}
 
 	if err = (&metal3iocontroller.HostFirmwareSettingsReconciler{
 		Client:             mgr.GetClient(),

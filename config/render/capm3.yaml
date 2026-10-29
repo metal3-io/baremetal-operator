@@ -5556,6 +5556,30 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - ironic.metal3.io
   resources:
   - ironics
@@ -5591,6 +5615,7 @@ rules:
   - hardware/finalizers
   - hostclaims/finalizers
   - hostfirmwarecomponents/finalizers
+  - hostserialconsoles/finalizers
   verbs:
   - update
 - apiGroups:
@@ -5604,6 +5629,7 @@ rules:
   - hostclaims/status
   - hostfirmwarecomponents/status
   - hostfirmwaresettings/status
+  - hostserialconsoles/status
   - preprovisioningimages/status
   verbs:
   - get
@@ -5618,6 +5644,17 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostserialconsoles
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - metal3.io

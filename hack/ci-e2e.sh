@@ -151,12 +151,14 @@ IMAGE_FILE="cirros-${CIRROS_VERSION}-x86_64-disk.img"
 export IMAGE_CHECKSUM="c8fc807773e5354afe61636071771906"
 export IMAGE_URL="http://${IP_ADDRESS}/${IMAGE_FILE}"
 IMAGE_DIR="${REPO_ROOT}/test/e2e/images"
+SYSRESCUE_VERSION="11.00"
+ISO_FILE="systemrescue-${SYSRESCUE_VERSION}-amd64.iso"
 mkdir -p "${IMAGE_DIR}"
 
 ## Download disk images
 if [[ ! -f "${IMAGE_DIR}/${IMAGE_FILE}" ]]; then
     wget --quiet -P "${IMAGE_DIR}/" https://download.cirros-cloud.net/"${CIRROS_VERSION}"/"${IMAGE_FILE}"
-    wget --quiet -O "${IMAGE_DIR}/systemrescue-11.00-amd64.iso" https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/11.00/systemrescue-11.00-amd64.iso/download
+    wget --quiet -O "${IMAGE_DIR}/${ISO_FILE}" https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/"${SYSRESCUE_VERSION}"/"${ISO_FILE}"/download
 fi
 
 ## Download IPA (Ironic Python Agent) image
@@ -196,7 +198,7 @@ sysconfig:
         "test@example.com": "${pub_ssh_key}"
 EOF
 
-    ./sysrescue-customize --auto --recipe-dir recipe --source systemrescue-11.00-amd64.iso --dest=sysrescue-out.iso
+    ./sysrescue-customize --auto --recipe-dir recipe --source "${ISO_FILE}" --dest=sysrescue-out.iso
     popd
 fi
 export ISO_IMAGE_URL="http://${IP_ADDRESS}/sysrescue-out.iso"

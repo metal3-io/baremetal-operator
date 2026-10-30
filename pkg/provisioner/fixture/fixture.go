@@ -427,18 +427,6 @@ func (p *fixtureProvisioner) GetFirmwareComponents(_ context.Context) (component
 	return p.state.HostFirmwareComponents.Components, nil
 }
 
-func (p *fixtureProvisioner) GetDataImageStatus(_ context.Context) (isImageAttached bool, err error) {
-	return false, nil
-}
-
-func (p *fixtureProvisioner) AttachDataImage(_ context.Context, _ string) (err error) {
-	return nil
-}
-
-func (p *fixtureProvisioner) DetachDataImage(_ context.Context) (err error) {
-	return nil
-}
-
 func (p *fixtureProvisioner) HasPowerFailure(_ context.Context) bool {
 	return p.state != nil && p.state.PowerFailed
 }

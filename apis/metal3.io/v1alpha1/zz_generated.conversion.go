@@ -24,8 +24,6 @@ import (
 	unsafe "unsafe"
 
 	v1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -401,11 +399,7 @@ func RegisterConversions(s *runtime.Scheme) error {
 }
 
 func autoConvert_v1alpha1_Accelerator_To_v1beta1_Accelerator(in *Accelerator, out *v1beta1.Accelerator, s conversion.Scope) error {
-	out.VendorID = in.VendorID
-	out.DeviceID = in.DeviceID
-	out.Type = in.Type
-	out.DeviceInfo = in.DeviceInfo
-	out.PCIAddress = in.PCIAddress
+	*out = *(*v1beta1.Accelerator)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -415,11 +409,7 @@ func Convert_v1alpha1_Accelerator_To_v1beta1_Accelerator(in *Accelerator, out *v
 }
 
 func autoConvert_v1beta1_Accelerator_To_v1alpha1_Accelerator(in *v1beta1.Accelerator, out *Accelerator, s conversion.Scope) error {
-	out.VendorID = in.VendorID
-	out.DeviceID = in.DeviceID
-	out.Type = in.Type
-	out.DeviceInfo = in.DeviceInfo
-	out.PCIAddress = in.PCIAddress
+	*out = *(*Accelerator)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -429,11 +419,7 @@ func Convert_v1beta1_Accelerator_To_v1alpha1_Accelerator(in *v1beta1.Accelerator
 }
 
 func autoConvert_v1alpha1_AppliedNetworkAttachmentConfig_To_v1beta1_AppliedNetworkAttachmentConfig(in *AppliedNetworkAttachmentConfig, out *v1beta1.AppliedNetworkAttachmentConfig, s conversion.Scope) error {
-	out.Name = in.Name
-	if err := Convert_v1alpha1_SwitchPortConfig_To_v1beta1_SwitchPortConfig(&in.SwitchPortConfig, &out.SwitchPortConfig, s); err != nil {
-		return err
-	}
-	out.SwitchPort = (*v1beta1.SwitchPortIdentifier)(unsafe.Pointer(in.SwitchPort))
+	*out = *(*v1beta1.AppliedNetworkAttachmentConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -443,11 +429,7 @@ func Convert_v1alpha1_AppliedNetworkAttachmentConfig_To_v1beta1_AppliedNetworkAt
 }
 
 func autoConvert_v1beta1_AppliedNetworkAttachmentConfig_To_v1alpha1_AppliedNetworkAttachmentConfig(in *v1beta1.AppliedNetworkAttachmentConfig, out *AppliedNetworkAttachmentConfig, s conversion.Scope) error {
-	out.Name = in.Name
-	if err := Convert_v1beta1_SwitchPortConfig_To_v1alpha1_SwitchPortConfig(&in.SwitchPortConfig, &out.SwitchPortConfig, s); err != nil {
-		return err
-	}
-	out.SwitchPort = (*SwitchPortIdentifier)(unsafe.Pointer(in.SwitchPort))
+	*out = *(*AppliedNetworkAttachmentConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -457,9 +439,7 @@ func Convert_v1beta1_AppliedNetworkAttachmentConfig_To_v1alpha1_AppliedNetworkAt
 }
 
 func autoConvert_v1alpha1_BIOS_To_v1beta1_BIOS(in *BIOS, out *v1beta1.BIOS, s conversion.Scope) error {
-	out.Date = in.Date
-	out.Vendor = in.Vendor
-	out.Version = in.Version
+	*out = *(*v1beta1.BIOS)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -469,9 +449,7 @@ func Convert_v1alpha1_BIOS_To_v1beta1_BIOS(in *BIOS, out *v1beta1.BIOS, s conver
 }
 
 func autoConvert_v1beta1_BIOS_To_v1alpha1_BIOS(in *v1beta1.BIOS, out *BIOS, s conversion.Scope) error {
-	out.Date = in.Date
-	out.Vendor = in.Vendor
-	out.Version = in.Version
+	*out = *(*BIOS)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -481,9 +459,7 @@ func Convert_v1beta1_BIOS_To_v1alpha1_BIOS(in *v1beta1.BIOS, out *BIOS, s conver
 }
 
 func autoConvert_v1alpha1_BMCDetails_To_v1beta1_BMCDetails(in *BMCDetails, out *v1beta1.BMCDetails, s conversion.Scope) error {
-	out.Address = in.Address
-	out.CredentialsName = in.CredentialsName
-	out.DisableCertificateVerification = in.DisableCertificateVerification
+	*out = *(*v1beta1.BMCDetails)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -493,9 +469,7 @@ func Convert_v1alpha1_BMCDetails_To_v1beta1_BMCDetails(in *BMCDetails, out *v1be
 }
 
 func autoConvert_v1beta1_BMCDetails_To_v1alpha1_BMCDetails(in *v1beta1.BMCDetails, out *BMCDetails, s conversion.Scope) error {
-	out.Address = in.Address
-	out.CredentialsName = in.CredentialsName
-	out.DisableCertificateVerification = in.DisableCertificateVerification
+	*out = *(*BMCDetails)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -559,31 +533,7 @@ func Convert_v1beta1_BareMetalHostList_To_v1alpha1_BareMetalHostList(in *v1beta1
 }
 
 func autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMetalHostSpec, out *v1beta1.BareMetalHostSpec, s conversion.Scope) error {
-	out.Taints = *(*[]v1.Taint)(unsafe.Pointer(&in.Taints))
-	if err := Convert_v1alpha1_BMCDetails_To_v1beta1_BMCDetails(&in.BMC, &out.BMC, s); err != nil {
-		return err
-	}
-	out.RAID = (*v1beta1.RAIDConfig)(unsafe.Pointer(in.RAID))
-	out.Firmware = (*v1beta1.FirmwareConfig)(unsafe.Pointer(in.Firmware))
-	out.HardwareProfile = in.HardwareProfile
-	out.RootDeviceHints = (*v1beta1.RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	out.BootMode = v1beta1.BootMode(in.BootMode)
-	out.BootMACAddress = in.BootMACAddress
-	out.Online = in.Online
-	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
-	out.Image = (*v1beta1.Image)(unsafe.Pointer(in.Image))
-	out.UserData = (*v1.SecretReference)(unsafe.Pointer(in.UserData))
-	out.PreprovisioningNetworkDataName = in.PreprovisioningNetworkDataName
-	out.NetworkData = (*v1.SecretReference)(unsafe.Pointer(in.NetworkData))
-	out.MetaData = (*v1.SecretReference)(unsafe.Pointer(in.MetaData))
-	out.Description = in.Description
-	out.ExternallyProvisioned = in.ExternallyProvisioned
-	out.AutomatedCleaningMode = v1beta1.AutomatedCleaningMode(in.AutomatedCleaningMode)
-	out.CustomDeploy = (*v1beta1.CustomDeploy)(unsafe.Pointer(in.CustomDeploy))
-	out.Architecture = in.Architecture
-	out.DisablePowerOff = in.DisablePowerOff
-	out.InspectionMode = v1beta1.InspectionMode(in.InspectionMode)
-	out.NetworkInterfaces = *(*[]v1beta1.NetworkInterface)(unsafe.Pointer(&in.NetworkInterfaces))
+	*out = *(*v1beta1.BareMetalHostSpec)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -593,31 +543,7 @@ func Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMet
 }
 
 func autoConvert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *v1beta1.BareMetalHostSpec, out *BareMetalHostSpec, s conversion.Scope) error {
-	out.Taints = *(*[]v1.Taint)(unsafe.Pointer(&in.Taints))
-	if err := Convert_v1beta1_BMCDetails_To_v1alpha1_BMCDetails(&in.BMC, &out.BMC, s); err != nil {
-		return err
-	}
-	out.RAID = (*RAIDConfig)(unsafe.Pointer(in.RAID))
-	out.Firmware = (*FirmwareConfig)(unsafe.Pointer(in.Firmware))
-	out.HardwareProfile = in.HardwareProfile
-	out.RootDeviceHints = (*RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	out.BootMode = BootMode(in.BootMode)
-	out.BootMACAddress = in.BootMACAddress
-	out.Online = in.Online
-	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
-	out.Image = (*Image)(unsafe.Pointer(in.Image))
-	out.UserData = (*v1.SecretReference)(unsafe.Pointer(in.UserData))
-	out.PreprovisioningNetworkDataName = in.PreprovisioningNetworkDataName
-	out.NetworkData = (*v1.SecretReference)(unsafe.Pointer(in.NetworkData))
-	out.MetaData = (*v1.SecretReference)(unsafe.Pointer(in.MetaData))
-	out.Description = in.Description
-	out.ExternallyProvisioned = in.ExternallyProvisioned
-	out.AutomatedCleaningMode = AutomatedCleaningMode(in.AutomatedCleaningMode)
-	out.CustomDeploy = (*CustomDeploy)(unsafe.Pointer(in.CustomDeploy))
-	out.Architecture = in.Architecture
-	out.DisablePowerOff = in.DisablePowerOff
-	out.InspectionMode = InspectionMode(in.InspectionMode)
-	out.NetworkInterfaces = *(*[]NetworkInterface)(unsafe.Pointer(&in.NetworkInterfaces))
+	*out = *(*BareMetalHostSpec)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -627,30 +553,7 @@ func Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *v1beta1
 }
 
 func autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in *BareMetalHostStatus, out *v1beta1.BareMetalHostStatus, s conversion.Scope) error {
-	out.OperationalStatus = v1beta1.OperationalStatus(in.OperationalStatus)
-	out.ErrorType = v1beta1.ErrorType(in.ErrorType)
-	out.LastUpdated = (*metav1.Time)(unsafe.Pointer(in.LastUpdated))
-	out.HardwareProfile = in.HardwareProfile
-	out.HardwareDetails = (*v1beta1.HardwareDetails)(unsafe.Pointer(in.HardwareDetails))
-	if err := Convert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(&in.Provisioning, &out.Provisioning, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_CredentialsStatus_To_v1beta1_CredentialsStatus(&in.GoodCredentials, &out.GoodCredentials, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_CredentialsStatus_To_v1beta1_CredentialsStatus(&in.TriedCredentials, &out.TriedCredentials, s); err != nil {
-		return err
-	}
-	out.ErrorMessage = in.ErrorMessage
-	out.PoweredOn = in.PoweredOn
-	if err := Convert_v1alpha1_OperationHistory_To_v1beta1_OperationHistory(&in.OperationHistory, &out.OperationHistory, s); err != nil {
-		return err
-	}
-	out.ErrorCount = in.ErrorCount
-	out.ProvisioningFailCount = in.ProvisioningFailCount
-	out.LastAttemptedImage = (*v1beta1.Image)(unsafe.Pointer(in.LastAttemptedImage))
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
-	out.AppliedNetworkAttachmentConfigs = *(*[]v1beta1.AppliedNetworkAttachmentConfig)(unsafe.Pointer(&in.AppliedNetworkAttachmentConfigs))
+	*out = *(*v1beta1.BareMetalHostStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -660,30 +563,7 @@ func Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in *Bar
 }
 
 func autoConvert_v1beta1_BareMetalHostStatus_To_v1alpha1_BareMetalHostStatus(in *v1beta1.BareMetalHostStatus, out *BareMetalHostStatus, s conversion.Scope) error {
-	out.OperationalStatus = OperationalStatus(in.OperationalStatus)
-	out.ErrorType = ErrorType(in.ErrorType)
-	out.LastUpdated = (*metav1.Time)(unsafe.Pointer(in.LastUpdated))
-	out.HardwareProfile = in.HardwareProfile
-	out.HardwareDetails = (*HardwareDetails)(unsafe.Pointer(in.HardwareDetails))
-	if err := Convert_v1beta1_ProvisionStatus_To_v1alpha1_ProvisionStatus(&in.Provisioning, &out.Provisioning, s); err != nil {
-		return err
-	}
-	if err := Convert_v1beta1_CredentialsStatus_To_v1alpha1_CredentialsStatus(&in.GoodCredentials, &out.GoodCredentials, s); err != nil {
-		return err
-	}
-	if err := Convert_v1beta1_CredentialsStatus_To_v1alpha1_CredentialsStatus(&in.TriedCredentials, &out.TriedCredentials, s); err != nil {
-		return err
-	}
-	out.ErrorMessage = in.ErrorMessage
-	out.PoweredOn = in.PoweredOn
-	if err := Convert_v1beta1_OperationHistory_To_v1alpha1_OperationHistory(&in.OperationHistory, &out.OperationHistory, s); err != nil {
-		return err
-	}
-	out.ErrorCount = in.ErrorCount
-	out.ProvisioningFailCount = in.ProvisioningFailCount
-	out.LastAttemptedImage = (*Image)(unsafe.Pointer(in.LastAttemptedImage))
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
-	out.AppliedNetworkAttachmentConfigs = *(*[]AppliedNetworkAttachmentConfig)(unsafe.Pointer(&in.AppliedNetworkAttachmentConfigs))
+	*out = *(*BareMetalHostStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -693,11 +573,7 @@ func Convert_v1beta1_BareMetalHostStatus_To_v1alpha1_BareMetalHostStatus(in *v1b
 }
 
 func autoConvert_v1alpha1_CPU_To_v1beta1_CPU(in *CPU, out *v1beta1.CPU, s conversion.Scope) error {
-	out.Arch = in.Arch
-	out.Model = in.Model
-	out.ClockMegahertz = v1beta1.ClockSpeed(in.ClockMegahertz)
-	out.Flags = *(*[]string)(unsafe.Pointer(&in.Flags))
-	out.Count = in.Count
+	*out = *(*v1beta1.CPU)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -707,11 +583,7 @@ func Convert_v1alpha1_CPU_To_v1beta1_CPU(in *CPU, out *v1beta1.CPU, s conversion
 }
 
 func autoConvert_v1beta1_CPU_To_v1alpha1_CPU(in *v1beta1.CPU, out *CPU, s conversion.Scope) error {
-	out.Arch = in.Arch
-	out.Model = in.Model
-	out.ClockMegahertz = ClockSpeed(in.ClockMegahertz)
-	out.Flags = *(*[]string)(unsafe.Pointer(&in.Flags))
-	out.Count = in.Count
+	*out = *(*CPU)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -721,8 +593,7 @@ func Convert_v1beta1_CPU_To_v1alpha1_CPU(in *v1beta1.CPU, out *CPU, s conversion
 }
 
 func autoConvert_v1alpha1_CredentialsStatus_To_v1beta1_CredentialsStatus(in *CredentialsStatus, out *v1beta1.CredentialsStatus, s conversion.Scope) error {
-	out.Reference = (*v1.SecretReference)(unsafe.Pointer(in.Reference))
-	out.Version = in.Version
+	*out = *(*v1beta1.CredentialsStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -732,8 +603,7 @@ func Convert_v1alpha1_CredentialsStatus_To_v1beta1_CredentialsStatus(in *Credent
 }
 
 func autoConvert_v1beta1_CredentialsStatus_To_v1alpha1_CredentialsStatus(in *v1beta1.CredentialsStatus, out *CredentialsStatus, s conversion.Scope) error {
-	out.Reference = (*v1.SecretReference)(unsafe.Pointer(in.Reference))
-	out.Version = in.Version
+	*out = *(*CredentialsStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -743,7 +613,7 @@ func Convert_v1beta1_CredentialsStatus_To_v1alpha1_CredentialsStatus(in *v1beta1
 }
 
 func autoConvert_v1alpha1_CustomDeploy_To_v1beta1_CustomDeploy(in *CustomDeploy, out *v1beta1.CustomDeploy, s conversion.Scope) error {
-	out.Method = in.Method
+	*out = *(*v1beta1.CustomDeploy)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -753,7 +623,7 @@ func Convert_v1alpha1_CustomDeploy_To_v1beta1_CustomDeploy(in *CustomDeploy, out
 }
 
 func autoConvert_v1beta1_CustomDeploy_To_v1alpha1_CustomDeploy(in *v1beta1.CustomDeploy, out *CustomDeploy, s conversion.Scope) error {
-	out.Method = in.Method
+	*out = *(*CustomDeploy)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -763,8 +633,7 @@ func Convert_v1beta1_CustomDeploy_To_v1alpha1_CustomDeploy(in *v1beta1.CustomDep
 }
 
 func autoConvert_v1alpha1_DetachedAnnotationArguments_To_v1beta1_DetachedAnnotationArguments(in *DetachedAnnotationArguments, out *v1beta1.DetachedAnnotationArguments, s conversion.Scope) error {
-	out.DeleteAction = v1beta1.DetachedDeleteAction(in.DeleteAction)
-	out.Force = in.Force
+	*out = *(*v1beta1.DetachedAnnotationArguments)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -774,8 +643,7 @@ func Convert_v1alpha1_DetachedAnnotationArguments_To_v1beta1_DetachedAnnotationA
 }
 
 func autoConvert_v1beta1_DetachedAnnotationArguments_To_v1alpha1_DetachedAnnotationArguments(in *v1beta1.DetachedAnnotationArguments, out *DetachedAnnotationArguments, s conversion.Scope) error {
-	out.DeleteAction = DetachedDeleteAction(in.DeleteAction)
-	out.Force = in.Force
+	*out = *(*DetachedAnnotationArguments)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -785,9 +653,7 @@ func Convert_v1beta1_DetachedAnnotationArguments_To_v1alpha1_DetachedAnnotationA
 }
 
 func autoConvert_v1alpha1_Firmware_To_v1beta1_Firmware(in *Firmware, out *v1beta1.Firmware, s conversion.Scope) error {
-	if err := Convert_v1alpha1_BIOS_To_v1beta1_BIOS(&in.BIOS, &out.BIOS, s); err != nil {
-		return err
-	}
+	*out = *(*v1beta1.Firmware)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -797,9 +663,7 @@ func Convert_v1alpha1_Firmware_To_v1beta1_Firmware(in *Firmware, out *v1beta1.Fi
 }
 
 func autoConvert_v1beta1_Firmware_To_v1alpha1_Firmware(in *v1beta1.Firmware, out *Firmware, s conversion.Scope) error {
-	if err := Convert_v1beta1_BIOS_To_v1alpha1_BIOS(&in.BIOS, &out.BIOS, s); err != nil {
-		return err
-	}
+	*out = *(*Firmware)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -809,9 +673,7 @@ func Convert_v1beta1_Firmware_To_v1alpha1_Firmware(in *v1beta1.Firmware, out *Fi
 }
 
 func autoConvert_v1alpha1_FirmwareConfig_To_v1beta1_FirmwareConfig(in *FirmwareConfig, out *v1beta1.FirmwareConfig, s conversion.Scope) error {
-	out.VirtualizationEnabled = (*bool)(unsafe.Pointer(in.VirtualizationEnabled))
-	out.SimultaneousMultithreadingEnabled = (*bool)(unsafe.Pointer(in.SimultaneousMultithreadingEnabled))
-	out.SriovEnabled = (*bool)(unsafe.Pointer(in.SriovEnabled))
+	*out = *(*v1beta1.FirmwareConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -821,9 +683,7 @@ func Convert_v1alpha1_FirmwareConfig_To_v1beta1_FirmwareConfig(in *FirmwareConfi
 }
 
 func autoConvert_v1beta1_FirmwareConfig_To_v1alpha1_FirmwareConfig(in *v1beta1.FirmwareConfig, out *FirmwareConfig, s conversion.Scope) error {
-	out.VirtualizationEnabled = (*bool)(unsafe.Pointer(in.VirtualizationEnabled))
-	out.SimultaneousMultithreadingEnabled = (*bool)(unsafe.Pointer(in.SimultaneousMultithreadingEnabled))
-	out.SriovEnabled = (*bool)(unsafe.Pointer(in.SriovEnabled))
+	*out = *(*FirmwareConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -881,7 +741,7 @@ func Convert_v1beta1_HardwareDataList_To_v1alpha1_HardwareDataList(in *v1beta1.H
 }
 
 func autoConvert_v1alpha1_HardwareDataSpec_To_v1beta1_HardwareDataSpec(in *HardwareDataSpec, out *v1beta1.HardwareDataSpec, s conversion.Scope) error {
-	out.HardwareDetails = (*v1beta1.HardwareDetails)(unsafe.Pointer(in.HardwareDetails))
+	*out = *(*v1beta1.HardwareDataSpec)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -891,7 +751,7 @@ func Convert_v1alpha1_HardwareDataSpec_To_v1beta1_HardwareDataSpec(in *HardwareD
 }
 
 func autoConvert_v1beta1_HardwareDataSpec_To_v1alpha1_HardwareDataSpec(in *v1beta1.HardwareDataSpec, out *HardwareDataSpec, s conversion.Scope) error {
-	out.HardwareDetails = (*HardwareDetails)(unsafe.Pointer(in.HardwareDetails))
+	*out = *(*HardwareDataSpec)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -901,20 +761,7 @@ func Convert_v1beta1_HardwareDataSpec_To_v1alpha1_HardwareDataSpec(in *v1beta1.H
 }
 
 func autoConvert_v1alpha1_HardwareDetails_To_v1beta1_HardwareDetails(in *HardwareDetails, out *v1beta1.HardwareDetails, s conversion.Scope) error {
-	out.Accelerators = *(*[]v1beta1.Accelerator)(unsafe.Pointer(&in.Accelerators))
-	if err := Convert_v1alpha1_HardwareSystemVendor_To_v1beta1_HardwareSystemVendor(&in.SystemVendor, &out.SystemVendor, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_Firmware_To_v1beta1_Firmware(&in.Firmware, &out.Firmware, s); err != nil {
-		return err
-	}
-	out.RAMMebibytes = in.RAMMebibytes
-	out.NIC = *(*[]v1beta1.NIC)(unsafe.Pointer(&in.NIC))
-	out.Storage = *(*[]v1beta1.Storage)(unsafe.Pointer(&in.Storage))
-	if err := Convert_v1alpha1_CPU_To_v1beta1_CPU(&in.CPU, &out.CPU, s); err != nil {
-		return err
-	}
-	out.Hostname = in.Hostname
+	*out = *(*v1beta1.HardwareDetails)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -924,20 +771,7 @@ func Convert_v1alpha1_HardwareDetails_To_v1beta1_HardwareDetails(in *HardwareDet
 }
 
 func autoConvert_v1beta1_HardwareDetails_To_v1alpha1_HardwareDetails(in *v1beta1.HardwareDetails, out *HardwareDetails, s conversion.Scope) error {
-	out.Accelerators = *(*[]Accelerator)(unsafe.Pointer(&in.Accelerators))
-	if err := Convert_v1beta1_HardwareSystemVendor_To_v1alpha1_HardwareSystemVendor(&in.SystemVendor, &out.SystemVendor, s); err != nil {
-		return err
-	}
-	if err := Convert_v1beta1_Firmware_To_v1alpha1_Firmware(&in.Firmware, &out.Firmware, s); err != nil {
-		return err
-	}
-	out.RAMMebibytes = in.RAMMebibytes
-	out.NIC = *(*[]NIC)(unsafe.Pointer(&in.NIC))
-	out.Storage = *(*[]Storage)(unsafe.Pointer(&in.Storage))
-	if err := Convert_v1beta1_CPU_To_v1alpha1_CPU(&in.CPU, &out.CPU, s); err != nil {
-		return err
-	}
-	out.Hostname = in.Hostname
+	*out = *(*HardwareDetails)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -947,13 +781,7 @@ func Convert_v1beta1_HardwareDetails_To_v1alpha1_HardwareDetails(in *v1beta1.Har
 }
 
 func autoConvert_v1alpha1_HardwareRAIDVolume_To_v1beta1_HardwareRAIDVolume(in *HardwareRAIDVolume, out *v1beta1.HardwareRAIDVolume, s conversion.Scope) error {
-	out.SizeGibibytes = (*int)(unsafe.Pointer(in.SizeGibibytes))
-	out.Level = in.Level
-	out.Name = in.Name
-	out.Rotational = (*bool)(unsafe.Pointer(in.Rotational))
-	out.NumberOfPhysicalDisks = (*int)(unsafe.Pointer(in.NumberOfPhysicalDisks))
-	out.Controller = in.Controller
-	out.PhysicalDisks = *(*[]string)(unsafe.Pointer(&in.PhysicalDisks))
+	*out = *(*v1beta1.HardwareRAIDVolume)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -963,13 +791,7 @@ func Convert_v1alpha1_HardwareRAIDVolume_To_v1beta1_HardwareRAIDVolume(in *Hardw
 }
 
 func autoConvert_v1beta1_HardwareRAIDVolume_To_v1alpha1_HardwareRAIDVolume(in *v1beta1.HardwareRAIDVolume, out *HardwareRAIDVolume, s conversion.Scope) error {
-	out.SizeGibibytes = (*int)(unsafe.Pointer(in.SizeGibibytes))
-	out.Level = in.Level
-	out.Name = in.Name
-	out.Rotational = (*bool)(unsafe.Pointer(in.Rotational))
-	out.NumberOfPhysicalDisks = (*int)(unsafe.Pointer(in.NumberOfPhysicalDisks))
-	out.Controller = in.Controller
-	out.PhysicalDisks = *(*[]string)(unsafe.Pointer(&in.PhysicalDisks))
+	*out = *(*HardwareRAIDVolume)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -979,9 +801,7 @@ func Convert_v1beta1_HardwareRAIDVolume_To_v1alpha1_HardwareRAIDVolume(in *v1bet
 }
 
 func autoConvert_v1alpha1_HardwareSystemVendor_To_v1beta1_HardwareSystemVendor(in *HardwareSystemVendor, out *v1beta1.HardwareSystemVendor, s conversion.Scope) error {
-	out.Manufacturer = in.Manufacturer
-	out.ProductName = in.ProductName
-	out.SerialNumber = in.SerialNumber
+	*out = *(*v1beta1.HardwareSystemVendor)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -991,9 +811,7 @@ func Convert_v1alpha1_HardwareSystemVendor_To_v1beta1_HardwareSystemVendor(in *H
 }
 
 func autoConvert_v1beta1_HardwareSystemVendor_To_v1alpha1_HardwareSystemVendor(in *v1beta1.HardwareSystemVendor, out *HardwareSystemVendor, s conversion.Scope) error {
-	out.Manufacturer = in.Manufacturer
-	out.ProductName = in.ProductName
-	out.SerialNumber = in.SerialNumber
+	*out = *(*HardwareSystemVendor)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1003,8 +821,7 @@ func Convert_v1beta1_HardwareSystemVendor_To_v1alpha1_HardwareSystemVendor(in *v
 }
 
 func autoConvert_v1alpha1_HostNetworkAttachmentRef_To_v1beta1_HostNetworkAttachmentRef(in *HostNetworkAttachmentRef, out *v1beta1.HostNetworkAttachmentRef, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Namespace = in.Namespace
+	*out = *(*v1beta1.HostNetworkAttachmentRef)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1014,8 +831,7 @@ func Convert_v1alpha1_HostNetworkAttachmentRef_To_v1beta1_HostNetworkAttachmentR
 }
 
 func autoConvert_v1beta1_HostNetworkAttachmentRef_To_v1alpha1_HostNetworkAttachmentRef(in *v1beta1.HostNetworkAttachmentRef, out *HostNetworkAttachmentRef, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Namespace = in.Namespace
+	*out = *(*HostNetworkAttachmentRef)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1025,11 +841,7 @@ func Convert_v1beta1_HostNetworkAttachmentRef_To_v1alpha1_HostNetworkAttachmentR
 }
 
 func autoConvert_v1alpha1_Image_To_v1beta1_Image(in *Image, out *v1beta1.Image, s conversion.Scope) error {
-	out.URL = in.URL
-	out.Checksum = in.Checksum
-	out.ChecksumType = v1beta1.ChecksumType(in.ChecksumType)
-	out.DiskFormat = (*string)(unsafe.Pointer(in.DiskFormat))
-	out.OCIAuthSecretName = (*string)(unsafe.Pointer(in.OCIAuthSecretName))
+	*out = *(*v1beta1.Image)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1039,11 +851,7 @@ func Convert_v1alpha1_Image_To_v1beta1_Image(in *Image, out *v1beta1.Image, s co
 }
 
 func autoConvert_v1beta1_Image_To_v1alpha1_Image(in *v1beta1.Image, out *Image, s conversion.Scope) error {
-	out.URL = in.URL
-	out.Checksum = in.Checksum
-	out.ChecksumType = ChecksumType(in.ChecksumType)
-	out.DiskFormat = (*string)(unsafe.Pointer(in.DiskFormat))
-	out.OCIAuthSecretName = (*string)(unsafe.Pointer(in.OCIAuthSecretName))
+	*out = *(*Image)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1053,9 +861,7 @@ func Convert_v1beta1_Image_To_v1alpha1_Image(in *v1beta1.Image, out *Image, s co
 }
 
 func autoConvert_v1alpha1_LLDP_To_v1beta1_LLDP(in *LLDP, out *v1beta1.LLDP, s conversion.Scope) error {
-	out.SwitchID = in.SwitchID
-	out.PortID = in.PortID
-	out.SwitchSystemName = in.SwitchSystemName
+	*out = *(*v1beta1.LLDP)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1065,9 +871,7 @@ func Convert_v1alpha1_LLDP_To_v1beta1_LLDP(in *LLDP, out *v1beta1.LLDP, s conver
 }
 
 func autoConvert_v1beta1_LLDP_To_v1alpha1_LLDP(in *v1beta1.LLDP, out *LLDP, s conversion.Scope) error {
-	out.SwitchID = in.SwitchID
-	out.PortID = in.PortID
-	out.SwitchSystemName = in.SwitchSystemName
+	*out = *(*LLDP)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1077,16 +881,7 @@ func Convert_v1beta1_LLDP_To_v1alpha1_LLDP(in *v1beta1.LLDP, out *LLDP, s conver
 }
 
 func autoConvert_v1alpha1_NIC_To_v1beta1_NIC(in *NIC, out *v1beta1.NIC, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Model = in.Model
-	out.MAC = in.MAC
-	out.IP = in.IP
-	out.SpeedGbps = in.SpeedGbps
-	out.VLANs = *(*[]v1beta1.VLAN)(unsafe.Pointer(&in.VLANs))
-	out.VLANID = v1beta1.VLANID(in.VLANID)
-	out.PXE = in.PXE
-	out.LLDP = (*v1beta1.LLDP)(unsafe.Pointer(in.LLDP))
-	out.PCIAddress = in.PCIAddress
+	*out = *(*v1beta1.NIC)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1096,16 +891,7 @@ func Convert_v1alpha1_NIC_To_v1beta1_NIC(in *NIC, out *v1beta1.NIC, s conversion
 }
 
 func autoConvert_v1beta1_NIC_To_v1alpha1_NIC(in *v1beta1.NIC, out *NIC, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Model = in.Model
-	out.MAC = in.MAC
-	out.IP = in.IP
-	out.SpeedGbps = in.SpeedGbps
-	out.VLANs = *(*[]VLAN)(unsafe.Pointer(&in.VLANs))
-	out.VLANID = VLANID(in.VLANID)
-	out.PXE = in.PXE
-	out.LLDP = (*LLDP)(unsafe.Pointer(in.LLDP))
-	out.PCIAddress = in.PCIAddress
+	*out = *(*NIC)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1115,12 +901,7 @@ func Convert_v1beta1_NIC_To_v1alpha1_NIC(in *v1beta1.NIC, out *NIC, s conversion
 }
 
 func autoConvert_v1alpha1_NetworkInterface_To_v1beta1_NetworkInterface(in *NetworkInterface, out *v1beta1.NetworkInterface, s conversion.Scope) error {
-	out.Name = in.Name
-	out.MACAddress = in.MACAddress
-	if err := Convert_v1alpha1_HostNetworkAttachmentRef_To_v1beta1_HostNetworkAttachmentRef(&in.HostNetworkAttachment, &out.HostNetworkAttachment, s); err != nil {
-		return err
-	}
-	out.SwitchPort = (*v1beta1.SwitchPortIdentifier)(unsafe.Pointer(in.SwitchPort))
+	*out = *(*v1beta1.NetworkInterface)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1130,12 +911,7 @@ func Convert_v1alpha1_NetworkInterface_To_v1beta1_NetworkInterface(in *NetworkIn
 }
 
 func autoConvert_v1beta1_NetworkInterface_To_v1alpha1_NetworkInterface(in *v1beta1.NetworkInterface, out *NetworkInterface, s conversion.Scope) error {
-	out.Name = in.Name
-	out.MACAddress = in.MACAddress
-	if err := Convert_v1beta1_HostNetworkAttachmentRef_To_v1alpha1_HostNetworkAttachmentRef(&in.HostNetworkAttachment, &out.HostNetworkAttachment, s); err != nil {
-		return err
-	}
-	out.SwitchPort = (*SwitchPortIdentifier)(unsafe.Pointer(in.SwitchPort))
+	*out = *(*NetworkInterface)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1145,18 +921,7 @@ func Convert_v1beta1_NetworkInterface_To_v1alpha1_NetworkInterface(in *v1beta1.N
 }
 
 func autoConvert_v1alpha1_OperationHistory_To_v1beta1_OperationHistory(in *OperationHistory, out *v1beta1.OperationHistory, s conversion.Scope) error {
-	if err := Convert_v1alpha1_OperationMetric_To_v1beta1_OperationMetric(&in.Register, &out.Register, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_OperationMetric_To_v1beta1_OperationMetric(&in.Inspect, &out.Inspect, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_OperationMetric_To_v1beta1_OperationMetric(&in.Provision, &out.Provision, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_OperationMetric_To_v1beta1_OperationMetric(&in.Deprovision, &out.Deprovision, s); err != nil {
-		return err
-	}
+	*out = *(*v1beta1.OperationHistory)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1166,18 +931,7 @@ func Convert_v1alpha1_OperationHistory_To_v1beta1_OperationHistory(in *Operation
 }
 
 func autoConvert_v1beta1_OperationHistory_To_v1alpha1_OperationHistory(in *v1beta1.OperationHistory, out *OperationHistory, s conversion.Scope) error {
-	if err := Convert_v1beta1_OperationMetric_To_v1alpha1_OperationMetric(&in.Register, &out.Register, s); err != nil {
-		return err
-	}
-	if err := Convert_v1beta1_OperationMetric_To_v1alpha1_OperationMetric(&in.Inspect, &out.Inspect, s); err != nil {
-		return err
-	}
-	if err := Convert_v1beta1_OperationMetric_To_v1alpha1_OperationMetric(&in.Provision, &out.Provision, s); err != nil {
-		return err
-	}
-	if err := Convert_v1beta1_OperationMetric_To_v1alpha1_OperationMetric(&in.Deprovision, &out.Deprovision, s); err != nil {
-		return err
-	}
+	*out = *(*OperationHistory)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1187,8 +941,7 @@ func Convert_v1beta1_OperationHistory_To_v1alpha1_OperationHistory(in *v1beta1.O
 }
 
 func autoConvert_v1alpha1_OperationMetric_To_v1beta1_OperationMetric(in *OperationMetric, out *v1beta1.OperationMetric, s conversion.Scope) error {
-	out.Start = in.Start
-	out.End = in.End
+	*out = *(*v1beta1.OperationMetric)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1198,8 +951,7 @@ func Convert_v1alpha1_OperationMetric_To_v1beta1_OperationMetric(in *OperationMe
 }
 
 func autoConvert_v1beta1_OperationMetric_To_v1alpha1_OperationMetric(in *v1beta1.OperationMetric, out *OperationMetric, s conversion.Scope) error {
-	out.Start = in.Start
-	out.End = in.End
+	*out = *(*OperationMetric)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1209,16 +961,7 @@ func Convert_v1beta1_OperationMetric_To_v1alpha1_OperationMetric(in *v1beta1.Ope
 }
 
 func autoConvert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(in *ProvisionStatus, out *v1beta1.ProvisionStatus, s conversion.Scope) error {
-	out.State = v1beta1.ProvisioningState(in.State)
-	out.ID = in.ID
-	if err := Convert_v1alpha1_Image_To_v1beta1_Image(&in.Image, &out.Image, s); err != nil {
-		return err
-	}
-	out.RootDeviceHints = (*v1beta1.RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	out.BootMode = v1beta1.BootMode(in.BootMode)
-	out.RAID = (*v1beta1.RAIDConfig)(unsafe.Pointer(in.RAID))
-	out.Firmware = (*v1beta1.FirmwareConfig)(unsafe.Pointer(in.Firmware))
-	out.CustomDeploy = (*v1beta1.CustomDeploy)(unsafe.Pointer(in.CustomDeploy))
+	*out = *(*v1beta1.ProvisionStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1228,16 +971,7 @@ func Convert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(in *ProvisionSt
 }
 
 func autoConvert_v1beta1_ProvisionStatus_To_v1alpha1_ProvisionStatus(in *v1beta1.ProvisionStatus, out *ProvisionStatus, s conversion.Scope) error {
-	out.State = ProvisioningState(in.State)
-	out.ID = in.ID
-	if err := Convert_v1beta1_Image_To_v1alpha1_Image(&in.Image, &out.Image, s); err != nil {
-		return err
-	}
-	out.RootDeviceHints = (*RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	out.BootMode = BootMode(in.BootMode)
-	out.RAID = (*RAIDConfig)(unsafe.Pointer(in.RAID))
-	out.Firmware = (*FirmwareConfig)(unsafe.Pointer(in.Firmware))
-	out.CustomDeploy = (*CustomDeploy)(unsafe.Pointer(in.CustomDeploy))
+	*out = *(*ProvisionStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1247,8 +981,7 @@ func Convert_v1beta1_ProvisionStatus_To_v1alpha1_ProvisionStatus(in *v1beta1.Pro
 }
 
 func autoConvert_v1alpha1_RAIDConfig_To_v1beta1_RAIDConfig(in *RAIDConfig, out *v1beta1.RAIDConfig, s conversion.Scope) error {
-	out.HardwareRAIDVolumes = *(*[]v1beta1.HardwareRAIDVolume)(unsafe.Pointer(&in.HardwareRAIDVolumes))
-	out.SoftwareRAIDVolumes = *(*[]v1beta1.SoftwareRAIDVolume)(unsafe.Pointer(&in.SoftwareRAIDVolumes))
+	*out = *(*v1beta1.RAIDConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1258,8 +991,7 @@ func Convert_v1alpha1_RAIDConfig_To_v1beta1_RAIDConfig(in *RAIDConfig, out *v1be
 }
 
 func autoConvert_v1beta1_RAIDConfig_To_v1alpha1_RAIDConfig(in *v1beta1.RAIDConfig, out *RAIDConfig, s conversion.Scope) error {
-	out.HardwareRAIDVolumes = *(*[]HardwareRAIDVolume)(unsafe.Pointer(&in.HardwareRAIDVolumes))
-	out.SoftwareRAIDVolumes = *(*[]SoftwareRAIDVolume)(unsafe.Pointer(&in.SoftwareRAIDVolumes))
+	*out = *(*RAIDConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1269,8 +1001,7 @@ func Convert_v1beta1_RAIDConfig_To_v1alpha1_RAIDConfig(in *v1beta1.RAIDConfig, o
 }
 
 func autoConvert_v1alpha1_RebootAnnotationArguments_To_v1beta1_RebootAnnotationArguments(in *RebootAnnotationArguments, out *v1beta1.RebootAnnotationArguments, s conversion.Scope) error {
-	out.Mode = v1beta1.RebootMode(in.Mode)
-	out.Force = in.Force
+	*out = *(*v1beta1.RebootAnnotationArguments)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1280,8 +1011,7 @@ func Convert_v1alpha1_RebootAnnotationArguments_To_v1beta1_RebootAnnotationArgum
 }
 
 func autoConvert_v1beta1_RebootAnnotationArguments_To_v1alpha1_RebootAnnotationArguments(in *v1beta1.RebootAnnotationArguments, out *RebootAnnotationArguments, s conversion.Scope) error {
-	out.Mode = RebootMode(in.Mode)
-	out.Force = in.Force
+	*out = *(*RebootAnnotationArguments)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1291,16 +1021,7 @@ func Convert_v1beta1_RebootAnnotationArguments_To_v1alpha1_RebootAnnotationArgum
 }
 
 func autoConvert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(in *RootDeviceHints, out *v1beta1.RootDeviceHints, s conversion.Scope) error {
-	out.DeviceName = in.DeviceName
-	out.HCTL = in.HCTL
-	out.Model = in.Model
-	out.Vendor = in.Vendor
-	out.SerialNumber = in.SerialNumber
-	out.MinSizeGigabytes = in.MinSizeGigabytes
-	out.WWN = in.WWN
-	out.WWNWithExtension = in.WWNWithExtension
-	out.WWNVendorExtension = in.WWNVendorExtension
-	out.Rotational = (*bool)(unsafe.Pointer(in.Rotational))
+	*out = *(*v1beta1.RootDeviceHints)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1310,16 +1031,7 @@ func Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(in *RootDeviceH
 }
 
 func autoConvert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *v1beta1.RootDeviceHints, out *RootDeviceHints, s conversion.Scope) error {
-	out.DeviceName = in.DeviceName
-	out.HCTL = in.HCTL
-	out.Model = in.Model
-	out.Vendor = in.Vendor
-	out.SerialNumber = in.SerialNumber
-	out.MinSizeGigabytes = in.MinSizeGigabytes
-	out.WWN = in.WWN
-	out.WWNWithExtension = in.WWNWithExtension
-	out.WWNVendorExtension = in.WWNVendorExtension
-	out.Rotational = (*bool)(unsafe.Pointer(in.Rotational))
+	*out = *(*RootDeviceHints)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1329,10 +1041,7 @@ func Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *v1beta1.Roo
 }
 
 func autoConvert_v1alpha1_SoftwareRAIDVolume_To_v1beta1_SoftwareRAIDVolume(in *SoftwareRAIDVolume, out *v1beta1.SoftwareRAIDVolume, s conversion.Scope) error {
-	out.RootVolume = in.RootVolume
-	out.SizeGibibytes = (*int)(unsafe.Pointer(in.SizeGibibytes))
-	out.Level = in.Level
-	out.PhysicalDisks = *(*[]v1beta1.RootDeviceHints)(unsafe.Pointer(&in.PhysicalDisks))
+	*out = *(*v1beta1.SoftwareRAIDVolume)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1342,10 +1051,7 @@ func Convert_v1alpha1_SoftwareRAIDVolume_To_v1beta1_SoftwareRAIDVolume(in *Softw
 }
 
 func autoConvert_v1beta1_SoftwareRAIDVolume_To_v1alpha1_SoftwareRAIDVolume(in *v1beta1.SoftwareRAIDVolume, out *SoftwareRAIDVolume, s conversion.Scope) error {
-	out.RootVolume = in.RootVolume
-	out.SizeGibibytes = (*int)(unsafe.Pointer(in.SizeGibibytes))
-	out.Level = in.Level
-	out.PhysicalDisks = *(*[]RootDeviceHints)(unsafe.Pointer(&in.PhysicalDisks))
+	*out = *(*SoftwareRAIDVolume)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1355,18 +1061,7 @@ func Convert_v1beta1_SoftwareRAIDVolume_To_v1alpha1_SoftwareRAIDVolume(in *v1bet
 }
 
 func autoConvert_v1alpha1_Storage_To_v1beta1_Storage(in *Storage, out *v1beta1.Storage, s conversion.Scope) error {
-	out.Name = in.Name
-	out.AlternateNames = *(*[]string)(unsafe.Pointer(&in.AlternateNames))
-	out.Rotational = in.Rotational
-	out.Type = v1beta1.DiskType(in.Type)
-	out.SizeBytes = v1beta1.Capacity(in.SizeBytes)
-	out.Vendor = in.Vendor
-	out.Model = in.Model
-	out.SerialNumber = in.SerialNumber
-	out.WWN = in.WWN
-	out.WWNVendorExtension = in.WWNVendorExtension
-	out.WWNWithExtension = in.WWNWithExtension
-	out.HCTL = in.HCTL
+	*out = *(*v1beta1.Storage)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1376,18 +1071,7 @@ func Convert_v1alpha1_Storage_To_v1beta1_Storage(in *Storage, out *v1beta1.Stora
 }
 
 func autoConvert_v1beta1_Storage_To_v1alpha1_Storage(in *v1beta1.Storage, out *Storage, s conversion.Scope) error {
-	out.Name = in.Name
-	out.AlternateNames = *(*[]string)(unsafe.Pointer(&in.AlternateNames))
-	out.Rotational = in.Rotational
-	out.Type = DiskType(in.Type)
-	out.SizeBytes = Capacity(in.SizeBytes)
-	out.Vendor = in.Vendor
-	out.Model = in.Model
-	out.SerialNumber = in.SerialNumber
-	out.WWN = in.WWN
-	out.WWNVendorExtension = in.WWNVendorExtension
-	out.WWNWithExtension = in.WWNWithExtension
-	out.HCTL = in.HCTL
+	*out = *(*Storage)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1397,10 +1081,7 @@ func Convert_v1beta1_Storage_To_v1alpha1_Storage(in *v1beta1.Storage, out *Stora
 }
 
 func autoConvert_v1alpha1_SwitchPortConfig_To_v1beta1_SwitchPortConfig(in *SwitchPortConfig, out *v1beta1.SwitchPortConfig, s conversion.Scope) error {
-	out.Mode = v1beta1.SwitchPortMode(in.Mode)
-	out.NativeVLAN = in.NativeVLAN
-	out.AllowedVLANs = *(*[]int)(unsafe.Pointer(&in.AllowedVLANs))
-	out.MTU = (*int)(unsafe.Pointer(in.MTU))
+	*out = *(*v1beta1.SwitchPortConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1410,10 +1091,7 @@ func Convert_v1alpha1_SwitchPortConfig_To_v1beta1_SwitchPortConfig(in *SwitchPor
 }
 
 func autoConvert_v1beta1_SwitchPortConfig_To_v1alpha1_SwitchPortConfig(in *v1beta1.SwitchPortConfig, out *SwitchPortConfig, s conversion.Scope) error {
-	out.Mode = SwitchPortMode(in.Mode)
-	out.NativeVLAN = in.NativeVLAN
-	out.AllowedVLANs = *(*[]int)(unsafe.Pointer(&in.AllowedVLANs))
-	out.MTU = (*int)(unsafe.Pointer(in.MTU))
+	*out = *(*SwitchPortConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1423,9 +1101,7 @@ func Convert_v1beta1_SwitchPortConfig_To_v1alpha1_SwitchPortConfig(in *v1beta1.S
 }
 
 func autoConvert_v1alpha1_SwitchPortIdentifier_To_v1beta1_SwitchPortIdentifier(in *SwitchPortIdentifier, out *v1beta1.SwitchPortIdentifier, s conversion.Scope) error {
-	out.SwitchID = in.SwitchID
-	out.PortID = in.PortID
-	out.SwitchSystemName = in.SwitchSystemName
+	*out = *(*v1beta1.SwitchPortIdentifier)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1435,9 +1111,7 @@ func Convert_v1alpha1_SwitchPortIdentifier_To_v1beta1_SwitchPortIdentifier(in *S
 }
 
 func autoConvert_v1beta1_SwitchPortIdentifier_To_v1alpha1_SwitchPortIdentifier(in *v1beta1.SwitchPortIdentifier, out *SwitchPortIdentifier, s conversion.Scope) error {
-	out.SwitchID = in.SwitchID
-	out.PortID = in.PortID
-	out.SwitchSystemName = in.SwitchSystemName
+	*out = *(*SwitchPortIdentifier)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1447,8 +1121,7 @@ func Convert_v1beta1_SwitchPortIdentifier_To_v1alpha1_SwitchPortIdentifier(in *v
 }
 
 func autoConvert_v1alpha1_VLAN_To_v1beta1_VLAN(in *VLAN, out *v1beta1.VLAN, s conversion.Scope) error {
-	out.ID = v1beta1.VLANID(in.ID)
-	out.Name = in.Name
+	*out = *(*v1beta1.VLAN)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1458,8 +1131,7 @@ func Convert_v1alpha1_VLAN_To_v1beta1_VLAN(in *VLAN, out *v1beta1.VLAN, s conver
 }
 
 func autoConvert_v1beta1_VLAN_To_v1alpha1_VLAN(in *v1beta1.VLAN, out *VLAN, s conversion.Scope) error {
-	out.ID = VLANID(in.ID)
-	out.Name = in.Name
+	*out = *(*VLAN)(unsafe.Pointer(in))
 	return nil
 }
 

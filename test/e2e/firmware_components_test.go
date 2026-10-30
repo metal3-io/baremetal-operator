@@ -48,7 +48,9 @@ func waitForBIOSFirmwareUpdate(ctx context.Context, cl client.Client, hfc *metal
 	}, intervals...).Should(Succeed())
 }
 
-var _ = Describe("Host Firmware Components", Label("required", "firmware-components", "ironic"), func() {
+// The tier is per-spec here, since a container with no tier means
+// a future It without one runs in no job.
+var _ = Describe("Host Firmware Components", Label("firmware-components", "ironic"), func() {
 	var (
 		specName      = "firmware-components"
 		namespace     *corev1.Namespace
@@ -71,7 +73,7 @@ var _ = Describe("Host Firmware Components", Label("required", "firmware-compone
 		})
 	})
 
-	It("should apply BIOS firmware update during cleaning on a BMH", func() {
+	It("should apply BIOS firmware update during cleaning on a BMH", Label("optional"), func() {
 		bmhName := specName + "-before-bmh"
 		secretName := bmhName + "-bmc"
 
@@ -218,7 +220,7 @@ var _ = Describe("Host Firmware Components", Label("required", "firmware-compone
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...).Should(BeTrue())
 	})
 
-	It("should update BIOS firmware on a provisioned host via servicing", func() {
+	It("should update BIOS firmware on a provisioned host via servicing", Label("required"), func() {
 		bmhName := specName + "-servicing"
 		secretName := bmhName + "-bmc"
 
@@ -404,7 +406,7 @@ var _ = Describe("Host Firmware Components", Label("required", "firmware-compone
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...).Should(BeTrue())
 	})
 
-	It("should update BIOS firmware on an externally provisioned host via servicing", func() {
+	It("should update BIOS firmware on an externally provisioned host via servicing", Label("optional"), func() {
 		bmhName := specName + "-ext-servicing"
 		secretName := bmhName + "-bmc"
 

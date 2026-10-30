@@ -19,9 +19,17 @@ const (
 	kiBPerMB = 1024
 )
 
+// vmConnection is the part of *libvirt.Connect used by VMManager.
+type vmConnection interface {
+	LookupDomainByName(id string) (*libvirt.Domain, error)
+	DomainDefineXML(xmlConfig string) (*libvirt.Domain, error)
+	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]libvirt.Domain, error)
+	LookupNetworkByName(name string) (*libvirt.Network, error)
+}
+
 // VMManager manages virtual machines through libvirt.
 type VMManager struct {
-	conn     *libvirt.Connect
+	conn     vmConnection
 	renderer *TemplateRenderer
 	pool     *PoolManager
 	opts     VMManagerOptions
@@ -65,10 +73,16 @@ func NewVMManager(conn *libvirt.Connect, opts VMManagerOptions) (*VMManager, err
 }
 
 // Create creates a new virtual machine from the given configuration.
-// The VM is defined but not started.
+// The VM is defined but not started. It returns an error wrapping
+// ErrAlreadyExists if a VM with the same name already exists. In that case
+// no volumes or DHCP entries are created.
 func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctlapi.VM, error) {
 	// Apply defaults
 	cfg = cfg.Defaults()
+
+	if err := m.checkNotExists(cfg.Name); err != nil {
+		return nil, err
+	}
 
 	// Ensure storage pool exists
 	if _, err := m.pool.EnsurePool(ctx, vbmctlapi.PoolConfig{
@@ -120,6 +134,20 @@ func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctl
 		UUID:   uuid,
 		State:  vbmctlapi.VMStateStopped,
 	}, nil
+}
+
+// checkNotExists returns an error wrapping ErrAlreadyExists if a VM with the
+// given name exists.
+func (m *VMManager) checkNotExists(name string) error {
+	domain, err := m.conn.LookupDomainByName(name)
+	if err == nil {
+		_ = domain.Free()
+		return fmt.Errorf("VM %s %w", name, ErrAlreadyExists)
+	}
+	if !errors.Is(err, libvirt.ERR_NO_DOMAIN) {
+		return fmt.Errorf("failed to lookup VM %s: %w", name, err)
+	}
+	return nil
 }
 
 // Delete removes a virtual machine and its associated resources.

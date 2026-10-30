@@ -13,6 +13,9 @@ import (
 // See https://docs.openstack.org/ironic/latest/contributor/webapi-version-history.html
 type AvailableFeatures struct {
 	MaxVersion int
+	// InspectInterfaces maps each driver to its enabled inspect interfaces.
+	// It comes from the detailed driver list, not from the API version.
+	InspectInterfaces map[string][]string
 }
 
 // The minimum microversion that BMO can work with. We need to be really

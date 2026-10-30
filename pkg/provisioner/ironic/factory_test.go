@@ -416,6 +416,7 @@ func TestRefreshCachePopulatesOnFirstCall(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 95, features.MaxVersion)
+	assert.Equal(t, map[string][]string{"test": {"agent", "no-inspect"}}, features.InspectInterfaces)
 	assert.NotNil(t, ironicClient)
 	assert.True(t, time.Now().Before(factory.cache.expiresAt))
 }
@@ -442,6 +443,7 @@ func TestRefreshCacheReturnsCachedValues(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, callCount, "createClient should not be called again while cache is fresh")
 	assert.Equal(t, 95, features.MaxVersion)
+	assert.Equal(t, map[string][]string{"test": {"agent", "no-inspect"}}, features.InspectInterfaces)
 	assert.NotNil(t, ironicClient)
 }
 
@@ -517,6 +519,47 @@ func TestRefreshCacheDoesNotCacheOnNoDrivers(t *testing.T) {
 	})
 	require.ErrorIs(t, err, provisioner.ErrNotReady)
 	assert.True(t, factory.cache.expiresAt.IsZero())
+}
+
+func TestCheckIronicConductorInspectInterfaces(t *testing.T) {
+	// Ironic only returns the enabled interfaces in the detailed list.
+	ironic := testserver.NewIronic(t)
+	ironic.Handler("/v1/drivers", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "true", r.URL.Query().Get("detail"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"drivers": [
+			{"name": "ipmi", "enabled_inspect_interfaces": ["agent", "no-inspect"]},
+			{"name": "redfish", "enabled_inspect_interfaces": ["agent", "redfish"]},
+			{"name": "custom", "enabled_inspect_interfaces": []}
+		]}`))
+	})
+	ironic.Start()
+	defer ironic.Stop()
+
+	factory := newTestCacheFactory(5 * time.Second)
+	inspectInterfaces, err := factory.checkIronicConductor(t.Context(), newFakeIronicClient(ironic.Endpoint()))
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]string{
+		"ipmi":    {"agent", "no-inspect"},
+		"redfish": {"agent", "redfish"},
+		"custom":  {},
+	}, inspectInterfaces)
+}
+
+func TestCheckIronicConductorDriverWithoutInspectInterfaces(t *testing.T) {
+	// A driver without any enabled inspect interface is still a loaded driver.
+	ironic := testserver.NewIronic(t)
+	ironic.Handler("/v1/drivers", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"drivers": [{"name": "custom"}]}`))
+	})
+	ironic.Start()
+	defer ironic.Stop()
+
+	factory := newTestCacheFactory(5 * time.Second)
+	inspectInterfaces, err := factory.checkIronicConductor(t.Context(), newFakeIronicClient(ironic.Endpoint()))
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]string{"custom": nil}, inspectInterfaces)
 }
 
 func TestInitClientTimeout(t *testing.T) {

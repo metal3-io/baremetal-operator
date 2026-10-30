@@ -36,13 +36,6 @@ func setupUpgradeCluster(ctx context.Context) (framework.ClusterProxy, bootstrap
 		})
 		Expect(upgradeClusterProvider).ToNot(BeNil(), "Failed to create a cluster")
 		kubeconfigPath = upgradeClusterProvider.GetKubeconfigPath()
-
-		// Configure provisioning network for dnsmasq to work properly.
-		// This is only needed when Ironic is deployed (not for fixture tests).
-		// TODO(lentzi90): This is a workaround. Fix it properly and get rid of it.
-		if e2eConfig.HasVariable("UPGRADE_IRONIC_PROVISIONING_IP") {
-			ConfigureProvisioningNetwork(ctx, upgradeClusterName, e2eConfig.GetVariable("UPGRADE_IRONIC_PROVISIONING_IP"))
-		}
 	}
 	Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the cluster")
 	scheme := runtime.NewScheme()

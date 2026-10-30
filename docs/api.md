@@ -10,6 +10,9 @@ for a detailed API description. See the [user
 guide](https://book.metal3.io/bmo/introduction) for information on how to
 manage hosts.
 
+See [serial console access](serial-console.md) for the `HostSerialConsole`
+request API and its managed Kubernetes Service.
+
 ## Triggering Provisioning
 
 Several conditions must be met in order to initiate provisioning.

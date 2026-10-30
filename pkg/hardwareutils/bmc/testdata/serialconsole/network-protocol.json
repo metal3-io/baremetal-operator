@@ -1,0 +1,7 @@
+{
+  "@odata.id": "/redfish/v1/Managers/1/NetworkProtocol",
+  "IPMI": {
+    "ProtocolEnabled": true,
+    "Port": 623
+  }
+}

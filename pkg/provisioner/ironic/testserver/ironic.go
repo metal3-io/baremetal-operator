@@ -307,6 +307,23 @@ func (m *IronicMock) WithNodeValidate(nodeUUID string) *IronicMock {
 	return m
 }
 
+// WithNodeConsole configures the server with a serial console endpoint for a node.
+func (m *IronicMock) WithNodeConsole(nodeUUID, consoleURL string) *IronicMock {
+	path := v1node + nodeUUID + "/states/console"
+	m.ResponseWithCode(path, fmt.Sprintf(`{"console_enabled":true,"console_info":{"url":%q}}`, consoleURL), http.StatusOK)
+	m.ResponseWithCode(m.buildURL(path, http.MethodPut), "{}", http.StatusAccepted)
+	return m
+}
+
+// GetLastNodeConsoleRequestFor returns the content of the last console state request for the specified node.
+func (m *IronicMock) GetLastNodeConsoleRequestFor(id string) map[string]bool {
+	result := map[string]bool{}
+	if bodyRaw, ok := m.GetLastRequestFor(v1node+id+"/states/console", http.MethodPut); ok {
+		_ = json.Unmarshal([]byte(bodyRaw), &result)
+	}
+	return result
+}
+
 // Port configures the server with a valid response for
 //
 //	[GET] /v1/nodes/<node uuid>/ports

@@ -55,6 +55,13 @@ func (webhook *BareMetalHost) validateHost(host *metal3api.BareMetalHost) []erro
 		errs = append(errs, errors.New("the Firmware field is no longer supported, use HostFirmwareSettings resource instead"))
 	}
 
+	if err := bmc.ValidateSerialConsoleAddress(host.Spec.BMC.SerialConsoleAddress); err != nil {
+		errs = append(errs, err)
+	}
+	if host.Spec.BMC.SerialConsoleAddress != "" && bmcAccess != nil && bmcAccess.Driver() == "ipmi" {
+		errs = append(errs, errors.New("serialConsoleAddress is only supported with non-IPMI management; IPMI hosts reuse their BMC address"))
+	}
+
 	errs = append(errs, webhook.validateCrossNamespaceSecretReferences(host)...)
 
 	if raidErrors := validateRAID(host); raidErrors != nil {

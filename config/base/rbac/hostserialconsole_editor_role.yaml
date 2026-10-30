@@ -1,0 +1,23 @@
+# Creating a request opens a console; deleting it closes the console.
+# This role does not grant BMH write access or backend configuration access.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hostserialconsole-editor-role
+rules:
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostserialconsoles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - hostserialconsoles/status
+  verbs:
+  - get

@@ -1,0 +1,9 @@
+{
+  "@odata.id": "/redfish/v1/Systems/1",
+  "SerialConsole": {
+    "IPMI": {
+      "ServiceEnabled": true,
+      "Port": 623
+    }
+  }
+}

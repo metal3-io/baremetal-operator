@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -86,6 +87,19 @@ type AccessDetails interface {
 
 	// RequiresProvisioningNetwork checks the driver requires provisioning network
 	RequiresProvisioningNetwork() bool
+}
+
+// IPMISOLInfo describes the IPMI Serial-over-LAN endpoint advertised by a
+// Redfish service.
+type IPMISOLInfo struct {
+	Address string
+	Port    int
+}
+
+// IPMISOLDiscoverer is implemented by BMC access details that can discover
+// an IPMI SOL endpoint from the BMC protocol they use for management.
+type IPMISOLDiscoverer interface {
+	DiscoverIPMISOL(context.Context, Credentials) (*IPMISOLInfo, error)
 }
 
 func GetParsedURL(address string) (parsedURL *url.URL, err error) {

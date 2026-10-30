@@ -1,7 +1,9 @@
 package bmc
 
 import (
+	"fmt"
 	"net/url"
+	"strconv"
 )
 
 func init() {
@@ -22,12 +24,21 @@ func getPrivilegeLevel(rawquery string) string {
 }
 
 func newIPMIAccessDetails(parsedURL *url.URL, disableCertificateVerification bool) (AccessDetails, error) {
+	var cipherSuite int
+	if value := parsedURL.Query().Get("cipher_suite"); value != "" {
+		suite, err := strconv.ParseUint(value, 10, 8)
+		if err != nil || suite < 1 || suite > maxIPMICipherSuite {
+			return nil, fmt.Errorf("invalid IPMI cipher_suite %q", value)
+		}
+		cipherSuite = int(suite)
+	}
 	return &ipmiAccessDetails{
 		bmcType:                        parsedURL.Scheme,
 		portNum:                        parsedURL.Port(),
 		hostname:                       parsedURL.Hostname(),
 		privilegelevel:                 getPrivilegeLevel(parsedURL.RawQuery),
 		disableCertificateVerification: disableCertificateVerification,
+		cipherSuite:                    cipherSuite,
 	}, nil
 }
 
@@ -37,9 +48,11 @@ type ipmiAccessDetails struct {
 	hostname                       string
 	privilegelevel                 string
 	disableCertificateVerification bool
+	cipherSuite                    int
 }
 
 const ipmiDefaultPort = "623"
+const maxIPMICipherSuite = 17
 
 func (a *ipmiAccessDetails) Type() string {
 	return a.bmcType
@@ -84,6 +97,9 @@ func (a *ipmiAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interfac
 	}
 	if a.portNum == "" {
 		result["ipmi_port"] = ipmiDefaultPort
+	}
+	if a.cipherSuite != 0 {
+		result["ipmi_cipher_suite"] = a.cipherSuite
 	}
 	return result
 }

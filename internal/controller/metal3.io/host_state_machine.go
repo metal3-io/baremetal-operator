@@ -126,6 +126,11 @@ func (hsm *hostStateMachine) updateHostStateFrom(ctx context.Context, initialSta
 			stateChanges.With(stateChangeMetricLabels(initialState, hsm.NextState)).Inc()
 		})
 		hsm.Host.Status.Provisioning.State = hsm.NextState
+		if hsm.NextState == metal3api.StateDeprovisioning {
+			// Persist a workload boundary alongside the state transition. Other
+			// controllers may see only the eventual available/provisioned state.
+			hsm.Host.Status.Provisioning.DeprovisioningGeneration++
+		}
 		// Here we assume that if we're being asked to change the
 		// state, the return value of ReconcileState (our caller) is
 		// set up to ensure the change in the host is written back to

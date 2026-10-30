@@ -25,22 +25,17 @@ const (
 )
 
 func bmcAddressMatches(ironicNode *nodes.Node, driverInfo map[string]any) bool {
-	newAddress := make(map[string]any)
-	ironicAddress := make(map[string]any)
 	reg := regexp.MustCompile("_address$")
 	for key, value := range driverInfo {
 		if reg.MatchString(key) {
-			newAddress[key] = value
-			break
+			// Redfish nodes may also carry an ipmi_address for SOL. Compare
+			// management keys, not whichever address map iteration returns first.
+			if !reflect.DeepEqual(value, ironicNode.DriverInfo[key]) {
+				return false
+			}
 		}
 	}
-	for key, value := range ironicNode.DriverInfo {
-		if reg.MatchString(key) {
-			ironicAddress[key] = value
-			break
-		}
-	}
-	return reflect.DeepEqual(newAddress, ironicAddress)
+	return true
 }
 
 // Register registers the host in the internal database if it does not
@@ -152,6 +147,9 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// has changed, otherwise we will be writing on every call to this
 		// function.
 		if credentialsChanged || bmcAddressChanged {
+			// Preserve console settings discovered by the console reconciler. Never
+			// replace a masked password returned by Ironic with its masked value.
+			preserveConsoleDriverInfo(driverInfo, ironicNode, p.bmcCreds)
 			p.log.Info("Updating driver info because the credentials and/or the BMC address changed")
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
 		}

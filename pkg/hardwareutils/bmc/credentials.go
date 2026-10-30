@@ -4,6 +4,10 @@ package bmc
 type Credentials struct {
 	Username string
 	Password string //nolint:gosec
+	// SerialConsoleUsername and SerialConsolePassword optionally override the
+	// credentials used for IPMI SOL, independently of management credentials.
+	SerialConsoleUsername string
+	SerialConsolePassword string
 }
 
 // Validate returns an error if the credentials are invalid.

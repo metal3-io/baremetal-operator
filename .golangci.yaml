@@ -15,6 +15,7 @@ run:
   build-tags:
   - e2e
   - vbmctl
+  - integration
 
 linters:
   default: none

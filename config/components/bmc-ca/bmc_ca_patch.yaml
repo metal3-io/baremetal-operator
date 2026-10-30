@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: SSL_CERT_DIR
+          value: /etc/ssl/certs:/etc/pki/tls/certs:/opt/metal3/certs/bmc-ca
+        volumeMounts:
+        - name: bmc-cacert
+          mountPath: /opt/metal3/certs/bmc-ca
+          readOnly: true
+      volumes:
+      - name: bmc-cacert
+        secret:
+          secretName: bmc-cacert

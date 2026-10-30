@@ -308,6 +308,7 @@ func (f ironicProvisionerFactory) ironicProvisioner(ctx context.Context, hostDat
 		nodeID:                  hostData.ProvisionerID,
 		bmcCreds:                hostData.BMCCredentials,
 		bmcAddress:              hostData.BMCAddress,
+		serialConsoleAddress:    hostData.SerialConsoleAddress,
 		disableCertVerification: hostData.DisableCertificateVerification,
 		bootMACAddress:          hostData.BootMACAddress,
 		client:                  clientIronic,

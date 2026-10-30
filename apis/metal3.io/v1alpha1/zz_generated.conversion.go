@@ -481,6 +481,7 @@ func Convert_v1beta1_BIOS_To_v1alpha1_BIOS(in *v1beta1.BIOS, out *BIOS, s conver
 }
 
 func autoConvert_v1alpha1_BMCDetails_To_v1beta1_BMCDetails(in *BMCDetails, out *v1beta1.BMCDetails, s conversion.Scope) error {
+	out.SerialConsoleAddress = in.SerialConsoleAddress
 	out.Address = in.Address
 	out.CredentialsName = in.CredentialsName
 	out.DisableCertificateVerification = in.DisableCertificateVerification
@@ -493,6 +494,7 @@ func Convert_v1alpha1_BMCDetails_To_v1beta1_BMCDetails(in *BMCDetails, out *v1be
 }
 
 func autoConvert_v1beta1_BMCDetails_To_v1alpha1_BMCDetails(in *v1beta1.BMCDetails, out *BMCDetails, s conversion.Scope) error {
+	out.SerialConsoleAddress = in.SerialConsoleAddress
 	out.Address = in.Address
 	out.CredentialsName = in.CredentialsName
 	out.DisableCertificateVerification = in.DisableCertificateVerification
@@ -1209,6 +1211,7 @@ func Convert_v1beta1_OperationMetric_To_v1alpha1_OperationMetric(in *v1beta1.Ope
 }
 
 func autoConvert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(in *ProvisionStatus, out *v1beta1.ProvisionStatus, s conversion.Scope) error {
+	out.DeprovisioningGeneration = in.DeprovisioningGeneration
 	out.State = v1beta1.ProvisioningState(in.State)
 	out.ID = in.ID
 	if err := Convert_v1alpha1_Image_To_v1beta1_Image(&in.Image, &out.Image, s); err != nil {
@@ -1228,6 +1231,7 @@ func Convert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(in *ProvisionSt
 }
 
 func autoConvert_v1beta1_ProvisionStatus_To_v1alpha1_ProvisionStatus(in *v1beta1.ProvisionStatus, out *ProvisionStatus, s conversion.Scope) error {
+	out.DeprovisioningGeneration = in.DeprovisioningGeneration
 	out.State = ProvisioningState(in.State)
 	out.ID = in.ID
 	if err := Convert_v1beta1_Image_To_v1alpha1_Image(&in.Image, &out.Image, s); err != nil {

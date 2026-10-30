@@ -175,6 +175,11 @@ func setupWebhooks(ctx context.Context, mgr ctrl.Manager) {
 		os.Exit(1)
 	}
 
+	if err := (&webhooks.HostSerialConsole{Client: mgr.GetAPIReader()}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HostSerialConsole")
+		os.Exit(1)
+	}
+
 	if err := (&webhooks.HostFirmwareComponents{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HostFirmwareComponents")
 		os.Exit(1)
@@ -550,6 +555,12 @@ func main() {
 	}
 
 	// +kubebuilder:scaffold:builder
+	if err = (&metal3iocontroller.HostSerialConsoleReconciler{
+		Client: mgr.GetClient(), APIReader: mgr.GetAPIReader(), ProvisionerFactory: provisionerFactory,
+	}).SetupWithManager(mgr, maxConcurrency); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HostSerialConsole")
+		os.Exit(1)
+	}
 
 	if err = (&metal3iocontroller.HostFirmwareSettingsReconciler{
 		Client:             mgr.GetClient(),

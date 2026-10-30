@@ -365,3 +365,15 @@ func (hb *HostDeployPolicyBuilder) AcceptRegexp(re string) *HostDeployPolicyBuil
 	spec.HostClaimNamespaces.NameMatches = re
 	return hb
 }
+
+func (hb *HostDeployPolicyBuilder) AddFinalizer() *HostDeployPolicyBuilder {
+	hb.hostDeployPolicy.Finalizers = append(hb.hostDeployPolicy.Finalizers, metal3api.HostDeployPolicyFinalizer)
+	return hb
+}
+
+// MarkDeleted sets a DeletionTimestamp on the HostDeployPolicy.
+func (hb *HostDeployPolicyBuilder) MarkDeleted() *HostDeployPolicyBuilder {
+	now := metav1.Now()
+	hb.hostDeployPolicy.DeletionTimestamp = &now
+	return hb
+}

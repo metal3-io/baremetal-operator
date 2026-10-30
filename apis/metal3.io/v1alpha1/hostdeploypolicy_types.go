@@ -20,6 +20,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// HostDeployPolicyFinalizer is added by the HostDeployPolicy controller
+	// so that the deletion of a HostDeployPolicy is observed by controllers
+	// before the object disappears.
+	HostDeployPolicyFinalizer = "metal3.io/hostdeploypolicy"
+)
+
 // HostDeployPolicySpec defines the desired state of HostDeployPolicy.
 type HostDeployPolicySpec struct {
 	// HostClaimNamespaces constrains the namespaces of the HostClaims allowed
@@ -51,6 +58,11 @@ type NameValuePair struct {
 
 // HostDeployPolicyStatus defines the observed state of HostDeployPolicy.
 type HostDeployPolicyStatus struct {
+	// ObservedGeneration is the metadata.generation of the HostDeployPolicy
+	// that the controller has observed in its informer cache. New associations
+	// will use that version. There is no guarantee for in flight associations.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

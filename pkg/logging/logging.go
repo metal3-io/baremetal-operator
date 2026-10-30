@@ -207,4 +207,7 @@ const (
 
 	// LogFieldDifference is a difference between some values.
 	LogFieldDifference = "difference"
+
+	// LogFieldHostDeployPolicy is the name of a HostDeployPolicy.
+	LogFieldHostDeployPolicy = "hostDeployPolicy"
 )

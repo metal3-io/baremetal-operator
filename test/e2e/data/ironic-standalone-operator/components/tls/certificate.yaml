@@ -40,6 +40,9 @@ spec:
   commonName: ironic-cert
   ipAddresses:
   - 192.168.222.2
+  dnsNames:
+  - ironic.baremetal-operator-system.svc
+  - ironic.baremetal-operator-system.svc.cluster.local
   issuerRef:
     kind: Issuer
     name: ca-issuer

@@ -101,6 +101,7 @@ type ManagementAccessData struct {
 	DisableInspection          bool
 	InspectionMode             metal3api.InspectionMode
 	PortConfigs                map[string]*PortConfig
+	RecoveryPortConfigs        map[string]*PortConfig
 }
 
 // CanUpdateSwitchConfig returns true when the given provisioning state

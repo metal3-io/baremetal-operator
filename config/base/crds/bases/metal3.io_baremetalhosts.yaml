@@ -729,6 +729,13 @@ spec:
                     AppliedNetworkAttachmentConfig records the port configuration that was last successfully
                     applied to an Ironic port for a network interface.
                   properties:
+                    macAddress:
+                      description: |-
+                        MACAddress is the resolved MAC address of the interface when the
+                        configuration was applied. It identifies the port during recovery even
+                        if later inspection reports a different interface name.
+                      pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
+                      type: string
                     name:
                       description: Name is the network interface name (e.g., "eno1np0")
                       type: string
@@ -783,6 +790,7 @@ spec:
                       - nativeVLAN
                       type: object
                   required:
+                  - macAddress
                   - name
                   - switchPortConfig
                   type: object
@@ -2322,6 +2330,13 @@ spec:
                     AppliedNetworkAttachmentConfig records the port configuration that was last successfully
                     applied to an Ironic port for a network interface.
                   properties:
+                    macAddress:
+                      description: |-
+                        MACAddress is the resolved MAC address of the interface when the
+                        configuration was applied. It identifies the port during recovery even
+                        if later inspection reports a different interface name.
+                      pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
+                      type: string
                     name:
                       description: Name is the network interface name (e.g., "eno1np0")
                       type: string
@@ -2376,6 +2391,7 @@ spec:
                       - nativeVLAN
                       type: object
                   required:
+                  - macAddress
                   - name
                   - switchPortConfig
                   type: object

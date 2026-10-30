@@ -144,7 +144,6 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
-    - DELETE
     resources:
     - hostnetworkattachments
   sideEffects: None

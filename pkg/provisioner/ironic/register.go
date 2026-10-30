@@ -105,6 +105,14 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		return result, "", err
 	}
 
+	// A replacement node may already exist by name after an interrupted
+	// registration, while the BMH still stores the previous Ironic ID.
+	if p.config.enableNetworking && data.RecoveryPortConfigs != nil && (ironicNode == nil || ironicNode.UUID != p.nodeID) {
+		p.log.Info("restoring last applied switchport configs while recovering Ironic node",
+			"portCount", len(data.RecoveryPortConfigs))
+		p.portConfigs = data.RecoveryPortConfigs
+	}
+
 	// Some BMC types require a MAC address regardless of inspection (for
 	// example VirtualBMC), and any host requires one when inspection is
 	// disabled because the MAC cannot be discovered. Ensure we have one when

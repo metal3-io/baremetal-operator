@@ -842,6 +842,11 @@ type OperationHistory struct {
 type AppliedNetworkAttachmentConfig struct {
 	// Name is the network interface name (e.g., "eno1np0")
 	Name string `json:"name"`
+	// MACAddress is the resolved MAC address of the interface when the
+	// configuration was applied. It identifies the port during recovery even
+	// if later inspection reports a different interface name.
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
+	MACAddress string `json:"macAddress"`
 	// SwitchPortConfig is the switch port configuration that was applied
 	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
 	// SwitchPort is the identifier of the switch port that was

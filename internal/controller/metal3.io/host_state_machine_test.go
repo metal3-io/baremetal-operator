@@ -374,6 +374,54 @@ func TestRegisterHostNotDirtyWhileWaitingForPreprovisioningImage(t *testing.T) {
 	assert.False(t, result.Dirty(), "expected no forced status update when nothing changed")
 }
 
+func TestRegisterHostPreservesAppliedNetworkConfigWhileRecoveringIronicNode(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, false)
+
+	const macAddress = "00:11:22:33:44:55"
+	testHost := host(metal3api.StateAvailable).build()
+	testHost.Status.Provisioning.ID = "old-ironic-id"
+	testHost.Status.AppliedNetworkAttachmentConfigs = []metal3api.AppliedNetworkAttachmentConfig{
+		{
+			Name:       macAddress,
+			MACAddress: macAddress,
+			SwitchPortConfig: metal3api.SwitchPortConfig{
+				Mode:       metal3api.SwitchportModeAccess,
+				NativeVLAN: 100,
+			},
+		},
+	}
+
+	reconciler := testNewReconciler(testHost)
+	// This test only exercises registration and status syncing; skip creation of
+	// the unrelated HostFirmwareSettings resource.
+	testHost.Name = ""
+	prov := newMockProvisioner()
+	prov.registerID = "new-ironic-id"
+	info := makeDefaultReconcileInfo(testHost)
+	info.portConfigs = map[string]*provisioner.PortConfig{
+		macAddress: {
+			SwitchPortConfig: metal3api.SwitchPortConfig{
+				Mode:       metal3api.SwitchportModeAccess,
+				NativeVLAN: 200,
+			},
+		},
+	}
+
+	result := reconciler.registerHost(t.Context(), prov, info)
+
+	assert.True(t, result.Dirty(), "the replacement Ironic ID should be persisted")
+	assert.Equal(t, "new-ironic-id", testHost.Status.Provisioning.ID)
+	assert.Equal(t, 100, testHost.Status.AppliedNetworkAttachmentConfigs[0].SwitchPortConfig.NativeVLAN,
+		"the saved config should remain until the current config is applied")
+
+	// On the next reconcile the Ironic ID matches, so registration uses the
+	// current config and may update the applied snapshot.
+	result = reconciler.registerHost(t.Context(), prov, info)
+
+	assert.True(t, result.Dirty(), "the current applied config should be persisted")
+	assert.Equal(t, 200, testHost.Status.AppliedNetworkAttachmentConfigs[0].SwitchPortConfig.NativeVLAN)
+}
+
 func TestRegisterHostPersistsNetworkValidationChangesBeforeRegistrationCompletes(t *testing.T) {
 	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
 
@@ -1525,6 +1573,7 @@ type mockProvisioner struct {
 	nextResults         map[string]provisioner.Result
 	callsNoError        map[string]bool
 	registerErr         error
+	registerID          string
 	preprovImageFormats []metal3api.ImageFormat
 }
 
@@ -1560,7 +1609,7 @@ func (m *mockProvisioner) calledNoError(methodName string) bool {
 }
 
 func (m *mockProvisioner) Register(_ context.Context, _ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
-	return m.getNextResultByMethod("ValidateManagementAccess"), "", m.registerErr
+	return m.getNextResultByMethod("ValidateManagementAccess"), m.registerID, m.registerErr
 }
 
 func (m *mockProvisioner) PreprovisioningImageFormats(_ context.Context) ([]metal3api.ImageFormat, error) {

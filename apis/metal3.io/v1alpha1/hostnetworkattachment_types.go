@@ -76,7 +76,6 @@ type HostNetworkAttachmentSpec struct {
 }
 
 // HostNetworkAttachment defines switchport configuration for BMH network interfaces.
-// Spec fields are mutable when no BMH references the attachment, immutable when in use.
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=hna
 // +kubebuilder:subresource:status

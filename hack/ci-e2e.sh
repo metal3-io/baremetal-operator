@@ -199,6 +199,10 @@ if [[ "${CI_E2E_SKIP_SETUP,,}" != "true" ]]; then
     "${REPO_ROOT}/test/e2e/config/vbmctl.yaml.tmpl" > \
     "${REPO_ROOT}/test/e2e/config/vbmctl.yaml"
 
+  # Clean up any leftover VMs/networks/containers from a previous run before
+  # provisioning a fresh lab.
+  ./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" delete bml 2>/dev/null || true
+
   # Create VMs to act as BMHs in the tests and the libvirt network. Create
   # also image server and E2E emulator containers.
   ./bin/vbmctl -c "${REPO_ROOT}/test/e2e/config/vbmctl.yaml" create bml

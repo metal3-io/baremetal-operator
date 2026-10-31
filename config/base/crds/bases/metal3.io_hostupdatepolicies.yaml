@@ -44,12 +44,14 @@ spec:
                 enum:
                 - onPreparing
                 - onReboot
+                - onRequest
                 type: string
               firmwareUpdates:
                 description: Defines policy for updating firmware
                 enum:
                 - onPreparing
                 - onReboot
+                - onRequest
                 type: string
             type: object
           status:

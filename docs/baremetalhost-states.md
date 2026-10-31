@@ -98,6 +98,9 @@ deleting the host moves it to `deprovisioning`.
 Live firmware updates on a provisioned host do not change the
 provisioning state.
 They set `operationalStatus` to `servicing`.
+Servicing starts when the host is powered on after a reboot, or
+immediately when the `service.metal3.io` annotation is added,
+depending on the HostUpdatePolicy.
 See the [live updates guide](https://book.metal3.io/bmo/live_updates_servicing).
 
 ### Externally provisioned

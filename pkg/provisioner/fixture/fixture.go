@@ -89,6 +89,8 @@ type Fixture struct {
 	PoweredOn bool
 	// Has reboot been called
 	RebootCalled bool
+	// Data passed the last time servicing was started
+	LastServicingData *provisioner.ServicingData
 	// state to manage the two-step adopt process
 	adopted bool
 	// state to manage provisioning
@@ -266,10 +268,11 @@ func (p *fixtureProvisioner) Prepare(_ context.Context, _ provisioner.PrepareDat
 }
 
 // Service remove existing configuration and set new configuration.
-func (p *fixtureProvisioner) Service(_ context.Context, _ provisioner.ServicingData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
+func (p *fixtureProvisioner) Service(_ context.Context, data provisioner.ServicingData, unprepared bool, _ bool) (result provisioner.Result, started bool, err error) {
 	p.log.Info("servicing host", "unprepared", unprepared)
 	started = unprepared
 	if started {
+		p.state.LastServicingData = &data
 		result.Dirty = true
 	}
 	return

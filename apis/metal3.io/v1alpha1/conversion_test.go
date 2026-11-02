@@ -253,3 +253,18 @@ func fuzzTestFunc(input fuzzTestFuncInput) func(*testing.T) {
 		})
 	}
 }
+
+// TestSecretAccessErrorConversion checks that a host whose status carries the
+// secret access error keeps it when converted to the v1beta1 hub and back.
+func TestSecretAccessErrorConversion(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	spoke := &BareMetalHost{Status: BareMetalHostStatus{ErrorType: SecretAccessError}}
+	hub := &metal3apiv1beta1.BareMetalHost{}
+	g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+	g.Expect(hub.Status.ErrorType).To(gomega.Equal(metal3apiv1beta1.SecretAccessError))
+
+	restored := &BareMetalHost{}
+	g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+	g.Expect(restored.Status.ErrorType).To(gomega.Equal(SecretAccessError))
+}

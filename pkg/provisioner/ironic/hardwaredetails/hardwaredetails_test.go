@@ -1,6 +1,7 @@
 package hardwaredetails
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/inventory"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetVLANs(t *testing.T) {
@@ -28,6 +30,31 @@ func TestGetVLANs(t *testing.T) {
 	assert.Len(t, vlans, 2)
 	assert.Equal(t, metal3api.VLAN{ID: 1, Name: "vlan1"}, vlans[0])
 	assert.Equal(t, metal3api.VLAN{ID: 4094, Name: "vlan4094"}, vlans[1])
+}
+
+func TestGetVLANsFromPluginData(t *testing.T) {
+	// LLDP data as returned by Ironic: numbers are decoded as float64 and
+	// lists as []any.
+	var data inventory.StandardPluginData
+	err := json.Unmarshal([]byte(`{
+		"parsed_lldp": {
+			"eth0": {
+				"switch_port_vlans": [
+					{"id": 1, "name": "vlan1"},
+					{"id": 4094, "name": "vlan4094"}
+				],
+				"switch_port_untagged_vlan_id": 1
+			}
+		}
+	}`), &data)
+	require.NoError(t, err)
+
+	vlans, vid := getVLANs(data.ParsedLLDP["eth0"])
+	assert.Equal(t, metal3api.VLANID(1), vid, "Unexpected untagged VLAN ID")
+	assert.Equal(t, []metal3api.VLAN{
+		{ID: 1, Name: "vlan1"},
+		{ID: 4094, Name: "vlan4094"},
+	}, vlans)
 }
 
 func TestGetVLANsMalformed(t *testing.T) {

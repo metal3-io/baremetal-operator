@@ -38,23 +38,43 @@ func getVLANs(lldp map[string]any) (vlans []metal3api.VLAN, vlanid metal3api.VLA
 	if lldp == nil {
 		return
 	}
-	if spvs, ok := lldp["switch_port_vlans"]; ok {
-		if data, ok := spvs.([]map[string]any); ok {
-			vlans = make([]metal3api.VLAN, len(data))
-			for i, vlan := range data {
-				vid, _ := vlan["id"].(int)
-				name, _ := vlan["name"].(string)
-				vlans[i] = metal3api.VLAN{
-					ID:   metal3api.VLANID(vid), //#nosec G115:gosec
-					Name: name,
-				}
+	var data []map[string]any
+	switch spvs := lldp["switch_port_vlans"].(type) {
+	case []map[string]any:
+		data = spvs
+	case []any:
+		// LLDP data decoded from JSON
+		for _, entry := range spvs {
+			if vlan, ok := entry.(map[string]any); ok {
+				data = append(data, vlan)
 			}
 		}
 	}
-	if vid, ok := lldp["switch_port_untagged_vlan_id"].(int); ok {
-		vlanid = metal3api.VLANID(vid) //#nosec G115:gosec
+	if data != nil {
+		vlans = make([]metal3api.VLAN, len(data))
+		for i, vlan := range data {
+			name, _ := vlan["name"].(string)
+			vlans[i] = metal3api.VLAN{
+				ID:   getVLANID(vlan["id"]),
+				Name: name,
+			}
+		}
 	}
+	vlanid = getVLANID(lldp["switch_port_untagged_vlan_id"])
 	return
+}
+
+// getVLANID converts a VLAN ID from LLDP data. Numbers decoded from JSON are
+// float64. Any other type results in 0.
+func getVLANID(value any) metal3api.VLANID {
+	switch vid := value.(type) {
+	case int:
+		return metal3api.VLANID(vid) //#nosec G115:gosec
+	case float64:
+		return metal3api.VLANID(vid)
+	default:
+		return 0
+	}
 }
 
 func getLLDPData(lldp map[string]any) *metal3api.LLDP {

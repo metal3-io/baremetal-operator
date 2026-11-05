@@ -964,8 +964,8 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 
 	// Resolve and validate port configs before Register so the
 	// provisioner only receives validated configurations.
-	// Network validation dirty state is tracked separately to avoid
-	// being overwritten by matchProfile's unconditional dirty assignment.
+	// Network validation changes are tracked separately so they can be saved
+	// when registration needs to be retried.
 	networkDirty, err = r.preparePortConfigs(ctx, info)
 	if err != nil {
 		return actionError{err}
@@ -1041,11 +1041,11 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		return result
 	}
 
-	dirty, err = r.matchProfile(info)
+	profileDirty, err := r.matchProfile(info)
 	if err != nil {
 		return recordActionFailure(info, metal3api.RegistrationError, err.Error())
 	}
-	if dirty {
+	if profileDirty {
 		return actionUpdate{}
 	}
 

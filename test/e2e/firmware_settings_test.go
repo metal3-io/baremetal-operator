@@ -182,6 +182,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware", "ironic
 			},
 		}
 		Expect(clusterProxy.GetClient().Create(ctx, &bmh)).To(Succeed())
+		toCleanup = append(toCleanup, &bmh)
 
 		By("Waiting for the BMH to become available")
 		WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{

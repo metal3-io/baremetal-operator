@@ -36,7 +36,7 @@ jobs:
     - name: Install libvirt
       run: |
         sudo apt-get update
-        sudo apt-get install -y libvirt-daemon-system qemu-kvm virt-manager libvirt-dev
+        sudo apt-get install -y libvirt-daemon-system qemu-kvm virtinst libvirt-clients libvirt-dev
 
     - name: Disable containerd image store (Docker 29 workaround)
       # See: https://github.com/kubernetes-sigs/kind/issues/3795

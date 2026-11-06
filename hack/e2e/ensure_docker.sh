@@ -69,8 +69,7 @@ install_docker_ubuntu() {
         docker-ce \
         docker-ce-cli \
         containerd.io \
-        docker-buildx-plugin \
-        docker-compose-plugin
+        docker-buildx-plugin
     sudo usermod -aG docker "${USER}"
 
     echo "Docker installed successfully, please log"\

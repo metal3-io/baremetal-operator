@@ -99,7 +99,8 @@ func (m *IronicMock) WithDrivers() *IronicMock {
 				"rel": "bookmark"
 			  }
 			],
-			"name": "test"
+			"name": "test",
+			"enabled_inspect_interfaces": ["agent", "no-inspect"]
 		}]
 	}
 	`, http.StatusOK)
@@ -172,6 +173,21 @@ func (m *IronicMock) NodeUpdate(node nodes.Node) *IronicMock {
 func (m *IronicMock) GetLastNodeUpdateRequestFor(id string) (updates []nodes.UpdateOperation) {
 	if bodyRaw, ok := m.GetLastRequestFor(v1node+id, http.MethodPatch); ok {
 		_ = json.Unmarshal([]byte(bodyRaw), &updates)
+	}
+
+	return
+}
+
+// GetNodeUpdateRequestsFor returns the content of all update requests for the
+// specified node, in the order they were received.
+func (m *IronicMock) GetNodeUpdateRequestsFor(id string) (requests [][]nodes.UpdateOperation) {
+	for _, r := range m.FullRequests {
+		if r.pattern != v1node+id || r.method != http.MethodPatch {
+			continue
+		}
+		var updates []nodes.UpdateOperation
+		_ = json.Unmarshal([]byte(r.body), &updates)
+		requests = append(requests, updates)
 	}
 
 	return

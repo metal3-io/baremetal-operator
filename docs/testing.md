@@ -11,7 +11,7 @@ make lint
 make test
 ```
 
-- `make unit` runs unit tests (requires envtest)
+- `make unit` runs unit tests
 - `make lint` runs golangci-lint across modules
 - `make test` runs generate, lint, manifests, and unit tests
 

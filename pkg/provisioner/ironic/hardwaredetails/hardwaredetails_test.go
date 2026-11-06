@@ -14,17 +14,17 @@ import (
 
 func TestGetVLANs(t *testing.T) {
 	vlans, vid := getVLANs(map[string]any{
-		"switch_port_vlans": []map[string]any{
-			{
-				"id":   1,
+		"switch_port_vlans": []any{
+			map[string]any{
+				"id":   float64(1),
 				"name": "vlan1",
 			},
-			{
-				"id":   4094,
+			map[string]any{
+				"id":   float64(4094),
 				"name": "vlan4094",
 			},
 		},
-		"switch_port_untagged_vlan_id": 1,
+		"switch_port_untagged_vlan_id": float64(1),
 	})
 	assert.Equal(t, metal3api.VLANID(1), vid, "Unexpected untagged VLAN ID")
 	assert.Len(t, vlans, 2)
@@ -59,24 +59,24 @@ func TestGetVLANsFromPluginData(t *testing.T) {
 
 func TestGetVLANsMalformed(t *testing.T) {
 	vlans, vid := getVLANs(map[string]any{
-		"switch_port_vlans": []map[string]any{
-			{
+		"switch_port_vlans": []any{
+			map[string]any{
 				"foo":  "bar",
 				"name": "vlan1",
 			},
-			{
+			map[string]any{
 				"foo": "bar",
-				"id":  1,
+				"id":  float64(1),
 			},
-			{
+			map[string]any{
 				"name": "vlan2",
 				"id":   "2",
 			},
-			{
-				"name": 3,
-				"id":   3,
+			map[string]any{
+				"name": float64(3),
+				"id":   float64(3),
 			},
-			{
+			map[string]any{
 				"foo": "bar",
 			},
 		},
@@ -229,12 +229,12 @@ func TestGetNICDetails(t *testing.T) {
 		},
 		ParsedLLDP: map[string]inventory.ParsedLLDP{
 			"eth0": {
-				"switch_port_vlans": []map[string]any{
-					{
-						"id": 1,
+				"switch_port_vlans": []any{
+					map[string]any{
+						"id": float64(1),
 					},
 				},
-				"switch_port_untagged_vlan_id": 1,
+				"switch_port_untagged_vlan_id": float64(1),
 				"switch_chassis_id":            "aa:bb:cc:dd:ee:ff",
 				"switch_port_id":               "Ethernet1/1",
 				"switch_system_name":           "switch01.example.com",

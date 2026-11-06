@@ -18,3 +18,18 @@ KEEP_E2E_IMAGES="${KEEP_E2E_IMAGES:-false}"
 if [[ "${KEEP_E2E_IMAGES,,}" != "true" ]]; then
     rm -rf "${REPO_ROOT}/test/e2e/images"
 fi
+
+# Clear network
+virsh -c qemu:///system net-destroy baremetal-e2e
+virsh -c qemu:///system net-undefine baremetal-e2e
+
+# Clean volume pool directory
+rm -rf /tmp/pool_oo/*
+
+# Clean volume pool
+virsh -c qemu:///system pool-destroy baremetal-e2e || true
+virsh -c qemu:///system pool-delete baremetal-e2e || true
+virsh -c qemu:///system pool-undefine baremetal-e2e || true
+
+# Delete configuration yaml files created during setup.
+"${REPO_ROOT}/hack/e2e/ip_addressing.sh" --clean

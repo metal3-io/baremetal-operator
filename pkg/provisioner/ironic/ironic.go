@@ -116,6 +116,10 @@ type ironicProvisioner struct {
 	cachedNode *nodes.Node
 }
 
+// Enforce compatibility with the main interface and all optional interfaces.
+var _ provisioner.Provisioner = &ironicProvisioner{}
+var _ provisioner.DataImageAPI = &ironicProvisioner{}
+
 // FIXME(hroyrh) : move this to gophercloud when implementing
 // VirtualMediaGetResult Extract function.
 type VirtualMedia struct {

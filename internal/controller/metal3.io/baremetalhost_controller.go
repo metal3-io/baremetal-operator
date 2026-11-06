@@ -29,6 +29,7 @@ import (
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1/profile"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
 	"github.com/metal3-io/baremetal-operator/pkg/imageprovider"
 	. "github.com/metal3-io/baremetal-operator/pkg/logging"
@@ -49,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -964,11 +966,22 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 
 	// Resolve and validate port configs before Register so the
 	// provisioner only receives validated configurations.
-	// Network validation dirty state is tracked separately to avoid
-	// being overwritten by matchProfile's unconditional dirty assignment.
+	// Network validation changes are tracked separately so they can be saved
+	// when registration needs to be retried.
 	networkDirty, err = r.preparePortConfigs(ctx, info)
 	if err != nil {
 		return actionError{err}
+	}
+
+	previousProvisioningID := info.host.Status.Provisioning.ID
+	if previousProvisioningID != "" &&
+		(!provisioner.CanUpdateSwitchPortConfig(info.host.Status.Provisioning.State) ||
+			info.portConfigs == nil) {
+		// If we had already registered this host with Ironic, and it is not in
+		// a state that allows for updating ports to the current HNA settings OR
+		// the current HNA settings are not valid, then we must rebuild the
+		// ports from the last applied state.
+		info.portConfigs = buildRecoveryPortConfigs(info)
 	}
 
 	provResult, provID, err := prov.Register(
@@ -1041,11 +1054,11 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		return result
 	}
 
-	dirty, err = r.matchProfile(info)
+	profileDirty, err := r.matchProfile(info)
 	if err != nil {
 		return recordActionFailure(info, metal3api.RegistrationError, err.Error())
 	}
-	if dirty {
+	if profileDirty {
 		return actionUpdate{}
 	}
 
@@ -2735,6 +2748,23 @@ func (r *BareMetalHostReconciler) SetupWithManager(mgr ctrl.Manager, preprovImgE
 			}).
 		WithOptions(controller.Options{MaxConcurrentReconciles: maxConcurrentReconcile}).
 		Owns(&corev1.Secret{}, builder.MatchEveryOwner)
+
+	if features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking) {
+		if err := mgr.GetFieldIndexer().IndexField(
+			context.Background(),
+			&metal3api.BareMetalHost{},
+			bmhNetworkAttachmentIndexField,
+			indexBMHHostNetworkAttachments,
+		); err != nil {
+			return fmt.Errorf("failed to index BMH network attachments: %w", err)
+		}
+
+		controller.Watches(
+			&metal3api.HostNetworkAttachment{},
+			handler.EnqueueRequestsFromMapFunc(r.hostNetworkAttachmentToBMHs),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	}
 
 	if preprovImgEnable {
 		// We use SetControllerReference() to set the owner reference, so no

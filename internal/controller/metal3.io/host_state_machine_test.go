@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -375,6 +376,201 @@ func TestRegisterHostNotDirtyWhileWaitingForPreprovisioningImage(t *testing.T) {
 	result := reconciler.registerHost(t.Context(), prov, info)
 
 	assert.False(t, result.Dirty(), "expected no forced status update when nothing changed")
+}
+
+func networkRegistrationFixture(t *testing.T, state metal3api.ProvisioningState) (*metal3api.BareMetalHost, *BareMetalHostReconciler, *mockProvisioner) {
+	t.Helper()
+
+	const macAddress = "00:11:22:33:44:55"
+	testHost := host(state).build()
+	testHost.Status.Provisioning.ID = "old-ironic-id"
+	testHost.Status.HardwareDetails = &metal3api.HardwareDetails{
+		NIC: []metal3api.NIC{{Name: "eth0", MAC: macAddress}},
+	}
+	testHost.Spec.NetworkInterfaces = []metal3api.NetworkInterface{{
+		Name:                  "eth0",
+		HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: "test-attachment"},
+	}}
+	testHost.Status.AppliedNetworkAttachmentConfigs = []metal3api.AppliedNetworkAttachmentConfig{{
+		Name:       "eth0",
+		MACAddress: macAddress,
+		SwitchPortConfig: metal3api.SwitchPortConfig{
+			Mode:       metal3api.SwitchportModeAccess,
+			NativeVLAN: 100,
+		},
+	}}
+	attachment := &metal3api.HostNetworkAttachment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-attachment", Namespace: testHost.Namespace},
+		Spec: metal3api.HostNetworkAttachmentSpec{
+			Mode:       metal3api.SwitchportModeAccess,
+			NativeVLAN: 200,
+		},
+	}
+	scheme := runtime.NewScheme()
+	require.NoError(t, metal3api.AddToScheme(scheme))
+	reconciler := &BareMetalHostReconciler{
+		Client: fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(attachment).Build(),
+		Log:    ctrl.Log.WithName("network-registration"),
+	}
+	// Skip unrelated firmware resource creation during registration.
+	testHost.Name = ""
+	prov := newMockProvisioner()
+	prov.registerID = "new-ironic-id"
+	return testHost, reconciler, prov
+}
+
+func TestRegisterHostSelectsNetworkConfig(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+
+	tests := []struct {
+		name              string
+		state             metal3api.ProvisioningState
+		initial           bool
+		emptySnapshot     bool
+		removeInterfaces  bool
+		missingAttachment bool
+		invalidInterface  bool
+		busy              bool
+		wantNil           bool
+		wantVLAN          int
+		wantSnapshotVLAN  int
+	}{
+		{name: "initial registration", state: metal3api.StateRegistering, initial: true, emptySnapshot: true, wantVLAN: 200, wantSnapshotVLAN: 200},
+		{name: "initial registration still busy", state: metal3api.StateRegistering, initial: true, emptySnapshot: true, busy: true, wantVLAN: 200},
+		{name: "registration retry before snapshot is populated", state: metal3api.StateRegistering, emptySnapshot: true, wantVLAN: 200, wantSnapshotVLAN: 200},
+		{name: "initial registration without interfaces", state: metal3api.StateRegistering, initial: true, emptySnapshot: true, removeInterfaces: true, wantNil: true},
+		{name: "registering applies desired config", state: metal3api.StateRegistering, wantVLAN: 200, wantSnapshotVLAN: 200},
+		{name: "available applies desired config", state: metal3api.StateAvailable, wantVLAN: 200, wantSnapshotVLAN: 200},
+		{name: "busy registration preserves snapshot", state: metal3api.StateAvailable, busy: true, wantVLAN: 200, wantSnapshotVLAN: 100},
+		{name: "provisioned preserves applied config", state: metal3api.StateProvisioned, wantVLAN: 100, wantSnapshotVLAN: 100},
+		{name: "preparing preserves applied config", state: metal3api.StatePreparing, wantVLAN: 100, wantSnapshotVLAN: 100},
+		{name: "deprovisioning preserves applied config", state: metal3api.StateDeprovisioning, wantVLAN: 100, wantSnapshotVLAN: 100},
+		{name: "provisioned defers newly added config", state: metal3api.StateProvisioned, emptySnapshot: true},
+		{name: "provisioned defers config removal", state: metal3api.StateProvisioned, removeInterfaces: true, wantVLAN: 100, wantSnapshotVLAN: 100},
+		{name: "available clears removed config", state: metal3api.StateAvailable, removeInterfaces: true},
+		{name: "available recovers deleted attachment", state: metal3api.StateAvailable, missingAttachment: true, wantVLAN: 100, wantSnapshotVLAN: 100},
+		{name: "available recovers invalid interface", state: metal3api.StateAvailable, invalidInterface: true, wantVLAN: 100, wantSnapshotVLAN: 100},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost, reconciler, prov := networkRegistrationFixture(t, tt.state)
+			if tt.initial {
+				testHost.Status.Provisioning.ID = ""
+			}
+			if tt.emptySnapshot {
+				testHost.Status.AppliedNetworkAttachmentConfigs = nil
+			}
+			if tt.removeInterfaces {
+				testHost.Spec.NetworkInterfaces = nil
+			}
+			if tt.invalidInterface {
+				testHost.Spec.NetworkInterfaces[0].Name = "missing-nic"
+			}
+			if tt.missingAttachment {
+				require.NoError(t, reconciler.Delete(t.Context(), &metal3api.HostNetworkAttachment{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-attachment", Namespace: testHost.Namespace},
+				}))
+			}
+			if tt.busy {
+				prov.nextResults["ValidateManagementAccess"] = provisioner.Result{Dirty: true, RequeueAfter: time.Second}
+			}
+
+			result := reconciler.registerHost(t.Context(), prov, makeDefaultReconcileInfo(testHost))
+
+			require.NotNil(t, result)
+			assert.True(t, result.Dirty(), "the replacement Ironic ID should be persisted")
+			assert.Equal(t, "new-ironic-id", testHost.Status.Provisioning.ID)
+			configs := prov.registerData.PortConfigs
+			if tt.wantNil {
+				assert.Nil(t, configs)
+			} else {
+				require.NotNil(t, configs, "an empty map must suppress pending configuration during recovery")
+				if tt.wantVLAN == 0 {
+					assert.Empty(t, configs)
+				} else {
+					require.Len(t, configs, 1)
+					require.Contains(t, configs, "00:11:22:33:44:55")
+					assert.Equal(t, tt.wantVLAN, configs["00:11:22:33:44:55"].SwitchPortConfig.NativeVLAN)
+				}
+			}
+			if tt.wantSnapshotVLAN == 0 {
+				assert.Empty(t, testHost.Status.AppliedNetworkAttachmentConfigs)
+			} else {
+				require.Len(t, testHost.Status.AppliedNetworkAttachmentConfigs, 1)
+				assert.Equal(t, tt.wantSnapshotVLAN, testHost.Status.AppliedNetworkAttachmentConfigs[0].SwitchPortConfig.NativeVLAN)
+			}
+			if tt.missingAttachment || tt.invalidInterface {
+				condition := meta.FindStatusCondition(testHost.Status.Conditions, metal3api.NetworkInterfacesValidCondition)
+				require.NotNil(t, condition)
+				assert.Equal(t, metav1.ConditionFalse, condition.Status)
+			}
+		})
+	}
+}
+
+func TestRegisterHostNetworkConfigAcrossRecovery(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+
+	for _, scenario := range []string{"changed attachment", "removed interfaces", "newly added interfaces"} {
+		t.Run(scenario, func(t *testing.T) {
+			testHost, reconciler, prov := networkRegistrationFixture(t, metal3api.StateProvisioned)
+			if scenario == "removed interfaces" {
+				testHost.Spec.NetworkInterfaces = nil
+			}
+			if scenario == "newly added interfaces" {
+				testHost.Status.AppliedNetworkAttachmentConfigs = nil
+			}
+			snapshot := testHost.DeepCopy().Status.AppliedNetworkAttachmentConfigs
+			prov.nextResults["ValidateManagementAccess"] = provisioner.Result{Dirty: true, RequeueAfter: time.Second}
+
+			result := reconciler.registerHost(t.Context(), prov, makeDefaultReconcileInfo(testHost))
+			require.NotNil(t, result)
+			assert.True(t, result.Dirty())
+			assert.Equal(t, "new-ironic-id", testHost.Status.Provisioning.ID)
+			assert.Equal(t, snapshot, testHost.Status.AppliedNetworkAttachmentConfigs)
+			require.NotNil(t, prov.registerData.PortConfigs)
+			firstConfigs := prov.registerData.PortConfigs
+
+			// Registration completes with the replacement UUID already stored.
+			prov.clearNextError("ValidateManagementAccess")
+			result = reconciler.registerHost(t.Context(), prov, makeDefaultReconcileInfo(testHost))
+			assert.Nil(t, result, "an unchanged snapshot should not require another status update")
+			assert.Equal(t, firstConfigs, prov.registerData.PortConfigs)
+			assert.Equal(t, snapshot, testHost.Status.AppliedNetworkAttachmentConfigs)
+
+			// Once Available, apply pending changes or clear removed configuration.
+			testHost.Status.Provisioning.State = metal3api.StateAvailable
+			result = reconciler.registerHost(t.Context(), prov, makeDefaultReconcileInfo(testHost))
+			require.NotNil(t, result)
+			assert.True(t, result.Dirty())
+			require.NotNil(t, prov.registerData.PortConfigs)
+			if scenario == "removed interfaces" {
+				assert.Empty(t, prov.registerData.PortConfigs)
+				assert.Empty(t, testHost.Status.AppliedNetworkAttachmentConfigs)
+			} else {
+				require.Len(t, prov.registerData.PortConfigs, 1)
+				assert.Equal(t, 200, prov.registerData.PortConfigs["00:11:22:33:44:55"].SwitchPortConfig.NativeVLAN)
+				require.Len(t, testHost.Status.AppliedNetworkAttachmentConfigs, 1)
+				assert.Equal(t, 200, testHost.Status.AppliedNetworkAttachmentConfigs[0].SwitchPortConfig.NativeVLAN)
+			}
+		})
+	}
+}
+
+func TestRegisterHostPersistsReplacementIDWithoutOtherChanges(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+	testHost := host(metal3api.StateAvailable).build()
+	testHost.Status.Provisioning.ID = "old-ironic-id"
+	reconciler := testNewReconciler(testHost)
+	testHost.Name = ""
+	prov := newMockProvisioner()
+	prov.registerID = "new-ironic-id"
+
+	result := reconciler.registerHost(t.Context(), prov, makeDefaultReconcileInfo(testHost))
+
+	require.NotNil(t, result)
+	assert.True(t, result.Dirty(), "the new UUID must be persisted even when the profile is unchanged")
+	assert.Equal(t, "new-ironic-id", testHost.Status.Provisioning.ID)
 }
 
 func TestRegisterHostPersistsNetworkValidationChangesBeforeRegistrationCompletes(t *testing.T) {
@@ -1863,6 +2059,8 @@ type mockProvisioner struct {
 	nextResults         map[string]provisioner.Result
 	callsNoError        map[string]bool
 	registerErr         error
+	registerID          string
+	registerData        provisioner.ManagementAccessData
 	preprovImageFormats []metal3api.ImageFormat
 	provisionErr        error
 	provisionCalls      int
@@ -1899,8 +2097,9 @@ func (m *mockProvisioner) calledNoError(methodName string) bool {
 	return m.callsNoError[methodName]
 }
 
-func (m *mockProvisioner) Register(_ context.Context, _ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
-	return m.getNextResultByMethod("ValidateManagementAccess"), "", m.registerErr
+func (m *mockProvisioner) Register(_ context.Context, data provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {
+	m.registerData = data
+	return m.getNextResultByMethod("ValidateManagementAccess"), m.registerID, m.registerErr
 }
 
 func (m *mockProvisioner) PreprovisioningImageFormats(_ context.Context) ([]metal3api.ImageFormat, error) {

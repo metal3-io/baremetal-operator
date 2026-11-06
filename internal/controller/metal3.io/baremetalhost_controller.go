@@ -1675,6 +1675,7 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 	// going to impact a small subset of Firmware Settings implementations.
 	if info.host.Status.OperationalStatus != metal3api.OperationalStatusServicing {
 		info.host.Status.OperationalStatus = metal3api.OperationalStatusServicing
+		info.publishEvent("ServicingStarted", "Host servicing started")
 		// NOTE(dtantsur): it's very important to yield to the controller and retry before actually calling Ironic:
 		// a PreprovisioningImage may be missing until we get to the registration code.
 		return actionUpdate{}
@@ -1721,6 +1722,7 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 
 	// Servicing is finished at this point, clean up operational status
 	if clearErrorWithStatus(info.host, metal3api.OperationalStatusOK) {
+		info.publishEvent("ServicingComplete", "Host servicing finished")
 		// FIXME(janders/dtantsur): this can be racy. We should consider
 		// using a generation number to decide if we start servicing or not.
 		return actionUpdate{actionContinue{delay: subResourceNotReadyRetryDelay}}

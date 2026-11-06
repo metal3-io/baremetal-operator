@@ -1863,11 +1863,11 @@ spec:
                     type: string
                   checksumType:
                     description: |-
-                      ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+                      ChecksumType is the checksum algorithm for the image, e.g sha256 or sha512.
                       The special value "auto" can be used to detect the algorithm from the checksum.
-                      If missing, MD5 is used. If in doubt, use "auto".
+                      If missing, the algorithm is detected from the checksum, same as "auto".
+                      MD5 is not supported as an explicit type; use "auto" for MD5 checksums.
                     enum:
-                    - md5
                     - sha256
                     - sha512
                     - auto
@@ -2715,11 +2715,11 @@ spec:
                     type: string
                   checksumType:
                     description: |-
-                      ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+                      ChecksumType is the checksum algorithm for the image, e.g sha256 or sha512.
                       The special value "auto" can be used to detect the algorithm from the checksum.
-                      If missing, MD5 is used. If in doubt, use "auto".
+                      If missing, the algorithm is detected from the checksum, same as "auto".
+                      MD5 is not supported as an explicit type; use "auto" for MD5 checksums.
                     enum:
-                    - md5
                     - sha256
                     - sha512
                     - auto
@@ -2900,11 +2900,11 @@ spec:
                         type: string
                       checksumType:
                         description: |-
-                          ChecksumType is the checksum algorithm for the image, e.g md5, sha256 or sha512.
+                          ChecksumType is the checksum algorithm for the image, e.g sha256 or sha512.
                           The special value "auto" can be used to detect the algorithm from the checksum.
-                          If missing, MD5 is used. If in doubt, use "auto".
+                          If missing, the algorithm is detected from the checksum, same as "auto".
+                          MD5 is not supported as an explicit type; use "auto" for MD5 checksums.
                         enum:
-                        - md5
                         - sha256
                         - sha512
                         - auto

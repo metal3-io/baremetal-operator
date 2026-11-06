@@ -322,7 +322,7 @@ func TestGetImageChecksum(t *testing.T) {
 		ExpectedType string
 	}{
 		{
-			Scenario: "both checksum value and type specified",
+			Scenario: "md5 checksum type is not supported",
 			Host: BareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myhost",
@@ -331,12 +331,11 @@ func TestGetImageChecksum(t *testing.T) {
 				Spec: BareMetalHostSpec{
 					Image: &Image{
 						Checksum:     "md5hash",
-						ChecksumType: MD5,
+						ChecksumType: "md5",
 					},
 				},
 			},
-			Expected:     true,
-			ExpectedType: "md5",
+			Expected: false,
 		},
 		{
 			Scenario: "checksum value specified and type not specified, default to auto type",

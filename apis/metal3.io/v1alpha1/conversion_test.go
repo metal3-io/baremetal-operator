@@ -49,13 +49,25 @@ import (
 // the v1beta1 hub is lossless in both directions for every convertible kind.
 func TestFuzzyConversion(t *testing.T) {
 	t.Run("for BareMetalHost", fuzzTestFunc(fuzzTestFuncInput{
-		hub:   &metal3apiv1beta1.BareMetalHost{},
-		spoke: &BareMetalHost{},
+		hub:         &metal3apiv1beta1.BareMetalHost{},
+		spoke:       &BareMetalHost{},
+		fuzzerFuncs: []fuzzer.FuzzerFuncs{checksumTypeFuzzerFuncs},
 	}))
 	t.Run("for HardwareData", fuzzTestFunc(fuzzTestFuncInput{
 		hub:   &metal3apiv1beta1.HardwareData{},
 		spoke: &HardwareData{},
 	}))
+}
+
+// checksumTypeFuzzerFuncs makes the fuzzer produce the known checksum types,
+// in particular the v1alpha1-only "md5", which random strings never hit.
+func checksumTypeFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(in *ChecksumType, c randfill.Continue) {
+			types := []ChecksumType{"", MD5, SHA256, SHA512, AutoChecksum}
+			*in = types[c.Intn(len(types))]
+		},
+	}
 }
 
 // --- Local copy of the cluster-api conversion fuzz harness ---
@@ -267,4 +279,118 @@ func TestSecretAccessErrorConversion(t *testing.T) {
 	restored := &BareMetalHost{}
 	g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
 	g.Expect(restored.Status.ErrorType).To(gomega.Equal(SecretAccessError))
+}
+
+// TestMD5ChecksumConversion checks that the "md5" checksum type, which does not
+// exist in v1beta1, is unset and restored on the way back.
+func TestMD5ChecksumConversion(t *testing.T) {
+	md5Image := func() *Image {
+		return &Image{URL: "http://example.com/image.qcow2", Checksum: "md5hash", ChecksumType: MD5}
+	}
+	newSpoke := func() *BareMetalHost {
+		return &BareMetalHost{
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"foo": "bar"}},
+			Spec:       BareMetalHostSpec{Image: md5Image()},
+			Status: BareMetalHostStatus{
+				LastAttemptedImage: md5Image(),
+				Provisioning:       ProvisionStatus{Image: *md5Image()},
+			},
+		}
+	}
+
+	t.Run("md5 is unset", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		hub := &metal3apiv1beta1.BareMetalHost{}
+		g.Expect(newSpoke().ConvertTo(hub)).To(gomega.Succeed())
+		g.Expect(hub.Spec.Image.ChecksumType).To(gomega.BeEmpty())
+		g.Expect(hub.Status.LastAttemptedImage.ChecksumType).To(gomega.BeEmpty())
+		g.Expect(hub.Status.Provisioning.Image.ChecksumType).To(gomega.BeEmpty())
+		g.Expect(hub.Spec.Image.Checksum).To(gomega.Equal("md5hash"))
+		g.Expect(hub.Annotations).To(gomega.HaveKeyWithValue("foo", "bar"))
+		g.Expect(hub.Annotations).To(gomega.HaveKey(DataAnnotation))
+	})
+
+	t.Run("spoke-hub-spoke preserves md5", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		spoke := newSpoke()
+		hub := &metal3apiv1beta1.BareMetalHost{}
+		g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+		// The source object must not be modified.
+		g.Expect(spoke).To(gomega.Equal(newSpoke()))
+
+		restored := &BareMetalHost{}
+		g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+		g.Expect(restored).To(gomega.Equal(newSpoke()))
+		// The source hub must not be modified either.
+		g.Expect(hub.Annotations).To(gomega.HaveKey(DataAnnotation))
+	})
+
+	t.Run("no annotation without md5", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		spoke := &BareMetalHost{Spec: BareMetalHostSpec{Image: &Image{
+			URL: "http://example.com/image.qcow2", Checksum: "shahash", ChecksumType: SHA256,
+		}}}
+		hub := &metal3apiv1beta1.BareMetalHost{}
+		g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+		g.Expect(hub.Annotations).To(gomega.BeNil())
+		g.Expect(hub.Spec.Image.ChecksumType).To(gomega.Equal(metal3apiv1beta1.SHA256))
+	})
+
+	t.Run("md5 is not restored for a changed image", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		hub := &metal3apiv1beta1.BareMetalHost{}
+		g.Expect(newSpoke().ConvertTo(hub)).To(gomega.Succeed())
+		hub.Spec.Image.Checksum = "newhash"
+		hub.Status.LastAttemptedImage.URL = "http://example.com/other.qcow2"
+		hub.Status.Provisioning.Image.ChecksumType = metal3apiv1beta1.SHA512
+
+		restored := &BareMetalHost{}
+		g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+		g.Expect(restored.Spec.Image.ChecksumType).To(gomega.BeEmpty())
+		g.Expect(restored.Status.LastAttemptedImage.ChecksumType).To(gomega.BeEmpty())
+		g.Expect(restored.Status.Provisioning.Image.ChecksumType).To(gomega.Equal(SHA512))
+		g.Expect(restored.Annotations).To(gomega.Equal(map[string]string{"foo": "bar"}))
+	})
+
+	t.Run("md5 is not restored for a removed image", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		hub := &metal3apiv1beta1.BareMetalHost{}
+		g.Expect(newSpoke().ConvertTo(hub)).To(gomega.Succeed())
+		hub.Spec.Image = nil
+
+		restored := &BareMetalHost{}
+		g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+		g.Expect(restored.Spec.Image).To(gomega.BeNil())
+		g.Expect(restored.Status.LastAttemptedImage.ChecksumType).To(gomega.Equal(MD5))
+	})
+
+	for _, checksumType := range []metal3apiv1beta1.ChecksumType{"", metal3apiv1beta1.AutoChecksum} {
+		t.Run("hub-spoke-hub keeps type \""+string(checksumType)+"\"", func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			hub := &metal3apiv1beta1.BareMetalHost{
+				Spec: metal3apiv1beta1.BareMetalHostSpec{Image: &metal3apiv1beta1.Image{
+					URL: "http://example.com/image.qcow2", Checksum: "md5hash", ChecksumType: checksumType,
+				}},
+			}
+			spoke := &BareMetalHost{}
+			g.Expect(spoke.ConvertFrom(hub.DeepCopy())).To(gomega.Succeed())
+			g.Expect(spoke.Spec.Image.ChecksumType).To(gomega.Equal(ChecksumType(checksumType)))
+
+			hubAfter := &metal3apiv1beta1.BareMetalHost{}
+			g.Expect(spoke.ConvertTo(hubAfter)).To(gomega.Succeed())
+			g.Expect(hubAfter).To(gomega.Equal(hub))
+		})
+	}
+
+	t.Run("md5 is not restored when auto is set on the hub", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		hub := &metal3apiv1beta1.BareMetalHost{}
+		g.Expect(newSpoke().ConvertTo(hub)).To(gomega.Succeed())
+		hub.Spec.Image.ChecksumType = metal3apiv1beta1.AutoChecksum
+
+		restored := &BareMetalHost{}
+		g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+		g.Expect(restored.Spec.Image.ChecksumType).To(gomega.Equal(AutoChecksum))
+		g.Expect(restored.Status.LastAttemptedImage.ChecksumType).To(gomega.Equal(MD5))
+	})
 }

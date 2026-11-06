@@ -36,10 +36,10 @@ Please note that the script installs Go in `/usr/local/go`. If you want to invok
 the e2e Makefile target directly with `make test-e2e`, you may need to adjust your
 `PATH` accordingly.
 
-Currently there are two sets of tests, which cannot be ran together in the same
-cluster. One is the "optional" set, currently consists of only the
-upgrade tests (`upgrade_*_test.go`), and the "required" set, which are the ones
-required to run in every BMO PR. Every spec is labeled (via Ginkgo's
+There are two sets of tests: the "required" set runs on every BMO PR, while the
+"optional" set includes networking, BareMetalSwitch, and upgrade tests
+(`upgrade_*_test.go`). Upgrade tests use separate clusters by default so they
+can run alongside other tests. Every spec is labeled (via Ginkgo's
 `Label(...)`) with its tier (`required` or `optional`), plus additional area
 labels (e.g. `provision`, `inspection`, `firmware`).
 
@@ -63,6 +63,10 @@ And here is how to run the E2E optional tests:
 export GINKGO_LABEL_FILTER="optional"
 ./hack/ci-e2e.sh
 ```
+
+To run only the networking and BareMetalSwitch tests, use
+`GINKGO_LABEL_FILTER="networking || baremetalswitch"`. To run only upgrade
+tests, use `GINKGO_LABEL_FILTER="upgrade"`.
 
 `GINKGO_FOCUS` and `GINKGO_SKIP` are still available, but only intended for
 ad-hoc developer runs, not for tier selection. They are regex-based (as
@@ -168,12 +172,14 @@ both redfish and ipmi protocols in CI.
   live-ISO image.
 - Automated cleaning: Check that when automated cleaning is enabled the disks are
   cleaned after deprovision.
-- Networking: Check that switch port configurations specified via NetworkInterfaces
-  and HostNetworkAttachments are correctly resolved, validated, and applied to
-  Ironic ports during registration.
 
 **Optional tests:**
 
+- Networking: Check that switch port configurations specified via NetworkInterfaces
+  and HostNetworkAttachments are correctly resolved, validated, and applied to
+  Ironic ports during registration.
+- BareMetalSwitch: Check switch configuration, optional fields, credential
+  updates, and duplicate switch handling.
 - Bare Metal Operator upgrade: Check that an older version of the Bare Metal
   Operator works by creating a BareMetalHost with external inspection. Then
   upgrade the Bare Metal Operator and check the BareMetalHost can be

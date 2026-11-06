@@ -6,6 +6,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	containers "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/containers"
@@ -156,31 +158,18 @@ func newDeleteBMLCmd() *cobra.Command {
 			//nolint:forbidigo // CLI output is intentional
 			fmt.Printf("Deleting libvirt networks (%d networks)...\n", len(networks))
 
-			if err = networkManager.DeleteNetworks(ctx, networks); err != nil {
-				// Don't fail whole command if network deletion fails
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Warning: failed to delete network: %v\n", err)
+			// Don't fail whole command if network deletion fails
+			err = networkManager.DeleteNetworks(ctx, networks)
+			reportDeletion(os.Stdout, "networks", networks, err)
+
+			dockerNetworks := make([]string, len(cfg.Spec.DockerNetworks))
+			for i, net := range cfg.Spec.DockerNetworks {
+				dockerNetworks[i] = "name: " + net.Name
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Deleted networks:")
-			for _, name := range networks {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - %s\n", name)
-			}
-
+			// Don't fail whole command if network deletion fails
 			err = containers.DeleteBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
-			if err != nil {
-				// Don't fail whole command if network deletion fails
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Warning: failed to delete Docker network: %v\n", err)
-			}
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Deleted Docker networks:")
-			for _, net := range cfg.Spec.DockerNetworks {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - name: %s\n", net.Name)
-			}
+			reportDeletion(os.Stdout, "Docker networks", dockerNetworks, err)
 
 			if cfg.Spec.ImageServer != nil {
 				err := containers.DeleteImageServerInstance(ctx, cfg.Spec.ImageServer.ContainerName)
@@ -211,6 +200,20 @@ func newDeleteBMLCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// reportDeletion prints a warning if deleting the given resources failed,
+// or the list of deleted resources otherwise.
+func reportDeletion(w io.Writer, kind string, names []string, err error) {
+	if err != nil {
+		fmt.Fprintf(w, "Warning: failed to delete %s: %v\n", kind, err)
+		return
+	}
+
+	fmt.Fprintf(w, "Deleted %s:\n", kind)
+	for _, name := range names {
+		fmt.Fprintf(w, "  - %s\n", name) //nolint:gosec // CLI output to the terminal, not HTML
+	}
 }
 
 func newDeleteNetworkCmd() *cobra.Command {

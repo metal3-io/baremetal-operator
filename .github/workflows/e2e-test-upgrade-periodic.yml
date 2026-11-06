@@ -1,0 +1,27 @@
+name: Periodic E2E Test Upgrade
+
+on:
+  schedule:
+  # Run every day at 06:20 UTC (it is recommended to avoid running at the start of the hour)
+  - cron: '20 6 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  periodic-e2e-test-upgrade:
+    if: github.repository == 'metal3-io/baremetal-operator'
+    strategy:
+      fail-fast: false
+      matrix:
+        bmc-protocol:
+        - redfish
+        - redfish-virtualmedia
+        - ipmi
+    uses: $/.github/workflows/e2e-test.yml
+    with:
+      bmc-protocol: ${{ matrix.bmc-protocol }}
+      ginkgo-label-filter: upgrade
+      timeout-minutes: 180
+    permissions:
+      contents: read

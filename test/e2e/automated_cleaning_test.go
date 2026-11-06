@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Automated cleaning", Label("required", "automated-cleaning", "ironic"), func() {
+var _ = Describe("Automated cleaning", Label("automated-cleaning", "ironic"), func() {
 	var (
 		specName      = "automated-cleaning"
 		namespace     *corev1.Namespace
@@ -45,7 +45,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning", "
 		})
 	})
 
-	It("should clean the disks on deprovisioning when enabled", func() {
+	It("should clean the disks on deprovisioning when enabled", Label("required"), func() {
 		By("Creating a secret with BMH credentials")
 		bmcCredentialsData := map[string]string{
 			"username": bmc.User,
@@ -223,7 +223,7 @@ var _ = Describe("Automated cleaning", Label("required", "automated-cleaning", "
 
 	})
 
-	It("should clean the disks before provisioning when enabled", func() {
+	It("should clean the disks before provisioning when enabled", Label("optional"), func() {
 		bmhName := specName + "-enroll"
 
 		By("Creating a secret with BMH credentials")

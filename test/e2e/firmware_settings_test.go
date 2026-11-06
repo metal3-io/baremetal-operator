@@ -34,7 +34,9 @@ const (
 	hfsTestNewValue3  = "ABCDEF"
 )
 
-var _ = Describe("Host Firmware Settings", Label("required", "firmware", "ironic"), func() {
+// The tier is per-spec here, since a container with no tier means
+// a future It without one runs in no job.
+var _ = Describe("Host Firmware Settings", Label("firmware", "ironic"), func() {
 	var (
 		specName      = "firmware-settings"
 		namespace     *corev1.Namespace
@@ -61,7 +63,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware", "ironic
 		})
 	})
 
-	It("should apply firmware settings created before the host, then apply a new value for available host", func() {
+	It("should apply firmware settings created before the host, then apply a new value for available host", Label("required"), func() {
 		bmhName := specName + "-before-bmh"
 		secretName := bmhName + "-bmc"
 
@@ -251,7 +253,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware", "ironic
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...)
 	})
 
-	It("should update firmware settings on a provisioned host via servicing", func() {
+	It("should update firmware settings on a provisioned host via servicing", Label("optional"), func() {
 		bmhName := specName + "-servicing"
 		secretName := bmhName + "-bmc"
 
@@ -438,7 +440,7 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware", "ironic
 		}, e2eConfig.GetIntervals(specName, "wait-bmh-deleted")...).Should(BeTrue())
 	})
 
-	It("should update firmware settings on an externally provisioned host via servicing", func() {
+	It("should update firmware settings on an externally provisioned host via servicing", Label("optional"), func() {
 		bmhName := specName + "-ext-servicing"
 		secretName := bmhName + "-bmc"
 

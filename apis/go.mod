@@ -6,8 +6,8 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/gomega v1.44.0
 	github.com/stretchr/testify v1.12.1
-	k8s.io/api v0.35.9
-	k8s.io/apimachinery v0.35.9
+	k8s.io/api v0.35.10
+	k8s.io/apimachinery v0.35.10
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/randfill v1.0.0

@@ -80,13 +80,22 @@ This makes sure that all the tags are accessible.
    - Replace `v0.x.x` with the new release tag you're creating.
    - This command generates the release notes here
      `releasenotes/<RELEASE_TAG>.md` .
+   - Dependabot PRs, PRs labeled `dependencies`, `kind/dependencies`, or
+     `area/dependency`, and dependency bump/uplift PRs are omitted from the
+     main change list.
+   - A later **Dependencies** section lists net Go module changes under
+     **Added**, **Changed**, and **Removed**, with version links where available.
+     It compares the previous release with the same commit used for the PR
+     list, using the root module's dependency graph. GitHub Actions and
+     container image updates are not included in this Go module summary; mention
+     important non-Go dependency changes manually if needed.
 
 - Next step is to clean up the release note manually.
    - If release is not an alpha or a beta or release candidate, check for duplicates,
      reverts, and incorrect classifications of PRs, and whatever release
      creation tagged to be manually checked.
-   - For any superseded PRs (like same dependency uplifted multiple times, or
-     commit revertion) that provide no value to the release, move them to
+   - For any superseded PRs (like reverted changes) that provide no value to
+     the release, move them to
      Superseded section. This way the changes are acknowledged to be part of the
      release, but not overwhelming the important changes contained by the
      release.

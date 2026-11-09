@@ -21,7 +21,7 @@ jobs:
     uses: $/.github/workflows/e2e-test.yml
     with:
       bmc-protocol: ${{ matrix.bmc-protocol }}
-      ginkgo-focus: upgrade
+      ginkgo-label-filter: optional
       timeout-minutes: 180
     permissions:
       contents: read

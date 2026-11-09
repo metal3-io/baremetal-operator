@@ -21,6 +21,7 @@ import (
 	"errors"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -44,6 +45,10 @@ var _ admission.Validator[*metal3api.HostClaim] = &HostClaimWebhook{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (webhook *HostClaimWebhook) ValidateCreate(_ context.Context, hc *metal3api.HostClaim) (admission.Warnings, error) {
+	if !features.CurrentFeatureGate.Enabled(features.FeatureHostClaims) {
+		return nil, errors.New("HostClaims are an experimental feature and feature gate 'HostClaims' is not enabled")
+	}
+
 	if hc == nil {
 		hostclaimlog.Error(errors.New("object is nil"), "validate create error")
 		return nil, nil
@@ -55,6 +60,10 @@ func (webhook *HostClaimWebhook) ValidateCreate(_ context.Context, hc *metal3api
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (webhook *HostClaimWebhook) ValidateUpdate(_ context.Context, _, newHc *metal3api.HostClaim) (admission.Warnings, error) {
+	if !features.CurrentFeatureGate.Enabled(features.FeatureHostClaims) {
+		return nil, errors.New("HostClaims are an experimental feature and feature gate 'HostClaims' is not enabled")
+	}
+
 	if newHc == nil {
 		hostclaimlog.Error(errors.New("object is nil"), "validate update error")
 		return nil, nil

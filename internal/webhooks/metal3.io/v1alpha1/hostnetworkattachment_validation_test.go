@@ -17,6 +17,7 @@ package webhooks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -281,30 +282,25 @@ func TestFindBMHReferences(t *testing.T) {
 	testCases := []struct {
 		name              string
 		bmhs              []metal3api.BareMetalHost
-		expectedRefsCount int
-		expectedRefs      []string
+		expectedReference bool
 	}{
 		{
-			name:              "no-bmhs",
-			bmhs:              []metal3api.BareMetalHost{},
-			expectedRefsCount: 0,
+			name: "no-bmhs",
+			bmhs: []metal3api.BareMetalHost{},
 		},
 		{
 			name:              "one-bmh-with-reference",
 			bmhs:              []metal3api.BareMetalHost{*bmhWithReference},
-			expectedRefsCount: 1,
-			expectedRefs:      []string{"test-ns/host-with-ref[eth0]"},
+			expectedReference: true,
 		},
 		{
-			name:              "one-bmh-without-reference",
-			bmhs:              []metal3api.BareMetalHost{*bmhWithoutReference},
-			expectedRefsCount: 0,
+			name: "one-bmh-without-reference",
+			bmhs: []metal3api.BareMetalHost{*bmhWithoutReference},
 		},
 		{
 			name:              "mixed-bmhs",
 			bmhs:              []metal3api.BareMetalHost{*bmhWithReference, *bmhWithoutReference, *bmhWithDifferentAttachment},
-			expectedRefsCount: 1,
-			expectedRefs:      []string{"test-ns/host-with-ref[eth0]"},
+			expectedReference: true,
 		},
 	}
 
@@ -336,15 +332,163 @@ func TestFindBMHReferences(t *testing.T) {
 					}).
 					Build(),
 			}
+			webhook.APIReader = webhook.Client
 
-			refs, err := webhook.findBMHReferences(context.TODO(), attachment)
+			referenced, err := webhook.findBMHReferences(context.TODO(), attachment)
 			require.NoError(t, err)
-			assert.Len(t, refs, tc.expectedRefsCount)
-			if tc.expectedRefs != nil {
-				assert.Equal(t, tc.expectedRefs, refs)
+			assert.Equal(t, tc.expectedReference, referenced)
+		})
+	}
+}
+
+type recordingHNAAPIReader struct {
+	client.Reader
+	reads []client.ObjectKey
+	fail  bool
+}
+
+func (reader *recordingHNAAPIReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	reader.reads = append(reader.reads, key)
+	if reader.fail {
+		return errors.New("API read failed")
+	}
+	return reader.Reader.Get(ctx, key, obj, opts...)
+}
+
+func TestHNAValidateDeleteChecksLiveBMH(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, metal3api.AddToScheme(scheme))
+
+	attachment := &metal3api.HostNetworkAttachment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-attachment", Namespace: "test-ns"},
+	}
+	cachedBMH := &metal3api.BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{Name: "host-with-ref", Namespace: "test-ns"},
+		Spec: metal3api.BareMetalHostSpec{
+			NetworkInterfaces: []metal3api.NetworkInterface{
+				{Name: "eth0", HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: attachment.Name}},
+			},
+		},
+	}
+	differentAttachment := cachedBMH.DeepCopy()
+	differentAttachment.Spec.NetworkInterfaces[0].HostNetworkAttachment.Name = "other-attachment"
+	differentNamespace := cachedBMH.DeepCopy()
+	differentNamespace.Spec.NetworkInterfaces[0].HostNetworkAttachment.Namespace = "other-ns"
+	multipleReferences := cachedBMH.DeepCopy()
+	multipleReferences.Spec.NetworkInterfaces = append(multipleReferences.Spec.NetworkInterfaces,
+		metal3api.NetworkInterface{Name: "eth1", HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: attachment.Name}})
+
+	testCases := []struct {
+		name          string
+		cachedBMH     *metal3api.BareMetalHost
+		noCachedBMH   bool
+		liveBMH       *metal3api.BareMetalHost
+		readerFails   bool
+		expectedReads int
+		expectedError string
+	}{
+		{name: "no cached BMH", noCachedBMH: true, readerFails: true},
+		{name: "cached BMH without references", cachedBMH: &metal3api.BareMetalHost{
+			ObjectMeta: cachedBMH.ObjectMeta,
+		}, readerFails: true},
+		{name: "cached reference to different attachment", cachedBMH: differentAttachment, readerFails: true},
+		{name: "cached reference to different namespace", cachedBMH: differentNamespace, readerFails: true},
+		{name: "deleted BMH", expectedReads: 1},
+		{name: "live BMH dropped reference", liveBMH: &metal3api.BareMetalHost{ObjectMeta: cachedBMH.ObjectMeta}, expectedReads: 1},
+		{name: "still referenced", liveBMH: cachedBMH, expectedReads: 1, expectedError: "cannot delete attachment while referenced"},
+		{name: "multiple interfaces referencing attachment", cachedBMH: multipleReferences, liveBMH: multipleReferences,
+			expectedReads: 1, expectedError: "one or more BMHs"},
+		{name: "API read error", readerFails: true, expectedReads: 1, expectedError: "API read failed"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cachedClientBuilder := fakeclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithIndex(&metal3api.BareMetalHost{}, bmhNetworkAttachmentIndexField, func(client.Object) []string {
+					// Include nonconflicting candidates to verify the API reader is
+					// only used after checking references in the cached object.
+					return []string{"test-ns/test-attachment"}
+				})
+			if !tc.noCachedBMH {
+				candidate := cachedBMH
+				if tc.cachedBMH != nil {
+					candidate = tc.cachedBMH
+				}
+				cachedClientBuilder.WithRuntimeObjects(candidate.DeepCopy())
+			}
+
+			liveClientBuilder := fakeclient.NewClientBuilder().WithScheme(scheme)
+			if tc.liveBMH != nil {
+				liveClientBuilder.WithRuntimeObjects(tc.liveBMH.DeepCopy())
+			}
+			apiReader := &recordingHNAAPIReader{
+				Reader: liveClientBuilder.Build(),
+				fail:   tc.readerFails,
+			}
+
+			webhook := &HostNetworkAttachment{Client: cachedClientBuilder.Build(), APIReader: apiReader}
+			_, err := webhook.validateDelete(context.Background(), attachment)
+			require.Len(t, apiReader.reads, tc.expectedReads)
+			if tc.expectedReads > 0 {
+				assert.Equal(t, client.ObjectKeyFromObject(cachedBMH), apiReader.reads[0])
+			}
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tc.expectedError)
 			}
 		})
 	}
+}
+
+func TestHNAFindBMHReferencesShortCircuits(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, metal3api.AddToScheme(scheme))
+
+	attachment := &metal3api.HostNetworkAttachment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-attachment", Namespace: "test-ns"},
+	}
+	newBMH := func(name string) *metal3api.BareMetalHost {
+		return &metal3api.BareMetalHost{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test-ns"},
+			Spec: metal3api.BareMetalHostSpec{
+				NetworkInterfaces: []metal3api.NetworkInterface{
+					{Name: "eth0", HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: attachment.Name}},
+				},
+			},
+		}
+	}
+	bmhA, bmhB := newBMH("host-a"), newBMH("host-b")
+
+	indexFn := func(obj client.Object) []string {
+		b, _ := obj.(*metal3api.BareMetalHost)
+		var keys []string
+		for _, iface := range b.Spec.NetworkInterfaces {
+			if iface.HostNetworkAttachment.Name != "" {
+				keys = append(keys, fmt.Sprintf("%s/%s", b.Namespace, iface.HostNetworkAttachment.Name))
+			}
+		}
+		return keys
+	}
+
+	cachedClient := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithRuntimeObjects(bmhA.DeepCopy(), bmhB.DeepCopy()).
+		WithIndex(&metal3api.BareMetalHost{}, bmhNetworkAttachmentIndexField, indexFn).
+		Build()
+	apiReader := &recordingHNAAPIReader{
+		Reader: fakeclient.NewClientBuilder().WithScheme(scheme).
+			WithRuntimeObjects(bmhA.DeepCopy(), bmhB.DeepCopy()).Build(),
+	}
+
+	webhook := &HostNetworkAttachment{Client: cachedClient, APIReader: apiReader}
+	referenced, err := webhook.findBMHReferences(context.Background(), attachment)
+	require.NoError(t, err)
+	require.True(t, referenced)
+	// A single confirmed live reference is enough to block the operation, so the
+	// second candidate is never read from the API reader.
+	require.Len(t, apiReader.reads, 1)
 }
 
 func TestHNAValidateUpdate(t *testing.T) {
@@ -481,6 +625,7 @@ func TestHNAValidateUpdate(t *testing.T) {
 					}).
 					Build(),
 			}
+			webhook.APIReader = webhook.Client
 
 			warnings, err := webhook.validateUpdate(context.TODO(), tc.oldAttachment, tc.newAttachment)
 			_ = warnings // warnings not checked in these tests
@@ -572,6 +717,7 @@ func TestHNAValidateDelete(t *testing.T) {
 					}).
 					Build(),
 			}
+			webhook.APIReader = webhook.Client
 
 			warnings, err := webhook.validateDelete(context.TODO(), attachment)
 			_ = warnings // warnings not checked in these tests
@@ -657,11 +803,11 @@ func TestFindBMHReferencesCrossNamespace(t *testing.T) {
 			}).
 			Build(),
 	}
+	webhook.APIReader = webhook.Client
 
-	refs, err := webhook.findBMHReferences(context.TODO(), attachment)
+	referenced, err := webhook.findBMHReferences(context.TODO(), attachment)
 	require.NoError(t, err)
-	assert.Len(t, refs, 1)
-	assert.Equal(t, []string{"tenant-ns/host-cross-ns[eth0]"}, refs)
+	assert.True(t, referenced)
 }
 
 func TestHNAValidateUpdateFailClosed(t *testing.T) {
@@ -768,6 +914,7 @@ func TestHNAValidateUpdateWarnings(t *testing.T) {
 			}).
 			Build(),
 	}
+	webhook.APIReader = webhook.Client
 
 	warnings, err := webhook.validateUpdate(context.TODO(), oldAttachment, newAttachment)
 	require.Error(t, err)
@@ -811,12 +958,12 @@ func TestHNAValidateDeleteWarnings(t *testing.T) {
 			}).
 			Build(),
 	}
+	webhook.APIReader = webhook.Client
 
 	warnings, err := webhook.validateDelete(context.TODO(), attachment)
 	require.Error(t, err)
 	require.Len(t, warnings, 1)
-	assert.Contains(t, warnings[0], "host1")
-	assert.Contains(t, warnings[0], "referenced by")
+	assert.Contains(t, warnings[0], "one or more BMHs")
 }
 
 func TestFindBMHReferencesMultipleInterfacesSameBMH(t *testing.T) {
@@ -856,12 +1003,11 @@ func TestFindBMHReferencesMultipleInterfacesSameBMH(t *testing.T) {
 			}).
 			Build(),
 	}
+	webhook.APIReader = webhook.Client
 
-	refs, err := webhook.findBMHReferences(context.TODO(), attachment)
+	referenced, err := webhook.findBMHReferences(context.TODO(), attachment)
 	require.NoError(t, err)
-	assert.Len(t, refs, 2)
-	assert.Contains(t, refs, "test-ns/multi-ref-host[eth0]")
-	assert.Contains(t, refs, "test-ns/multi-ref-host[eth1]")
+	assert.True(t, referenced)
 }
 
 // VLAN ID range validation is now handled by CRD schema markers

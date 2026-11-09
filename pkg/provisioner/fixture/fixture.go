@@ -233,6 +233,7 @@ func (p *fixtureProvisioner) InspectHardware(_ context.Context, _ provisioner.In
 				},
 			}
 		p.publisher("InspectionComplete", "Hardware inspection completed")
+		p.state.inspectionStarted = false
 	} else {
 		// First pass
 		p.log.Info("starting inspection of hardware")

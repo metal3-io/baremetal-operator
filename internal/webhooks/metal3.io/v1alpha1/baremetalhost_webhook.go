@@ -37,7 +37,7 @@ func (webhook *BareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-baremetalhost,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1,groups=metal3.io,resources=baremetalhosts,versions=v1alpha1,name=baremetalhost.metal3.io
+//+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1alpha1-baremetalhost,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1,groups=metal3.io,resources=baremetalhosts,versions=v1alpha1,name=baremetalhost.metal3.io,patch=`{"matchConditions":[{"name":"spec-or-annotations-changed","expression":"request.operation == 'CREATE' || object.?spec.orValue({}) != oldObject.?spec.orValue({}) || object.metadata.?annotations.orValue({}) != oldObject.metadata.?annotations.orValue({})"}]}`
 
 // BareMetalHost implements a validation and defaulting webhook for BareMetalHost.
 type BareMetalHost struct{}

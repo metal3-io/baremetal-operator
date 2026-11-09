@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"math"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -19,6 +20,7 @@ func TestGetFirmwareSettings(t *testing.T) {
 	maxLength := 16
 	lowerBound := 0
 	upperBound := 20
+	maxBound := math.MaxInt
 
 	cases := []struct {
 		name                string
@@ -102,6 +104,50 @@ func TestGetFirmwareSettings(t *testing.T) {
 			ironic:              testserver.NewIronic(t).NoBIOS(nodeUUID),
 			includeSchema:       false,
 			expectedError:       "could not get BIOS settings: host not registered",
+		},
+		{
+			name:     "int64-max-bound-does-not-block-other-settings",
+			nodeUUID: nodeUUID,
+			expectedSettingsMap: metal3api.SettingsMap{
+				"Numlock":             "On",
+				"CoreDisableMask_0_0": "0",
+			},
+			expectedSchemaMap: map[string]metal3api.SettingSchema{
+				"Numlock": {
+					AttributeType:   "Enumeration",
+					AllowableValues: []string{"On", "Off"},
+					ReadOnly:        &iFalse,
+				},
+				"CoreDisableMask_0_0": {
+					AttributeType:   "Integer",
+					AllowableValues: []string{},
+					LowerBound:      &lowerBound,
+					UpperBound:      &maxBound,
+					ReadOnly:        &iFalse,
+				},
+			},
+			ironic: testserver.NewIronic(t).BIOSSettingsRaw(nodeUUID, `{
+  "bios": [
+    {
+      "name": "Numlock",
+      "value": "On",
+      "attribute_type": "Enumeration",
+      "allowable_values": ["On", "Off"],
+      "read_only": false
+    },
+    {
+      "name": "CoreDisableMask_0_0",
+      "value": "0",
+      "attribute_type": "Integer",
+      "allowable_values": [],
+      "lower_bound": 0,
+      "upper_bound": 9223372036854775807,
+      "read_only": false
+    }
+  ]
+}`),
+			includeSchema: true,
+			expectedError: "",
 		},
 	}
 

@@ -30,6 +30,10 @@ var (
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 
+	// localSchemeBuilder is used by the generated conversion functions
+	// (zz_generated.conversion.go) to register conversions with the scheme.
+	localSchemeBuilder = &SchemeBuilder.SchemeBuilder
+
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 )

@@ -473,6 +473,15 @@ func (m *IronicMock) BIOSDetailSettings(nodeUUID string) *IronicMock {
 	return m
 }
 
+// BIOSSettingsRaw configures /v1/nodes/<node>/bios with a raw JSON body.
+func (m *IronicMock) BIOSSettingsRaw(nodeUUID, body string) *IronicMock {
+	m.ResponseWithCode(m.buildURL(v1node+nodeUUID+"/bios", http.MethodGet), body, http.StatusOK)
+	m.AddDefaultResponseJSON(v1node+nodeUUID, "", http.StatusOK, nodes.Node{
+		UUID: nodeUUID,
+	})
+	return m
+}
+
 // NoBIOS configures the server so /v1/nodes/<node>/bios returns a 404.
 func (m *IronicMock) NoBIOS(nodeUUID string) *IronicMock {
 	m.ErrorResponse(v1node+nodeUUID+"/bios", http.StatusNotFound)

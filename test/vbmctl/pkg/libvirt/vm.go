@@ -19,9 +19,17 @@ const (
 	kiBPerMB = 1024
 )
 
+// vmConnection is the part of *libvirt.Connect used by VMManager.
+type vmConnection interface {
+	LookupDomainByName(id string) (*libvirt.Domain, error)
+	DomainDefineXML(xmlConfig string) (*libvirt.Domain, error)
+	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]libvirt.Domain, error)
+	LookupNetworkByName(name string) (*libvirt.Network, error)
+}
+
 // VMManager manages virtual machines through libvirt.
 type VMManager struct {
-	conn     *libvirt.Connect
+	conn     vmConnection
 	renderer *TemplateRenderer
 	pool     *PoolManager
 	opts     VMManagerOptions
@@ -65,10 +73,16 @@ func NewVMManager(conn *libvirt.Connect, opts VMManagerOptions) (*VMManager, err
 }
 
 // Create creates a new virtual machine from the given configuration.
-// The VM is defined but not started.
+// The VM is defined but not started. It returns an error wrapping
+// ErrAlreadyExists if a VM with the same name already exists. In that case
+// no volumes or DHCP entries are created.
 func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctlapi.VM, error) {
 	// Apply defaults
 	cfg = cfg.Defaults()
+
+	if err := m.checkNotExists(cfg.Name); err != nil {
+		return nil, err
+	}
 
 	// Ensure storage pool exists
 	if _, err := m.pool.EnsurePool(ctx, vbmctlapi.PoolConfig{
@@ -122,6 +136,20 @@ func (m *VMManager) Create(ctx context.Context, cfg vbmctlapi.VMConfig) (*vbmctl
 	}, nil
 }
 
+// checkNotExists returns an error wrapping ErrAlreadyExists if a VM with the
+// given name exists.
+func (m *VMManager) checkNotExists(name string) error {
+	domain, err := m.conn.LookupDomainByName(name)
+	if err == nil {
+		_ = domain.Free()
+		return fmt.Errorf("VM %s %w", name, ErrAlreadyExists)
+	}
+	if !errors.Is(err, libvirt.ERR_NO_DOMAIN) {
+		return fmt.Errorf("failed to lookup VM %s: %w", name, err)
+	}
+	return nil
+}
+
 // Delete removes a virtual machine and its associated resources.
 // If deleteVolumes is true, it also deletes the VM's volumes from the storage pool.
 func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool) error {
@@ -136,6 +164,12 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 				if deleteVolumes {
 					if volErr := m.deleteVMVolumes(ctx, name); volErr != nil {
 						log.Printf("Warning: failed to delete volumes for %s: %v\n", name, volErr)
+					}
+					// Pool is automatically created when creating the VMs, so we can try to
+					// delete it here.
+					if err = m.pool.DeletePool(ctx, m.opts); err != nil {
+						// Don't fail whole command if pool deletion fails
+						log.Printf("Warning: failed to delete storage pool: %v\n", err)
 					}
 				}
 				return nil
@@ -152,7 +186,7 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 	}
 
 	if state == libvirt.DOMAIN_RUNNING || state == libvirt.DOMAIN_PAUSED {
-		if err := domain.Destroy(); err != nil {
+		if err = domain.Destroy(); err != nil {
 			return fmt.Errorf("failed to destroy domain: %w", err)
 		}
 		log.Printf("Destroyed running domain %s\n", name)
@@ -173,6 +207,12 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 		if err := m.deleteVMVolumes(ctx, name); err != nil {
 			return fmt.Errorf("failed to delete volumes for %s: %w", name, err)
 		}
+		// Pool is automatically created when creating the VMs, so we can
+		// delete it here.
+		if err := m.pool.DeletePool(ctx, m.opts); err != nil {
+			// Don't fail whole command if pool deletion fails
+			log.Printf("Warning: failed to delete storage pool: %v\n", err)
+		}
 	}
 
 	return nil
@@ -180,9 +220,15 @@ func (m *VMManager) Delete(ctx context.Context, name string, deleteVolumes bool)
 
 // deleteVMVolumes deletes all volumes associated with a VM.
 // It looks for volumes with names matching the pattern "{vmName}-*".
+// A missing pool is treated as success: the pool is removed automatically
+// once it is empty, so there are no volumes left to delete.
 func (m *VMManager) deleteVMVolumes(ctx context.Context, vmName string) error {
 	volumes, err := m.pool.ListVolumes(ctx, m.opts.PoolName)
 	if err != nil {
+		var libvirtErr libvirt.Error
+		if errors.As(err, &libvirtErr) && libvirtErr.Code == libvirt.ERR_NO_STORAGE_POOL {
+			return nil
+		}
 		log.Printf("Warning: failed to list volumes in pool %s: %v\n", m.opts.PoolName, err)
 		return err
 	}

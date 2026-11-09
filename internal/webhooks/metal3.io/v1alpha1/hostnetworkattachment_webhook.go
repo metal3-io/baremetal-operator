@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,6 +36,7 @@ const bmhNetworkAttachmentIndexField = ".spec.networkInterfaces.hostNetworkAttac
 
 func (webhook *HostNetworkAttachment) SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	webhook.Client = mgr.GetClient()
+	webhook.APIReader = mgr.GetAPIReader()
 
 	// Register field indexer for efficient BMH reference lookups
 	// This allows us to quickly find all BMHs that reference a specific HostNetworkAttachment
@@ -74,7 +76,8 @@ func (webhook *HostNetworkAttachment) SetupWebhookWithManager(ctx context.Contex
 
 // HostNetworkAttachment implements a validation webhook for HostNetworkAttachment.
 type HostNetworkAttachment struct {
-	Client client.Client
+	Client    client.Client
+	APIReader client.Reader
 }
 
 var _ admission.Validator[*metal3api.HostNetworkAttachment] = &HostNetworkAttachment{}
@@ -82,6 +85,9 @@ var _ admission.Validator[*metal3api.HostNetworkAttachment] = &HostNetworkAttach
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (webhook *HostNetworkAttachment) ValidateCreate(_ context.Context, attachment *metal3api.HostNetworkAttachment) (admission.Warnings, error) {
 	hostnetworkattachmentlog.Info("validate create", "namespace", attachment.Namespace, "name", attachment.Name)
+	if !features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking) {
+		return nil, fmt.Errorf("%s feature gate must be enabled to create HostNetworkAttachment resources", features.FeatureIronicNetworking)
+	}
 	return nil, kerrors.NewAggregate(webhook.validateAttachment(attachment))
 }
 

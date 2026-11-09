@@ -35,13 +35,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-const credentialErrorRequeueDelay = 10 * time.Second
+const (
+	bareMetalSwitchReconcileInterval = 60 * time.Second
+	credentialErrorRequeueDelay      = 10 * time.Second
+)
 
 // BareMetalSwitchReconciler reconciles a BareMetalSwitch object.
 type BareMetalSwitchReconciler struct {
 	client.Client
 	Log       logr.Logger
 	APIReader client.Reader
+
+	// SwitchSecretsNamespace is where the generated switch config and credentials
+	// secrets are stored (IRONIC_NAMESPACE, falling back to POD_NAMESPACE).
+	SwitchSecretsNamespace string
 
 	// SwitchConfigsSecretName is the name of the secret that holds the
 	// generated INI-format switch configuration (from IRONIC_SWITCH_CONFIGS_SECRET).
@@ -66,7 +73,7 @@ type BareMetalSwitchReconciler struct {
 // move the current state of the cluster closer to the desired state.
 func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Log.WithValues("baremetalswitch", req.NamespacedName)
-	logger.Info("starting reconcile")
+	logger.V(1).Info("starting reconcile")
 
 	sm := secretutils.NewSecretManager(logger, r.Client, r.APIReader)
 
@@ -76,7 +83,7 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if k8serrors.IsNotFound(err) {
 			// Resource deleted - regenerate config without this switch
 			logger.Info("BareMetalSwitch deleted, updating switch config")
-			if _, updateErr := updateSwitchConfigSecret(ctx, r.Client, sm, req.Namespace, r.SwitchConfigsSecretName, r.SwitchCredentialSecretName, r.SwitchCredentialPath, logger); updateErr != nil {
+			if _, updateErr := updateSwitchConfigSecret(ctx, r.Client, sm, r.SwitchSecretsNamespace, r.SwitchConfigsSecretName, r.SwitchCredentialSecretName, r.SwitchCredentialPath, logger); updateErr != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to update switch config after deletion: %w", updateErr)
 			}
 			return ctrl.Result{}, nil
@@ -84,35 +91,49 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, fmt.Errorf("could not load BareMetalSwitch: %w", err)
 	}
 
-	// Regenerate switch config from all BareMetalSwitch resources in the namespace
-	result, err := updateSwitchConfigSecret(ctx, r.Client, sm, bmSwitch.Namespace, r.SwitchConfigsSecretName, r.SwitchCredentialSecretName, r.SwitchCredentialPath, logger)
+	// Regenerate switch config from all BareMetalSwitch resources visible to BMO.
+	result, err := updateSwitchConfigSecret(ctx, r.Client, sm, r.SwitchSecretsNamespace, r.SwitchConfigsSecretName, r.SwitchCredentialSecretName, r.SwitchCredentialPath, logger)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update switch config: %w", err)
 	}
 
-	// Set the Reconciled condition based on whether this switch had a credential error
-	if credErr, hasErr := result.credentialErrors[bmSwitch.Name]; hasErr {
+	if switchErr, hasErr := result.errors[bmSwitch.UID]; hasErr {
+		reason := ""
+		// Recheck periodically because another switch can change this switch's
+		// cluster-wide duplicate status without generating an event for it.
+		reconcileResult := ctrl.Result{RequeueAfter: bareMetalSwitchReconcileInterval}
+		var duplicateErr *duplicateSwitchError
+		var credentialSecretErr *credentialSecretNotFoundError
+		var credentialConfigErr *credentialConfigError
+		switch {
+		case errors.As(switchErr, &duplicateErr):
+			reason = "Duplicate"
+		case errors.As(switchErr, &credentialSecretErr):
+			reason = "CredentialError"
+			reconcileResult = ctrl.Result{RequeueAfter: credentialErrorRequeueDelay}
+			// The secret doesn't exist yet so the Owns() watch cannot detect
+			// its creation (no owner reference). Requeue periodically.
+			logger.Info("BareMetalSwitch credential secret missing, requeueing", "error", switchErr)
+		case errors.As(switchErr, &credentialConfigErr):
+			reason = "CredentialError"
+			logger.Info("BareMetalSwitch has credential error", "error", switchErr)
+		default:
+			return ctrl.Result{}, fmt.Errorf("unexpected BareMetalSwitch config error: %w", switchErr)
+		}
+
 		if meta.SetStatusCondition(&bmSwitch.Status.Conditions, metav1.Condition{
 			Type:               string(metal3api.SwitchConditionValid),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: bmSwitch.Generation,
-			Reason:             "CredentialError",
-			Message:            credErr.Error(),
+			Reason:             reason,
+			Message:            switchErr.Error(),
 		}) {
-			if statusErr := r.Status().Update(ctx, bmSwitch); statusErr != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to update BareMetalSwitch status: %w", statusErr)
+			if err := r.Status().Update(ctx, bmSwitch); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to update BareMetalSwitch status: %w", err)
 			}
 		}
-		if errors.As(credErr, new(*credentialSecretNotFoundError)) {
-			// The secret doesn't exist yet so the Owns() watch cannot detect
-			// its creation (no owner reference). Requeue periodically.
-			logger.Info("BareMetalSwitch credential secret missing, requeueing", "error", credErr)
-			return ctrl.Result{RequeueAfter: credentialErrorRequeueDelay}, nil
-		}
-		// The secret exists but is misconfigured. The Owns() watch will
-		// trigger a reconcile when the user fixes it, so no requeue needed.
-		logger.Info("BareMetalSwitch has credential error", "error", credErr)
-		return ctrl.Result{}, nil
+
+		return reconcileResult, nil
 	}
 
 	if meta.SetStatusCondition(&bmSwitch.Status.Conditions, metav1.Condition{
@@ -127,8 +148,8 @@ func (r *BareMetalSwitchReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	logger.Info("BareMetalSwitch reconciled")
-	return ctrl.Result{}, nil
+	logger.V(1).Info("BareMetalSwitch reconciled")
+	return ctrl.Result{RequeueAfter: bareMetalSwitchReconcileInterval}, nil
 }
 
 // SetupWithManager registers the reconciler to be run by the manager.

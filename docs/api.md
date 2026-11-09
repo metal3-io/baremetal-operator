@@ -132,11 +132,12 @@ credential secret is missing or misconfigured, the controller skips that switch
 and continues generating config for the remaining healthy switches.
 
 See [BareMetalSwitch
-CR](../apis/metal3.io/v1alpha1/baremetalswitch_types.go)
+CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/BareMetalSwitch/v1alpha1)
+or check the source code at `apis/metal3.io/v1alpha1/baremetalswitch_types.go`
 for a detailed API description.
 
-The BareMetalSwitch controller is enabled when
-`IRONIC_NETWORKING_ENABLED` is `true`. See
+The BareMetalSwitch controller is enabled when the `IronicNetworking`
+feature gate is enabled. Creating a BareMetalSwitch requires this gate. See
 [Configuration](configuration.md).
 
 ## HostFirmwareComponents
@@ -223,16 +224,14 @@ for a detailed API description.
 
 ## HostNetworkAttachment
 
-> **⚠️ Under development.** This API is not ready for use. The
-> controller is not functional yet; the CRD exists for early review
-> only.
-
 A **HostNetworkAttachment** describes switchport configuration (access,
 trunk, or hybrid VLAN mode) that a BareMetalHost can reference from
 `spec.networkInterfaces`. The BareMetalSwitch controller uses this
 together with BareMetalSwitch resources to generate Ironic networking
 configuration.
+Creating a HostNetworkAttachment requires the `IronicNetworking` feature gate.
 
 See [HostNetworkAttachment
-CR](../apis/metal3.io/v1alpha1/hostnetworkattachment_types.go)
+CR](https://doc.crds.dev/github.com/metal3-io/baremetal-operator/metal3.io/HostNetworkAttachment/v1alpha1)
+or check the source code at `apis/metal3.io/v1alpha1/hostnetworkattachment_types.go`
 for a detailed API description.

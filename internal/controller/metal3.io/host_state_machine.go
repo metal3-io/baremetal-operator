@@ -6,8 +6,10 @@ import (
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	"github.com/metal3-io/baremetal-operator/pkg/features"
 	. "github.com/metal3-io/baremetal-operator/pkg/logging"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -513,6 +515,19 @@ func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcil
 	// ErrorCount is cleared when appropriate inside actionManageAvailable
 	actResult := hsm.Reconciler.actionManageAvailable(ctx, hsm.Provisioner, info)
 	if _, complete := actResult.(actionComplete); complete {
+		// Block provisioning if network interfaces are not valid for the current BMH generation.
+		if features.CurrentFeatureGate.Enabled(features.FeatureIronicNetworking) && len(hsm.Host.Spec.NetworkInterfaces) > 0 {
+			cond := meta.FindStatusCondition(hsm.Host.Status.Conditions, metal3api.NetworkInterfacesValidCondition)
+			if cond == nil || cond.Status != metav1.ConditionTrue || cond.ObservedGeneration != hsm.Host.Generation {
+				reason, message := "Pending", "validation has not run yet"
+				if cond != nil {
+					reason, message = cond.Reason, cond.Message
+				}
+				info.log.Info("waiting for network interfaces to become valid before provisioning",
+					"reason", reason, "message", message)
+				return actionContinue{hostErrorRetryDelay}
+			}
+		}
 		hsm.NextState = metal3api.StateProvisioning
 	}
 	return actResult
@@ -557,7 +572,14 @@ func (hsm *hostStateMachine) imageProvisioningCancelled() bool {
 }
 
 func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *reconcileInfo) actionResult {
-	if hsm.Host.Status.ErrorType != "" || hsm.provisioningCancelled() {
+	// Any recorded provisioning error normally aborts into deprovisioning.
+	// SecretAccessError waits for the Secret and stays in provisioning, so it
+	// does not count as a provisioning failure. A cancelled provision no
+	// longer needs that Secret: clear the retryable status before counting
+	// so it is not carried into deprovisioning. Fatal errors are left alone.
+	if hsm.fatalProvisioningError() || hsm.provisioningCancelled() {
+		// actionComplete is always dirty, so a cleared status is saved.
+		clearRetryableSecretAccessStatus(hsm.Host)
 		if hsm.Host.Status.ErrorType != "" {
 			hsm.Host.Status.ProvisioningFailCount++
 			info.log.Info("provisioning failed, incrementing fail count",
@@ -581,6 +603,16 @@ func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *recon
 		hsm.Host.Status.ProvisioningFailCount = 0
 	}
 	return actResult
+}
+
+// fatalProvisioningError reports whether the current status error should abort
+// provisioning. Empty means there is nothing to abort on. SecretAccessError is
+// retried in place.
+func (hsm *hostStateMachine) fatalProvisioningError() bool {
+	if hsm.Host.Status.ErrorType == "" || hsm.Host.Status.ErrorType == metal3api.SecretAccessError {
+		return false
+	}
+	return true
 }
 
 func (hsm *hostStateMachine) handleProvisioned(ctx context.Context, info *reconcileInfo) actionResult {

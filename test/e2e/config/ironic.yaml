@@ -89,9 +89,12 @@ intervals:
   default/wait-firmware-components: [ "15m", "1s" ]
   default/wait-reconcile: [ "1s", "10ms" ]
   baremetalswitch/wait-secret-updated: [ "30s", "500ms" ]
+  baremetalswitch/wait-duplicate-promoted: [ "90s", "500ms" ]
   default/wait-user-data: [ "5s", "1s" ]
   hostclaims/wait-associated: [ "10s", "1s" ]
   hostclaims/wait-deleted: [ "20s", "10ms" ]
+  networking/wait-hna-deleted: [ "30s", "500ms" ]
+  default/wait-dataimage-attached: [ "5m", "1s" ]
 
 kindExtraPortMappings:
 # Expose Ironic ports so they are reachable outside of kind

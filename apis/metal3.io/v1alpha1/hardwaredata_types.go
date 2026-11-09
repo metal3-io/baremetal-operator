@@ -254,6 +254,7 @@ type HardwareDataSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=hardwaredata,scope=Namespaced,shortName=hd
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HardwareData"
+// +kubebuilder:storageversion
 
 // HardwareData is the Schema for the hardwaredata API.
 type HardwareData struct {

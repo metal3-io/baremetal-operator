@@ -178,6 +178,28 @@ func (m *PoolManager) tryDeleteVolume(pool *libvirt.StoragePool, poolName, volum
 	return true, nil
 }
 
+// volumeFromLibvirt converts a libvirt storage volume to the vbmctl API type.
+func volumeFromLibvirt(vol *libvirt.StorageVol) (*vbmctlapi.Volume, error) {
+	name, err := vol.GetName()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get volume name: %w", err)
+	}
+	path, err := vol.GetPath()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get path of volume %s: %w", name, err)
+	}
+	info, err := vol.GetInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get info of volume %s: %w", name, err)
+	}
+	return &vbmctlapi.Volume{
+		Config:     vbmctlapi.VolumeConfig{Name: name},
+		Path:       path,
+		Capacity:   info.Capacity,
+		Allocation: info.Allocation,
+	}, nil
+}
+
 // ListVolumes lists all volumes in a storage pool.
 func (m *PoolManager) ListVolumes(_ context.Context, poolName string) ([]*vbmctlapi.Volume, error) {
 	pool, err := m.conn.LookupStoragePoolByName(poolName)
@@ -193,25 +215,13 @@ func (m *PoolManager) ListVolumes(_ context.Context, poolName string) ([]*vbmctl
 
 	result := make([]*vbmctlapi.Volume, 0, len(volumes))
 	for _, vol := range volumes {
-		name, err := vol.GetName()
+		volume, err := volumeFromLibvirt(&vol)
+		_ = vol.Free()
 		if err != nil {
-			_ = vol.Free()
+			log.Printf("Warning: skipping volume: %v\n", err)
 			continue
 		}
-
-		path, _ := vol.GetPath()
-		info, _ := vol.GetInfo()
-
-		result = append(result, &vbmctlapi.Volume{
-			Config: vbmctlapi.VolumeConfig{
-				Name: name,
-			},
-			Path:       path,
-			Capacity:   info.Capacity,
-			Allocation: info.Allocation,
-		})
-
-		_ = vol.Free()
+		result = append(result, volume)
 	}
 
 	return result, nil
@@ -241,4 +251,66 @@ func (m *PoolManager) getPoolInfo(pool *libvirt.StoragePool, cfg vbmctlapi.PoolC
 		Capacity:  info.Capacity,
 		Available: info.Available,
 	}, nil
+}
+
+// deletePool deletes a storage pool if it no longer contains any volumes.
+// It will not fail if the pool does not exist.
+func (m *PoolManager) DeletePool(ctx context.Context, opts VMManagerOptions) error {
+	pool, err := m.conn.LookupStoragePoolByName(opts.PoolName)
+	if err != nil {
+		var libvirtErr libvirt.Error
+		if errors.As(err, &libvirtErr) {
+			if libvirtErr.Code == libvirt.ERR_NO_STORAGE_POOL {
+				log.Printf("Pool %s does not exist, skipping deletion\n", opts.PoolName)
+				return nil
+			}
+		}
+		return fmt.Errorf("failed to lookup pool %s: %w", opts.PoolName, err)
+	}
+	defer func() { _ = pool.Free() }()
+
+	// We can check and destroy only active pools. Inactive pools can be
+	// undefined directly.
+	active, err := pool.IsActive()
+	if err != nil {
+		return fmt.Errorf("failed to check if pool %s is active: %w", opts.PoolName, err)
+	}
+	if active {
+		poolInUse, err := m.isPoolInUse(ctx, opts.PoolName)
+		if err != nil {
+			return fmt.Errorf("failed to check if pool %s is in use: %w", opts.PoolName, err)
+		}
+		if poolInUse {
+			return nil
+		}
+		if err := pool.Destroy(); err != nil {
+			return fmt.Errorf("failed to destroy pool %s: %w", opts.PoolName, err)
+		}
+	}
+
+	// Undefine the pool
+	if err := pool.Undefine(); err != nil {
+		return fmt.Errorf("failed to undefine pool %s: %w", opts.PoolName, err)
+	}
+
+	log.Printf("Deleted storage pool %s at %s\n", opts.PoolName, opts.PoolPath)
+	return nil
+}
+
+// IsPoolInUse reports whether the pool still contains volumes.
+func (m *PoolManager) isPoolInUse(_ context.Context, poolName string) (bool, error) {
+	pool, err := m.conn.LookupStoragePoolByName(poolName)
+	if err != nil {
+		return false, fmt.Errorf("failed to lookup pool %s: %w", poolName, err)
+	}
+	defer func() { _ = pool.Free() }()
+
+	if err = pool.Refresh(0); err != nil { // pick up files added outside libvirt
+		return false, fmt.Errorf("failed to refresh pool %s: %w", poolName, err)
+	}
+	n, err := pool.NumOfStorageVolumes()
+	if err != nil {
+		return false, fmt.Errorf("failed to count volumes in pool %s: %w", poolName, err)
+	}
+	return n > 0, nil
 }

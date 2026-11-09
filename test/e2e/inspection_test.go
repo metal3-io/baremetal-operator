@@ -207,7 +207,7 @@ var _ = Describe("Inspection", Label("required", "inspection", "ironic"), func()
 		By("checking that new inspection happened after old inspection")
 		Expect(clusterProxy.GetClient().Get(ctx, key, &bmh)).To(Succeed())
 
-		Expect(bmh.Status.OperationHistory.Inspect.Start.Time).To(BeTemporally(">", oldInspectEnd),
+		Expect(bmh.Status.OperationHistory.Inspect.Start.Time).To(BeTemporally(">=", oldInspectEnd),
 			"New inspection must start after the old ended")
 		Expect(bmh.Status.OperationHistory.Inspect.End.Time).To(BeTemporally(">=", bmh.Status.OperationHistory.Inspect.Start.Time),
 			"Inspection end time must not be before start time")

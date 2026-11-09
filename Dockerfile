@@ -1,12 +1,18 @@
 # Support FROM override
-ARG BUILD_IMAGE=docker.io/golang:1.26.6@sha256:640a234f4bea3e399c056b7b8f9c667c4939befae8db2f14e9785e16eccd4205
-ARG BASE_IMAGE=gcr.io/distroless/base-debian13:nonroot@sha256:a557d784ac275c287d2bdf3172f47bece8d2a0ef3c0fdefb712e95084a04a562
+ARG BUILD_IMAGE=docker.io/golang:1.26.10@sha256:c141012f2b79382f9cb7438104ae0cd324cc548c1a605f393ef7402b87a1bd8b
+ARG BASE_IMAGE=gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd
 
 # Shared SDK stage: pinned Go toolchain, modules, and checked-out tree.
 # Downstream builder stages copy from here so we pay the `go mod download`
 # cost once. Third parties can also build custom provisioner plugins against
 # this image to guarantee toolchain and module-version parity with BMO.
 FROM $BUILD_IMAGE AS sdk
+
+# Record our own packages as module@version, the form a dependency gets, so an
+# out-of-tree plugin can be built from any directory. Must match the Makefile.
+# See docs/plugin-provisioners.md.
+ARG MODULE_VERSION=v0.0.0-dev
+ENV MODULE_VERSION=${MODULE_VERSION}
 
 WORKDIR /workspace
 
@@ -26,14 +32,14 @@ FROM sdk AS builder
 ARG ARCH=amd64
 ARG LDFLAGS=-s -w
 RUN GOOS=linux GOARCH=${ARCH} \
-    go build -a -ldflags "${LDFLAGS}" -o baremetal-operator main.go
+    go build -a $(./hack/plugin-build-flags.sh /workspace "${MODULE_VERSION}") -ldflags "${LDFLAGS}" -o baremetal-operator main.go
 
 # Build the ironic provisioner plugin
 FROM sdk AS ironic-plugin-builder
 ARG ARCH=amd64
 ARG LDFLAGS=-s -w
 RUN GOOS=linux GOARCH=${ARCH} \
-    go build -buildmode=plugin -ldflags "${LDFLAGS}" \
+    go build -buildmode=plugin $(./hack/plugin-build-flags.sh /workspace "${MODULE_VERSION}") -ldflags "${LDFLAGS}" \
     -o ironic-provisioner.so ./pkg/provisioner/ironic/plugin/
 
 # Build the demo provisioner plugin
@@ -41,7 +47,7 @@ FROM sdk AS demo-plugin-builder
 ARG ARCH=amd64
 ARG LDFLAGS=-s -w
 RUN GOOS=linux GOARCH=${ARCH} \
-    go build -buildmode=plugin -ldflags "${LDFLAGS}" \
+    go build -buildmode=plugin $(./hack/plugin-build-flags.sh /workspace "${MODULE_VERSION}") -ldflags "${LDFLAGS}" \
     -o demo-provisioner.so ./pkg/provisioner/demo/plugin/
 
 # Runtime image. Uses distroless/base (not static) because Go plugins need glibc.

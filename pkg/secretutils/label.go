@@ -13,17 +13,23 @@ const (
 )
 
 // AddSecretSelector adds a selector to a cache.SelectorsByObject that filters
-// Secrets so that only those labelled as part of the baremetal environment get
-// cached. The input may be nil.
-func AddSecretSelector(selectors map[client.Object]cache.ByObject) map[client.Object]cache.ByObject {
+// Secrets so that only those labeled as part of the baremetal environment get
+// cached. When namespaces is non-empty, it limits the Secret cache to those
+// namespaces.
+func AddSecretSelector(selectors map[client.Object]cache.ByObject, namespaces map[string]cache.Config) map[client.Object]cache.ByObject {
 	secret := &corev1.Secret{}
+	secretConfig := cache.ByObject{
+		Label: labels.SelectorFromSet(
+			labels.Set{
+				LabelEnvironmentName: LabelEnvironmentValue,
+			}),
+	}
+	if len(namespaces) > 0 {
+		secretConfig.Namespaces = namespaces
+	}
+
 	newSelectors := map[client.Object]cache.ByObject{
-		secret: {
-			Label: labels.SelectorFromSet(
-				labels.Set{
-					LabelEnvironmentName: LabelEnvironmentValue,
-				}),
-		},
+		secret: secretConfig,
 	}
 
 	if selectors == nil {

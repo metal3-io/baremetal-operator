@@ -72,6 +72,7 @@ type BareMetalHostReconciler struct {
 	APIReader              client.Reader
 	Recorder               record.EventRecorder
 	MaxProvisioningRetries int
+	AllowedHNANamespaces   []string
 }
 
 // Instead of passing a zillion arguments to the action of a phase,
@@ -85,6 +86,7 @@ type reconcileInfo struct {
 	preprovisioningNetworkDataSecret *corev1.Secret
 	events                           []corev1.Event
 	postSaveCallbacks                []func()
+	portConfigs                      map[string]*provisioner.PortConfig
 }
 
 // match the provisioner.EventPublisher interface.
@@ -98,6 +100,7 @@ func (info *reconcileInfo) publishEvent(reason, message string) {
 // +kubebuilder:rbac:groups=metal3.io,resources=preprovisioningimages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=metal3.io,resources=hardwaredata,verbs=get;list;watch;create;delete;patch;update
 // +kubebuilder:rbac:groups=metal3.io,resources=hardware/finalizers,verbs=update
+// +kubebuilder:rbac:groups=metal3.io,resources=hostnetworkattachments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
 
@@ -369,6 +372,7 @@ func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, err
 		metal3api.PowerManagementError:         "PowerManagementError",
 		metal3api.PreparationError:             "PreparationError",
 		metal3api.ServicingError:               "ServicingError",
+		metal3api.SecretAccessError:            "SecretAccessError",
 	}[errorType]
 
 	counter := actionFailureCounters.WithLabelValues(eventType)
@@ -377,6 +381,15 @@ func recordActionFailure(info *reconcileInfo, errorType metal3api.ErrorType, err
 	info.publishEvent(eventType, errorMessage)
 
 	return actionFailed{dirty: true, ErrorType: errorType, errorCount: info.host.Status.ErrorCount}
+}
+
+// clearRetryableSecretAccessStatus removes a SecretAccessError recorded while
+// waiting for a referenced Secret. Other error types are left in place.
+func clearRetryableSecretAccessStatus(host *metal3api.BareMetalHost) bool {
+	if host.Status.ErrorType != metal3api.SecretAccessError {
+		return false
+	}
+	return clearError(host)
 }
 
 func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState) actionResult {
@@ -893,7 +906,7 @@ func (r *BareMetalHostReconciler) getPreprovImage(ctx context.Context, info *rec
 func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo) actionResult {
 	info.log.V(VerbosityLevelTrace).Info("registerHost started",
 		LogFieldCredentials, info.host.Status.TriedCredentials)
-	dirty := false
+	var dirty, networkDirty bool
 
 	credsChanged := !info.host.Status.TriedCredentials.Match(*info.bmcCredsSecret)
 	if credsChanged {
@@ -949,6 +962,15 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		return recordActionFailure(info, metal3api.RegistrationError, fmt.Sprintf("failed to read preprovisioningNetworkData: %v", err))
 	}
 
+	// Resolve and validate port configs before Register so the
+	// provisioner only receives validated configurations.
+	// Network validation dirty state is tracked separately to avoid
+	// being overwritten by matchProfile's unconditional dirty assignment.
+	networkDirty, err = r.preparePortConfigs(ctx, info)
+	if err != nil {
+		return actionError{err}
+	}
+
 	provResult, provID, err := prov.Register(
 		ctx,
 		provisioner.ManagementAccessData{
@@ -965,6 +987,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 			HardwareData:               info.hardwareData,
 			DisableInspection:          info.host.InspectionDisabled(),
 			InspectionMode:             info.host.Spec.InspectionMode,
+			PortConfigs:                info.portConfigs,
 		},
 		credsChanged,
 		info.host.Status.ErrorType == metal3api.RegistrationError)
@@ -974,7 +997,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		if preprovImg == nil {
 			waitingForPreprovImage.Inc()
 			result := actionContinue{preprovImageRetryDelay}
-			if dirty {
+			if dirty || networkDirty {
 				// Persist any pending changes (e.g. newly detected
 				// credentials) even though registration cannot complete
 				// yet. Otherwise they are re-detected and re-applied on
@@ -1012,7 +1035,7 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		if clearError(info.host) {
 			dirty = true
 		}
-		if dirty {
+		if dirty || networkDirty {
 			return actionUpdate{result}
 		}
 		return result
@@ -1073,7 +1096,20 @@ func (r *BareMetalHostReconciler) registerHost(ctx context.Context, prov provisi
 		dirty = clearError(info.host)
 	}
 
-	if dirty {
+	// Sync AppliedNetworkAttachmentConfigs with resolved port configs.
+	// portConfigs is nil when validation failed (preserve existing),
+	// empty map when NI was removed (clean up), or populated (apply).
+	// Only update during states where the provisioner can actually
+	// modify Ironic ports so status reflects what is applied.
+	if info.portConfigs != nil && provisioner.CanUpdateSwitchPortConfig(info.host.Status.Provisioning.State) {
+		desired := buildAppliedNetworkAttachmentConfigs(info)
+		if !reflect.DeepEqual(desired, info.host.Status.AppliedNetworkAttachmentConfigs) {
+			info.host.Status.AppliedNetworkAttachmentConfigs = desired
+			dirty = true
+		}
+	}
+
+	if dirty || networkDirty {
 		return actionComplete{}
 	}
 	return nil
@@ -1430,6 +1466,10 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 	// Extract OCI auth secret credentials if needed
 	authSecret, err := r.getImageAuthSecret(ctx, info.host, &image)
 	if err != nil {
+		var secretErr SecretAccessError
+		if errors.As(err, &secretErr) {
+			return recordActionFailure(info, metal3api.SecretAccessError, secretErr.Error())
+		}
 		return recordActionFailure(info, metal3api.ProvisioningError, err.Error())
 	}
 
@@ -1443,8 +1483,16 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		ImagePullSecret: authSecret,
 	}, forceReboot)
 	if err != nil {
+		var secretErr SecretAccessError
+		if errors.As(err, &secretErr) {
+			return recordActionFailure(info, metal3api.SecretAccessError, secretErr.Error())
+		}
 		return actionError{fmt.Errorf("failed to provision: %w", err)}
 	}
+
+	// Configuration data was readable. Drop a status recorded while waiting
+	// for the Secret so a completed provision is not left in error.
+	secretAccessCleared := clearRetryableSecretAccessStatus(info.host)
 
 	if provResult.ErrorMessage != "" {
 		info.log.V(VerbosityLevelDebug).Info("handling provisioning error in controller")
@@ -1455,6 +1503,9 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		if err := r.Update(ctx, info.host); err != nil {
 			return actionError{fmt.Errorf("failed to remove reboot annotations from host: %w", err)}
 		}
+		if secretAccessCleared {
+			return actionUpdate{actionContinue{}}
+		}
 		return actionContinue{}
 	}
 
@@ -1463,7 +1514,7 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		// to return false, indicating that it has no more work to
 		// do.
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		if clearError(info.host) || secretAccessCleared {
 			return actionUpdate{result}
 		}
 		return result

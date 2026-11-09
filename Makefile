@@ -4,7 +4,7 @@ GO_TEST_FLAGS = $(TEST_FLAGS)
 DEBUG = --debug
 COVER_PROFILE = cover.out
 GO := $(shell type -P go)
-GO_VERSION ?= 1.26.6
+GO_VERSION ?= 1.26.10
 
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -25,6 +25,7 @@ TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/$(BIN_DIR))
 CRD_OPTIONS ?= "crd:allowDangerousTypes=true,crdVersions=v1"
 KUSTOMIZE = tools/bin/kustomize
 CONTROLLER_GEN = tools/bin/controller-gen
+CONVERSION_GEN = $(TOOLS_BIN_DIR)/conversion-gen
 GINKGO = tools/bin/ginkgo
 DEPLOY_CLI = tools/bin/deploy-cli
 CONTAINER_RUNTIME = docker
@@ -36,6 +37,11 @@ VERSION_URI = "github.com/metal3-io/baremetal-operator/pkg/version"
 LDFLAGS = "-X $(VERSION_URI).Raw=${BUILD_VERSION} \
                 -X $(VERSION_URI).Commit=${SOURCE_GIT_COMMIT} \
                 -X $(VERSION_URI).BuildTime=$(shell date +%Y-%m-%dT%H:%M:%S%z)"
+
+# Lets a plugin be built from any directory. See hack/plugin-build-flags.sh
+# and docs/plugin-provisioners.md.
+MODULE_VERSION ?= $(BUILD_VERSION)
+PLUGIN_BUILD_FLAGS = $$($(ROOT_DIR)/hack/plugin-build-flags.sh $(ROOT_DIR) $(MODULE_VERSION))
 
 # Set some variables the operator expects to have in order to work
 # Those need to be the same as in config/default/ironic.env
@@ -51,10 +57,18 @@ export GOFLAGS=
 #
 # We default to fixture tests, since they are fast and require little
 # both in terms of resources and tooling.
-# Note that some tests may not make sense for fixture, so we skip them.
+#
+# GINKGO_FOCUS/GINKGO_SKIP are regex-based and kept only for ad-hoc developer
+# runs (see test/e2e/README.md). Tier selection (which specs run in a given
+# CI job) is controlled exclusively by GINKGO_LABEL_FILTER, a Ginkgo
+# label-filter expression. Left empty by default, so that `make test-e2e`
+# invoked directly (e.g. for the fixture provider) runs the whole suite.
+# Specs that don't make sense without a real Ironic (e.g. automated
+# cleaning) skip themselves via DEPLOY_IRONIC checks instead of being
+# filtered out here.
 GINKGO_FOCUS ?=
 GINKGO_SKIP ?=
-GINKGO_SKIP_LABELS ?= automated-cleaning
+GINKGO_LABEL_FILTER ?=
 GINKGO_NODES ?= 2
 GINKGO_TIMEOUT ?= 3h
 GINKGO_POLL_PROGRESS_AFTER ?= 60m
@@ -75,9 +89,9 @@ ifneq ($(strip $(GINKGO_SKIP)),)
 _SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
 endif
 
-# to set multiple ginkgo skip labels, if any
-ifneq ($(strip $(GINKGO_SKIP_LABELS)),)
-_SKIP_LABELS_ARGS := --label-filter="!$(GINKGO_SKIP_LABELS)"
+# single label-filter expression controlling which tier(s) run
+ifneq ($(strip $(GINKGO_LABEL_FILTER)),)
+_LABEL_FILTER_ARGS := --label-filter="$(GINKGO_LABEL_FILTER)"
 endif
 
 .PHONY: help
@@ -114,6 +128,7 @@ unit: ## Run unit tests
 	go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 	cd apis/ && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 	cd pkg/hardwareutils && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
+	$(MAKE) fuzz-run FUZZ_TIME=15s
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage
@@ -137,11 +152,21 @@ fuzz: ## Run fuzz tests with seed corpus (no fuzzing, regression test only)
 .PHONY: fuzz-run
 fuzz-run: ## Run all fuzz tests sequentially with fuzzing enabled (use FUZZ_TIME=duration)
 	@echo "Discovering fuzz tests..."
-	@cd test/fuzz && go test -list='Fuzz.*' | grep '^Fuzz' | while read -r fuzz_test; do \
+	@cd test/fuzz || exit 1; \
+ 	go test -run='^Test' || exit 1; \
+ 	summary="" fail=0; \
+	for fuzz_test in $$(go test -list='Fuzz.*' | grep '^Fuzz'); do \
 		echo "Running $$fuzz_test for $(FUZZ_TIME)..."; \
-		go test -fuzz=$$fuzz_test -fuzztime='$(FUZZ_TIME)' || exit 1; \
-	done
-	@echo "All fuzz tests completed successfully!"
+		if go test -run="^$$fuzz_test$$" -fuzz="^$$fuzz_test$$" -fuzztime='$(FUZZ_TIME)'; then \
+			summary="$$summary\n  PASS  $$fuzz_test"; \
+		else \
+			summary="$$summary\n  FAIL  $$fuzz_test"; fail=1; \
+		fi; \
+	done; \
+	printf "\n===== Fuzz Test Summary ($(FUZZ_TIME) each) =====\n"; \
+	printf "$$summary\n"; \
+	if [ "$$fail" -eq 0 ]; then printf "\nAll fuzz tests passed!\n"; else printf "\nSome fuzz tests failed.\n"; exit 1; fi
+
 
 ARTIFACTS ?= ${ROOT_DIR}/test/e2e/_artifacts
 
@@ -154,7 +179,7 @@ verify-e2e-prerequisites: ## Check that required tools exist for e2e tests
 test-e2e: $(GINKGO) ## Run the end-to-end tests
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \
 		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e,vbmctl --focus="$(GINKGO_FOCUS)" \
-		$(_SKIP_ARGS)  $(_SKIP_LABELS_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
+		$(_SKIP_ARGS) $(_LABEL_FILTER_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
 		--output-dir="$(ARTIFACTS)" --junit-report="junit.e2e_suite.1.xml" $(GINKGO_ARGS) test/e2e -- \
 		-e2e.config="$(E2E_CONF_FILE)" -e2e.bmcsConfig="$(E2E_BMCS_CONF_FILE)" \
 		-e2e.use-existing-cluster=$(USE_EXISTING_CLUSTER) \
@@ -198,20 +223,20 @@ manifest-lint: ## Run manifest validation
 build: generate manifests manager tools build-e2e ## Build everything
 
 .PHONY: manager
-manager: generate lint ironic-plugin demo-plugin ## Build manager binary and bundled provisioner plugins
-	go build -ldflags $(LDFLAGS) -o bin/$(OPERATOR_NAME) main.go
+manager: generate ironic-plugin demo-plugin ## Build manager binary and bundled provisioner plugins
+	go build $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) -o bin/$(OPERATOR_NAME) main.go
 
 .PHONY: run
-run: generate lint manifests ironic-plugin ## Run against the configured Kubernetes cluster in ~/.kube/config
-	PROVISIONER_PLUGIN_DIR=$(BIN_DIR) go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=ironic -webhook-port=0 $(RUN_FLAGS)
+run: generate manifests ironic-plugin ## Run against the configured Kubernetes cluster in ~/.kube/config
+	PROVISIONER_PLUGIN_DIR=$(BIN_DIR) go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=ironic -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: demo
-demo: generate lint manifests demo-plugin ## Run in demo mode
-	PROVISIONER_PLUGIN_DIR=$(BIN_DIR) go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=demo -webhook-port=0 $(RUN_FLAGS)
+demo: generate manifests demo-plugin ## Run in demo mode
+	PROVISIONER_PLUGIN_DIR=$(BIN_DIR) go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=demo -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: run-test-mode
-run-test-mode: generate lint manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
-	go run -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=fixture -webhook-port=0 $(RUN_FLAGS)
+run-test-mode: generate manifests ## Run against the configured Kubernetes cluster in ~/.kube/config
+	go run $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) ./main.go -namespace=$(RUN_NAMESPACE) -dev -provisioner=fixture -webhook-port=0 $(RUN_FLAGS)
 
 .PHONY: install
 install: $(KUSTOMIZE) manifests ## Install CRDs into a cluster
@@ -228,6 +253,9 @@ deploy: $(KUSTOMIZE) manifests  ## Deploy controller in the configured Kubernete
 
 $(CONTROLLER_GEN): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/controller-tools/cmd/controller-gen
+
+$(CONVERSION_GEN): $(TOOLS_DIR)/go.mod
+	cd hack/tools; go build -o $(abspath $@) k8s.io/code-generator/cmd/conversion-gen
 
 $(KUSTOMIZE): hack/tools/go.mod
 	cd hack/tools; go build -o $(abspath $@) sigs.k8s.io/kustomize/kustomize/v5
@@ -292,9 +320,18 @@ set-manifest-image-ipa-downloader: $(KUSTOMIZE) manifests
 	cd ironic-deployment/base && $(abspath $(KUSTOMIZE)) edit set image quay.io/metal3-io/ironic-ipa-downloader=${MANIFEST_IMG}:${MANIFEST_TAG}
 
 .PHONY: generate
-generate: $(CONTROLLER_GEN) ## Generate code
+generate: generate-controller-gen generate-conversion-gen ## Generate all code
+
+generate-controller-gen:  $(CONTROLLER_GEN) ## Generate code
 	cd apis; $(abspath $<) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 	$< object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+
+generate-conversion-gen: $(CONVERSION_GEN) ## Generate conversion code
+	cd apis; $(abspath $<) \
+		--go-header-file ../hack/boilerplate.go.txt \
+		--output-file zz_generated.conversion.go \
+		./metal3.io/v1alpha1
 
 ## --------------------------------------
 ## Docker Targets
@@ -305,6 +342,7 @@ docker: docker-build ## Alias for docker-build (for backwards compatibility)
 docker-build: generate manifests ## Build the docker image for controller-manager
 	$(CONTAINER_RUNTIME) build --platform=linux/$(ARCH) \
 	--build-arg ARCH=$(ARCH) \
+	--build-arg MODULE_VERSION=$(MODULE_VERSION) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
 	. -t ${IMG}-$(ARCH):${IMG_TAG}
@@ -317,6 +355,7 @@ docker-build: generate manifests ## Build the docker image for controller-manage
 docker-debug: generate manifests ## Build the docker image with debug info
 	$(CONTAINER_RUNTIME) build --platform=linux/$(ARCH) \
 	--build-arg ARCH=$(ARCH) \
+	--build-arg MODULE_VERSION= \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
 	--build-arg LDFLAGS="" \
@@ -333,16 +372,17 @@ DEMO_PLUGIN_SO = bin/demo-provisioner.so
 
 .PHONY: ironic-plugin
 ironic-plugin: ## Build the ironic provisioner plugin .so locally
-	CGO_ENABLED=1 go build -buildmode=plugin -ldflags $(LDFLAGS) -o $(IRONIC_PLUGIN_SO) ./$(IRONIC_PLUGIN_DIR)/
+	CGO_ENABLED=1 go build -buildmode=plugin $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) -o $(IRONIC_PLUGIN_SO) ./$(IRONIC_PLUGIN_DIR)/
 
 .PHONY: demo-plugin
 demo-plugin: ## Build the demo provisioner plugin .so locally
-	CGO_ENABLED=1 go build -buildmode=plugin -ldflags $(LDFLAGS) -o $(DEMO_PLUGIN_SO) ./$(DEMO_PLUGIN_DIR)/
+	CGO_ENABLED=1 go build -buildmode=plugin $(PLUGIN_BUILD_FLAGS) -ldflags $(LDFLAGS) -o $(DEMO_PLUGIN_SO) ./$(DEMO_PLUGIN_DIR)/
 
 .PHONY: docker-build-sdk
 docker-build-sdk: ## Build the BMO SDK image for authoring custom provisioner plugins
 	$(CONTAINER_RUNTIME) build --platform=linux/$(ARCH) \
 	--build-arg ARCH=$(ARCH) \
+	--build-arg MODULE_VERSION=$(MODULE_VERSION) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
 	--target sdk \
@@ -352,6 +392,7 @@ docker-build-sdk: ## Build the BMO SDK image for authoring custom provisioner pl
 docker-build-plugin-test: ## Build the out-of-tree plugin compatibility test image
 	$(CONTAINER_RUNTIME) build --platform=linux/$(ARCH) \
 	--build-arg ARCH=$(ARCH) \
+	--build-arg MODULE_VERSION=$(MODULE_VERSION) \
 	--build-arg http_proxy=$(http_proxy) \
 	--build-arg https_proxy=$(https_proxy) \
 	-f Dockerfile.plugin-test \

@@ -771,6 +771,21 @@ func TestValidateCreate(t *testing.T) {
 			wantedErr: "",
 		},
 		{
+			name: "validStatusAnnotationSecretAccessError",
+			newBMH: &metal3api.BareMetalHost{
+				TypeMeta: tm,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						metal3api.StatusAnnotation: `{"errorType":"secret access error"}`,
+					},
+				},
+			},
+			oldBMH:    nil,
+			wantedErr: "",
+		},
+		{
 			name: "invalidErrtypeStatusAnnotation",
 			newBMH: &metal3api.BareMetalHost{
 				TypeMeta: tm,

@@ -1,6 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
+# Switch Management stores output Secrets in IRONIC_NAMESPACE when set, or
+# POD_NAMESPACE otherwise. These namespaced permissions allow access in the
+# co-located BMO/Ironic namespace when namespace-scoped RBAC is used.
+resources:
+- switch_secrets_role.yaml
+- switch_secrets_role_binding.yaml
+
 patches:
 # Remove ClusterRoleBinding (namespace scoped mode)
 - patch: |

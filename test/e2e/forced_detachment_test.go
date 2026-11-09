@@ -77,6 +77,7 @@ var _ = Describe("Forced Detachment", Label("required", "provision", "detach", "
 			}
 			err := clusterProxy.GetClient().Create(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
+			toCleanup = append(toCleanup, &bmh)
 
 			By("Waiting for the BMH to be in inspecting state")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -173,6 +174,7 @@ var _ = Describe("Forced Detachment", Label("required", "provision", "detach", "
 			}
 			err := clusterProxy.GetClient().Create(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
+			toCleanup = append(toCleanup, &bmh)
 
 			By("Waiting for the BMH to become available")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
@@ -286,6 +288,7 @@ var _ = Describe("Forced Detachment", Label("required", "provision", "detach", "
 			}
 			err := clusterProxy.GetClient().Create(ctx, &bmh)
 			Expect(err).NotTo(HaveOccurred())
+			toCleanup = append(toCleanup, &bmh)
 
 			By("Waiting for the BMH to become available")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{

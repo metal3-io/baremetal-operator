@@ -114,6 +114,10 @@ vbmctl delete bmc-emulator
 vbmctl --help
 ```
 
+`vbmctl create` fails if the image server or BMC emulator container already
+exists, running or stopped. Delete it first with `vbmctl delete image-server`,
+`vbmctl delete bmc-emulator` or `vbmctl delete bml`.
+
 ### Bare Metal Lab Workflow
 
 The recommended workflow is to define your VMs in a configuration file and use

@@ -6,8 +6,6 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"os"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	containers "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/containers"
@@ -155,21 +153,10 @@ func newDeleteBMLCmd() *cobra.Command {
 				networks[i] = network.Name
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleting libvirt networks (%d networks)...\n", len(networks))
-
-			// Don't fail whole command if network deletion fails
-			err = networkManager.DeleteNetworks(ctx, networks)
-			reportDeletion(os.Stdout, "networks", networks, err)
-
-			dockerNetworks := make([]string, len(cfg.Spec.DockerNetworks))
-			for i, net := range cfg.Spec.DockerNetworks {
-				dockerNetworks[i] = "name: " + net.Name
-			}
-
-			// Don't fail whole command if network deletion fails
-			err = containers.DeleteBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
-			reportDeletion(os.Stdout, "Docker networks", dockerNetworks, err)
+			// Don't fail whole command if network deletion fails. Both functions
+			// print what they deleted and a warning for each network they could not.
+			_ = networkManager.DeleteNetworks(ctx, networks)
+			_ = containers.DeleteBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
 
 			if cfg.Spec.ImageServer != nil {
 				err := containers.DeleteImageServerInstance(ctx, cfg.Spec.ImageServer.ContainerName)
@@ -200,20 +187,6 @@ func newDeleteBMLCmd() *cobra.Command {
 	}
 
 	return cmd
-}
-
-// reportDeletion prints a warning if deleting the given resources failed,
-// or the list of deleted resources otherwise.
-func reportDeletion(w io.Writer, kind string, names []string, err error) {
-	if err != nil {
-		fmt.Fprintf(w, "Warning: failed to delete %s: %v\n", kind, err)
-		return
-	}
-
-	fmt.Fprintf(w, "Deleted %s:\n", kind)
-	for _, name := range names {
-		fmt.Fprintf(w, "  - %s\n", name) //nolint:gosec // CLI output to the terminal, not HTML
-	}
 }
 
 func newDeleteNetworkCmd() *cobra.Command {
@@ -247,8 +220,6 @@ func newDeleteNetworkCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete network: %w", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleted network %s\n", name)
 			return nil
 		},
 	}

@@ -1843,14 +1843,6 @@ spec:
                     - false
                     type: boolean
                 type: object
-              hardwareProfile:
-                description: |-
-                  What is the name of the hardware profile for this host?
-                  Hardware profiles are deprecated and should not be used.
-                  Use the separate fields Architecture and RootDeviceHints instead.
-                  Set to "empty" to prepare for the future version of the API
-                  without hardware profiles.
-                type: string
               image:
                 description: |-
                   Image holds the details of the image to be provisioned. Populating
@@ -2203,8 +2195,8 @@ spec:
               rootDeviceHints:
                 description: |-
                   Provide guidance about how to choose the device for the image
-                  being provisioned. The default is currently to use /dev/sda as
-                  the root device.
+                  being provisioned. If not set, no root device hints are passed to
+                  the provisioner, and the provisioner picks the root device itself.
                 properties:
                   deviceName:
                     description: |-
@@ -2697,11 +2689,6 @@ spec:
                         type: string
                     type: object
                 type: object
-              hardwareProfile:
-                description: |-
-                  The name of the profile matching the hardware details.
-                  Hardware profiles are deprecated and should not be relied on.
-                type: string
               lastAttemptedImage:
                 description: |-
                   LastAttemptedImage stores the full image spec of the last provisioning

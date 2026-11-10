@@ -562,16 +562,9 @@ type BareMetalHostSpec struct {
 	// values and support the generic Redfish-based drivers.
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
-	// What is the name of the hardware profile for this host?
-	// Hardware profiles are deprecated and should not be used.
-	// Use the separate fields Architecture and RootDeviceHints instead.
-	// Set to "empty" to prepare for the future version of the API
-	// without hardware profiles.
-	HardwareProfile string `json:"hardwareProfile,omitempty"`
-
 	// Provide guidance about how to choose the device for the image
-	// being provisioned. The default is currently to use /dev/sda as
-	// the root device.
+	// being provisioned. If not set, no root device hints are passed to
+	// the provisioner, and the provisioner picks the root device itself.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
 	// Select the method of initializing the hardware during boot.
@@ -872,10 +865,6 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
-	// The name of the profile matching the hardware details.
-	// Hardware profiles are deprecated and should not be relied on.
-	HardwareProfile string `json:"hardwareProfile,omitempty"`
-
 	// The hardware discovered to exist on the host.
 	// This field will be removed in the next API version in favour of the
 	// separate HardwareData resource.
@@ -1010,26 +999,6 @@ func (host *BareMetalHost) BootMode() BootMode {
 // HasBMCDetails returns true if the BMC details are set.
 func (host *BareMetalHost) HasBMCDetails() bool {
 	return host.Spec.BMC.Address != "" || host.Spec.BMC.CredentialsName != ""
-}
-
-// NeedsHardwareProfile returns true if the profile is not set.
-func (host *BareMetalHost) NeedsHardwareProfile() bool {
-	return host.Status.HardwareProfile == ""
-}
-
-// HardwareProfile returns the hardware profile name for the host.
-func (host *BareMetalHost) HardwareProfile() string {
-	return host.Status.HardwareProfile
-}
-
-// SetHardwareProfile updates the hardware profile name and returns
-// true when a change is made or false when no change is made.
-func (host *BareMetalHost) SetHardwareProfile(name string) (dirty bool) {
-	if host.Status.HardwareProfile != name {
-		host.Status.HardwareProfile = name
-		dirty = true
-	}
-	return dirty
 }
 
 // SetOperationalStatus updates the OperationalStatus field and returns

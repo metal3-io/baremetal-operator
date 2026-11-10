@@ -24,6 +24,7 @@ import (
 	unsafe "unsafe"
 
 	v1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -92,16 +93,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1beta1.BareMetalHostList)(nil), (*BareMetalHostList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_BareMetalHostList_To_v1alpha1_BareMetalHostList(a.(*v1beta1.BareMetalHostList), b.(*BareMetalHostList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*BareMetalHostSpec)(nil), (*v1beta1.BareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(a.(*BareMetalHostSpec), b.(*v1beta1.BareMetalHostSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta1.BareMetalHostSpec)(nil), (*BareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(a.(*v1beta1.BareMetalHostSpec), b.(*BareMetalHostSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -395,6 +386,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*BareMetalHostSpec)(nil), (*v1beta1.BareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(a.(*BareMetalHostSpec), b.(*v1beta1.BareMetalHostSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta1.BareMetalHostSpec)(nil), (*BareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(a.(*v1beta1.BareMetalHostSpec), b.(*BareMetalHostSpec), scope)
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -512,7 +513,17 @@ func Convert_v1beta1_BareMetalHost_To_v1alpha1_BareMetalHost(in *v1beta1.BareMet
 
 func autoConvert_v1alpha1_BareMetalHostList_To_v1beta1_BareMetalHostList(in *BareMetalHostList, out *v1beta1.BareMetalHostList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]v1beta1.BareMetalHost)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]v1beta1.BareMetalHost, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_BareMetalHost_To_v1beta1_BareMetalHost(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -523,7 +534,17 @@ func Convert_v1alpha1_BareMetalHostList_To_v1beta1_BareMetalHostList(in *BareMet
 
 func autoConvert_v1beta1_BareMetalHostList_To_v1alpha1_BareMetalHostList(in *v1beta1.BareMetalHostList, out *BareMetalHostList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]BareMetalHost)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]BareMetalHost, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_BareMetalHost_To_v1alpha1_BareMetalHost(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -533,23 +554,61 @@ func Convert_v1beta1_BareMetalHostList_To_v1alpha1_BareMetalHostList(in *v1beta1
 }
 
 func autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMetalHostSpec, out *v1beta1.BareMetalHostSpec, s conversion.Scope) error {
-	*out = *(*v1beta1.BareMetalHostSpec)(unsafe.Pointer(in))
+	out.Taints = *(*[]v1.Taint)(unsafe.Pointer(&in.Taints))
+	if err := Convert_v1alpha1_BMCDetails_To_v1beta1_BMCDetails(&in.BMC, &out.BMC, s); err != nil {
+		return err
+	}
+	out.RAID = (*v1beta1.RAIDConfig)(unsafe.Pointer(in.RAID))
+	out.Firmware = (*v1beta1.FirmwareConfig)(unsafe.Pointer(in.Firmware))
+	out.HardwareProfile = in.HardwareProfile
+	out.RootDeviceHints = (*v1beta1.RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
+	out.BootMode = v1beta1.BootMode(in.BootMode)
+	out.BootMACAddress = in.BootMACAddress
+	out.Online = in.Online
+	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
+	out.Image = (*v1beta1.Image)(unsafe.Pointer(in.Image))
+	// WARNING: in.UserData requires manual conversion: does not exist in peer-type
+	out.PreprovisioningNetworkDataName = in.PreprovisioningNetworkDataName
+	// WARNING: in.NetworkData requires manual conversion: does not exist in peer-type
+	// WARNING: in.MetaData requires manual conversion: does not exist in peer-type
+	out.Description = in.Description
+	out.ExternallyProvisioned = in.ExternallyProvisioned
+	out.AutomatedCleaningMode = v1beta1.AutomatedCleaningMode(in.AutomatedCleaningMode)
+	out.CustomDeploy = (*v1beta1.CustomDeploy)(unsafe.Pointer(in.CustomDeploy))
+	out.Architecture = in.Architecture
+	out.DisablePowerOff = in.DisablePowerOff
+	out.InspectionMode = v1beta1.InspectionMode(in.InspectionMode)
+	out.NetworkInterfaces = *(*[]v1beta1.NetworkInterface)(unsafe.Pointer(&in.NetworkInterfaces))
 	return nil
-}
-
-// Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec is an autogenerated conversion function.
-func Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMetalHostSpec, out *v1beta1.BareMetalHostSpec, s conversion.Scope) error {
-	return autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in, out, s)
 }
 
 func autoConvert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *v1beta1.BareMetalHostSpec, out *BareMetalHostSpec, s conversion.Scope) error {
-	*out = *(*BareMetalHostSpec)(unsafe.Pointer(in))
+	out.Taints = *(*[]v1.Taint)(unsafe.Pointer(&in.Taints))
+	if err := Convert_v1beta1_BMCDetails_To_v1alpha1_BMCDetails(&in.BMC, &out.BMC, s); err != nil {
+		return err
+	}
+	out.RAID = (*RAIDConfig)(unsafe.Pointer(in.RAID))
+	out.Firmware = (*FirmwareConfig)(unsafe.Pointer(in.Firmware))
+	out.HardwareProfile = in.HardwareProfile
+	out.RootDeviceHints = (*RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
+	out.BootMode = BootMode(in.BootMode)
+	out.BootMACAddress = in.BootMACAddress
+	out.Online = in.Online
+	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
+	out.Image = (*Image)(unsafe.Pointer(in.Image))
+	// WARNING: in.UserDataName requires manual conversion: does not exist in peer-type
+	out.PreprovisioningNetworkDataName = in.PreprovisioningNetworkDataName
+	// WARNING: in.NetworkDataName requires manual conversion: does not exist in peer-type
+	// WARNING: in.MetaDataName requires manual conversion: does not exist in peer-type
+	out.Description = in.Description
+	out.ExternallyProvisioned = in.ExternallyProvisioned
+	out.AutomatedCleaningMode = AutomatedCleaningMode(in.AutomatedCleaningMode)
+	out.CustomDeploy = (*CustomDeploy)(unsafe.Pointer(in.CustomDeploy))
+	out.Architecture = in.Architecture
+	out.DisablePowerOff = in.DisablePowerOff
+	out.InspectionMode = InspectionMode(in.InspectionMode)
+	out.NetworkInterfaces = *(*[]NetworkInterface)(unsafe.Pointer(&in.NetworkInterfaces))
 	return nil
-}
-
-// Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec is an autogenerated conversion function.
-func Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *v1beta1.BareMetalHostSpec, out *BareMetalHostSpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in, out, s)
 }
 
 func autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in *BareMetalHostStatus, out *v1beta1.BareMetalHostStatus, s conversion.Scope) error {

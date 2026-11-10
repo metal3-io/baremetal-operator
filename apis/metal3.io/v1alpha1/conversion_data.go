@@ -59,6 +59,25 @@ func MarshalData(src metav1.Object, dst metav1.Object) error {
 	return nil
 }
 
+// marshalConversionData stores data as json in the DataAnnotation of dst.
+// Unlike MarshalData, which stores the whole source object, it only stores
+// the given data. This keeps the annotation small: annotations count towards
+// the object size limit, and the full object (including the status) can be
+// large. The data can be read back with UnmarshalData.
+func marshalConversionData(data any, dst metav1.Object) error {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	annotations := dst.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[DataAnnotation] = string(raw)
+	dst.SetAnnotations(annotations)
+	return nil
+}
+
 // UnmarshalData retrieves the data from the annotation set by MarshalData and
 // unmarshals it into the object passed as input. It reports whether the
 // annotation was present, and removes the annotation from the source object so

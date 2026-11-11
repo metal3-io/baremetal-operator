@@ -22,7 +22,7 @@ resources:
 patches:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
-#- patches/webhook_in_baremetalhosts.yaml
+- path: patches/webhook_in_baremetalhosts.yaml
 #- patches/webhook_in_hostfirmwarecomponents.yaml
 #- patches/webhook_in_hostfirmwaresettings.yaml
 #- patches/webhook_in_firmwareschemas.yaml

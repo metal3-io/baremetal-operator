@@ -12,6 +12,5 @@ spec:
           namespace: system
           name: webhook-service
           path: /convert
-        caBundle: Cg==
       conversionReviewVersions:
       - v1

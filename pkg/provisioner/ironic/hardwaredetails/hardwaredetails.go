@@ -100,14 +100,15 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 				Name: intf.Name,
 				Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 					intf.Vendor, intf.Product), " "),
-				MAC:        intf.MACAddress,
-				IP:         intf.IPV4Address,
-				VLANs:      vlans,
-				VLANID:     vlanid,
-				SpeedGbps:  intf.SpeedMbps / 1000, //nolint:mnd
-				PXE:        pxeEnabled,
-				LLDP:       lldpData,
-				PCIAddress: intf.PCIAddress,
+				MAC:                intf.MACAddress,
+				IP:                 intf.IPV4Address,
+				VLANs:              vlans,
+				VLANID:             vlanid,
+				SpeedGbps:          intf.SpeedMbps / 1000, //nolint:mnd
+				PXE:                pxeEnabled,
+				LLDP:               lldpData,
+				PCIAddress:         intf.PCIAddress,
+				InfinibandClientID: intf.ClientID,
 			})
 		}
 		if intf.IPV6Address != "" {
@@ -115,14 +116,15 @@ func getNICDetails(ifdata []inventory.InterfaceType, ironicData inventory.Standa
 				Name: intf.Name,
 				Model: strings.TrimLeft(fmt.Sprintf("%s %s",
 					intf.Vendor, intf.Product), " "),
-				MAC:        intf.MACAddress,
-				IP:         intf.IPV6Address,
-				VLANs:      vlans,
-				VLANID:     vlanid,
-				SpeedGbps:  intf.SpeedMbps / 1000, //nolint:mnd
-				PXE:        pxeEnabled,
-				LLDP:       lldpData,
-				PCIAddress: intf.PCIAddress,
+				MAC:                intf.MACAddress,
+				IP:                 intf.IPV6Address,
+				VLANs:              vlans,
+				VLANID:             vlanid,
+				SpeedGbps:          intf.SpeedMbps / 1000, //nolint:mnd
+				PXE:                pxeEnabled,
+				LLDP:               lldpData,
+				PCIAddress:         intf.PCIAddress,
+				InfinibandClientID: intf.ClientID,
 			})
 		}
 	}

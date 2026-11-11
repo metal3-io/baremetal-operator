@@ -178,6 +178,11 @@ type NIC struct {
 	// The NIC PCI address
 	// +optional
 	PCIAddress string `json:"pciAddress,omitempty"`
+
+	// The InfiniBand client ID of the interface, as discovered by Ironic.
+	// Only set for InfiniBand interfaces.
+	// +optional
+	InfinibandClientID string `json:"infinibandClientID,omitempty"`
 }
 
 // Firmware describes the firmware on the host.

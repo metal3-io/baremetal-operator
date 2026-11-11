@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"testing"
@@ -3254,6 +3255,160 @@ func TestHostFirmwareSettings(t *testing.T) {
 				t.Fatal(err)
 			}
 			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
+		})
+	}
+}
+
+func TestHostFirmwareSpecsExist(t *testing.T) {
+	host := newDefaultHost(t)
+	info := makeReconcileInfo(host)
+	info.request = newRequest(host)
+
+	t.Run("HFS with settings", func(t *testing.T) {
+		hfs := newHostFirmwareSettings(host, nil)
+		r := newTestReconciler(t, host, hfs)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, true, false)
+		require.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("HFS not found", func(t *testing.T) {
+		r := newTestReconciler(t, host)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, true, false)
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("HFS empty settings", func(t *testing.T) {
+		hfs := newHostFirmwareSettings(host, nil)
+		hfs.Spec.Settings = nil
+		r := newTestReconciler(t, host, hfs)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, true, false)
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("HFC with updates", func(t *testing.T) {
+		hfc := &metal3api.HostFirmwareComponents{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      host.Name,
+				Namespace: host.Namespace,
+			},
+			Spec: metal3api.HostFirmwareComponentsSpec{
+				Updates: []metal3api.FirmwareUpdate{
+					{Component: "bmc", URL: "http://example.com/bmc"},
+				},
+			},
+		}
+		r := newTestReconciler(t, host, hfc)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, false, true)
+		require.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("neither HFS nor HFC when both paths enabled", func(t *testing.T) {
+		r := newTestReconciler(t, host)
+
+		exists, err := r.hostFirmwareSpecsExist(t.Context(), info, true, true)
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("Get error is propagated", func(t *testing.T) {
+		r := newTestReconciler(t, host)
+		r.Client = &getErrorClient{Client: r.Client, err: errors.New("apiserver unavailable")}
+
+		_, err := r.hostFirmwareSpecsExist(t.Context(), info, true, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "could not load host firmware settings")
+	})
+}
+
+type getErrorClient struct {
+	client.Client
+	err error
+}
+
+func (c *getErrorClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if c.err != nil {
+		return c.err
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+// TestServicingErrorAbortWithStaleHFSGeneration covers the case where the
+// HFS spec is changed while the host is in ServicingError, but the HFS
+// controller has not observed the new generation yet.
+func TestServicingErrorAbortWithStaleHFSGeneration(t *testing.T) {
+	testCases := []struct {
+		name          string
+		settings      metal3api.DesiredSettingsMap
+		expectAborted bool
+	}{
+		{
+			name:          "spec cleared aborts servicing",
+			settings:      metal3api.DesiredSettingsMap{},
+			expectAborted: true,
+		},
+		{
+			name: "spec still set does not abort servicing",
+			settings: metal3api.DesiredSettingsMap{
+				"ProcVirtualization": intstr.FromString("Enabled"),
+			},
+			expectAborted: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			host := newDefaultHost(t)
+			host.Spec.Online = true
+			host.Status.Provisioning.State = metal3api.StateProvisioned
+			host.Status.OperationalStatus = metal3api.OperationalStatusError
+			host.Status.ErrorType = metal3api.ServicingError
+			host.Status.ErrorMessage = "servicing failed"
+
+			hup := &metal3api.HostUpdatePolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      host.Name,
+					Namespace: host.Namespace,
+				},
+				Spec: metal3api.HostUpdatePolicySpec{
+					FirmwareSettings: metal3api.HostUpdatePolicyOnReboot,
+				},
+			}
+
+			hfs := newHostFirmwareSettings(host, []metav1.Condition{
+				{Type: string(metal3api.FirmwareSettingsChangeDetected), Status: metav1.ConditionTrue, Reason: "Success", ObservedGeneration: 1},
+				{Type: string(metal3api.FirmwareSettingsValid), Status: metav1.ConditionTrue, Reason: "Success", ObservedGeneration: 1},
+			})
+			hfs.Generation = 2
+			hfs.Spec.Settings = tc.settings
+
+			r := newTestReconciler(t, host, hup, hfs)
+			prov, err := r.ProvisionerFactory.NewProvisioner(t.Context(), provisioner.BuildHostData(*host, bmc.Credentials{}), nil)
+			require.NoError(t, err)
+
+			info := makeReconcileInfo(host)
+			info.request = newRequest(host)
+
+			result := r.doServiceIfNeeded(t.Context(), prov, info, hup)
+
+			if tc.expectAborted {
+				assert.Equal(t, metal3api.OperationalStatusOK, host.Status.OperationalStatus)
+				assert.Empty(t, host.Status.ErrorType)
+				assert.Empty(t, host.Status.ErrorMessage)
+				assert.True(t, result.Dirty())
+			} else {
+				actErr, ok := result.(actionError)
+				require.True(t, ok, "expected actionError, got %T", result)
+				assert.Contains(t, actErr.err.Error(), "hostFirmwareSettings not ready yet")
+				assert.Equal(t, metal3api.ServicingError, host.Status.ErrorType)
+			}
 		})
 	}
 }

@@ -31,6 +31,7 @@ import (
 	"time"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	metal3apiv1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/internal/controller/metal3.io"
 	webhooks "github.com/metal3-io/baremetal-operator/internal/webhooks/metal3.io/v1alpha1"
 	ppicontroller "github.com/metal3-io/baremetal-operator/pkg/controllers"
@@ -109,6 +110,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = metal3api.AddToScheme(scheme)
+	_ = metal3apiv1beta1.AddToScheme(scheme)
 }
 
 func printVersion() {

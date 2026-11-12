@@ -6,6 +6,16 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.22.0
   name: baremetalhosts.metal3.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: baremetal-operator-webhook-service
+          namespace: baremetal-operator-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: metal3.io
   names:
     kind: BareMetalHost

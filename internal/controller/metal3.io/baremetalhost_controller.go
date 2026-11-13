@@ -2329,27 +2329,35 @@ func (r *BareMetalHostReconciler) acquireHostUpdatePolicy(ctx context.Context, i
 
 // Check if an HFS/HFC has changes and is valid.
 func hostObjectHasChanges(conditions []metav1.Condition, changedCondition, validCondition string, expectedGeneration int64) (changed bool, valid bool, err error) {
-	readyCond := meta.FindStatusCondition(conditions, changedCondition)
-	if readyCond == nil {
+	changedCond := meta.FindStatusCondition(conditions, changedCondition)
+	if changedCond == nil {
 		return false, false, nil
 	}
 
 	// Check if the condition matches the current Generation to know if the data is not out of date.
-	if readyCond.ObservedGeneration != expectedGeneration {
+	if changedCond.ObservedGeneration != expectedGeneration {
 		// Retry, otherwise we may miss updates
-		return false, false, fmt.Errorf("generation %d != observed generation %d", expectedGeneration, readyCond.ObservedGeneration)
+		return false, false, fmt.Errorf("%s generation %d != observed generation %d", changedCondition, expectedGeneration, changedCond.ObservedGeneration)
 	}
 
-	// Valid condition must be present and set to true.
-	if !meta.IsStatusConditionTrue(conditions, validCondition) {
+	// Don't process changes if the spec is invalid.
+	validCond := meta.FindStatusCondition(conditions, validCondition)
+	if validCond == nil {
+		// if ChangeDetected is present, Valid must be present too
+		return false, false, fmt.Errorf("%s condition not present", validCondition)
+	}
+
+	if validCond.ObservedGeneration != expectedGeneration {
+		// Retry, otherwise we may miss updates
+		return false, false, fmt.Errorf("%s generation %d != observed generation %d", validCondition, expectedGeneration, validCond.ObservedGeneration)
+	}
+
+	if validCond.Status != metav1.ConditionTrue {
+		// No point retrying, this state requires user intervention
 		return false, false, nil
 	}
 
-	if readyCond.Status == metav1.ConditionTrue {
-		return true, true, nil
-	}
-
-	return false, true, nil
+	return changedCond.Status == metav1.ConditionTrue, true, nil
 }
 
 // Get the stored firmware settings. Returns dirty=true if there are valid pending changes.

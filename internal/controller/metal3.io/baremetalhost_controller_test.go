@@ -3209,13 +3209,27 @@ func TestGetUpdatesDifference(t *testing.T) {
 // can be detected as it will be used to set state to Preparing.
 func TestHostFirmwareSettings(t *testing.T) {
 	testCases := []struct {
-		Scenario   string
-		Conditions []metav1.Condition
-		Dirty      bool
+		Scenario      string
+		Conditions    []metav1.Condition
+		Generation    int64
+		Dirty         bool
+		ExpectedError string
 	}{
 		{
-			Scenario: "spec and status the same",
+			Scenario: "HFS ignored without conditions",
+			Dirty:    false,
+		},
+		{
+			Scenario: "no ChangeDetected",
 			Conditions: []metav1.Condition{
+				{Type: "Valid", Status: "True", Reason: "Success"},
+			},
+			Dirty: false,
+		},
+		{
+			Scenario: "ChangeDetected is false",
+			Conditions: []metav1.Condition{
+				{Type: "ChangeDetected", Status: "False", Reason: "Success"},
 				{Type: "Valid", Status: "True", Reason: "Success"},
 			},
 			Dirty: false,
@@ -3229,12 +3243,40 @@ func TestHostFirmwareSettings(t *testing.T) {
 			Dirty: true,
 		},
 		{
+			Scenario: "spec changed in old generation",
+			Conditions: []metav1.Condition{
+				{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+				{Type: "Valid", Status: "True", Reason: "Success", ObservedGeneration: 42},
+			},
+			Generation:    42,
+			Dirty:         false,
+			ExpectedError: "not ready yet: ChangeDetected generation",
+		},
+		{
 			Scenario: "spec invalid",
 			Conditions: []metav1.Condition{
 				{Type: "ChangeDetected", Status: "True", Reason: "Success"},
 				{Type: "Valid", Status: "False", Reason: "Success"},
 			},
 			Dirty: false,
+		},
+		{
+			Scenario: "spec valid in old generation",
+			Conditions: []metav1.Condition{
+				{Type: "ChangeDetected", Status: "True", Reason: "Success", ObservedGeneration: 42},
+				{Type: "Valid", Status: "True", Reason: "Success"},
+			},
+			Generation:    42,
+			ExpectedError: "not ready yet: Valid generation",
+			Dirty:         false,
+		},
+		{
+			Scenario: "ChangeDetected without Valid",
+			Conditions: []metav1.Condition{
+				{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			},
+			ExpectedError: "not ready yet: Valid condition not present",
+			Dirty:         false,
 		},
 	}
 
@@ -3246,12 +3288,15 @@ func TestHostFirmwareSettings(t *testing.T) {
 			i.request = newRequest(host)
 
 			hfs := newHostFirmwareSettings(host, tc.Conditions)
+			hfs.Generation = tc.Generation
 			err := r.Create(t.Context(), hfs)
 			require.NoError(t, err)
 
 			dirty, _, err := r.getHostFirmwareSettings(t.Context(), i)
-			if err != nil {
-				t.Fatal(err)
+			if tc.ExpectedError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tc.ExpectedError)
 			}
 			assert.Equal(t, tc.Dirty, dirty, "dirty flag did not match")
 		})

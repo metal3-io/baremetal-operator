@@ -69,20 +69,37 @@ func CreateBridgeNetworks(ctx context.Context, networks []vbmctlapi.DockerBridge
 
 // DeleteBridgeNetworks deletes the networks with given configurations.
 // The networks are deleted by their name, so other fields in the networks
-// are ignored.
+// are ignored. It keeps going when a network cannot be deleted, prints a
+// warning for it and returns all such errors at the end.
 func DeleteBridgeNetworks(ctx context.Context, networks []vbmctlapi.DockerBridgeNetwork) error {
-	var latestErr error
+	log.Printf("Deleting Docker networks (%d networks)...", len(networks))
+	var errs []error
 	for _, net := range networks {
-		networkID, err := GetNetworkByName(ctx, net.Name)
-		if err != nil {
-			log.Printf("Warning: failed to delete Docker network %s, could not get network ID", net.Name)
-			continue
-		}
-		err = DeleteNetwork(ctx, networkID, &client.NetworkRemoveOptions{})
-		if err != nil {
-			latestErr = fmt.Errorf("failed to remove docker network: %w", err)
+		if err := deleteBridgeNetwork(ctx, net.Name); err != nil {
+			log.Printf("Warning: %v", err)
+			errs = append(errs, err)
 		}
 	}
 
-	return latestErr
+	return errors.Join(errs...)
+}
+
+// deleteBridgeNetwork deletes the Docker network with the given name. A
+// network that does not exist is skipped without an error.
+func deleteBridgeNetwork(ctx context.Context, name string) error {
+	networkID, err := GetNetworkByName(ctx, name)
+	if errors.Is(err, ErrNetworkNotFound) {
+		log.Printf("Warning: Docker network %s not found, skipping", name)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get docker network %s: %w", name, err)
+	}
+
+	err = DeleteNetwork(ctx, networkID, &client.NetworkRemoveOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to remove docker network %s: %w", name, err)
+	}
+	log.Printf("Deleted Docker network %s", name)
+
+	return nil
 }

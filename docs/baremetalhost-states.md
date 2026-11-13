@@ -150,7 +150,8 @@ registration and owned resources such as `HardwareData`.
 - `error` — an operation failed; see `status.errorType` and
   `status.errorMessage`
 - `delayed` — (de)provisioning or inspection is waiting because
-  `PROVISIONING_LIMIT` is reached
+  `PROVISIONING_LIMIT` is reached. A `Delayed` event is published when
+  the host starts waiting, and a `DelayEnded` event when it resumes
 - `detached` — the `baremetalhost.metal3.io/detached` annotation is
   set; the provisioner is not managing the host
 - `servicing` — a live firmware update is in progress on a provisioned

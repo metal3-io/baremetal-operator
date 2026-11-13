@@ -1910,10 +1910,16 @@ func (r *BareMetalHostReconciler) handleDataImageActions(ctx context.Context, pr
 	// given constant ?
 	dataImageRetryBackoff := max(dataImageUpdateDelay, calculateBackoff(dataImage.Status.Error.Count))
 
+	dataImageAPI, err := provisioner.GetDataImageAPI(prov)
+	if err != nil {
+		return actionError{err}
+	}
+
 	// Check if dataImage is attached to the node or not
 	// Given that this is a synchronous call to Ironic, should we add
 	// a longer wait ?
-	isImageAttached, getVmediaError := prov.GetDataImageStatus(ctx)
+	isImageAttached, getVmediaError := dataImageAPI.GetDataImageStatus(ctx)
+
 	if getVmediaError != nil {
 		info.log.Error(getVmediaError, "Error fetching Virtual Media details")
 
@@ -1954,7 +1960,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(ctx context.Context, pr
 		info.log.V(VerbosityLevelDebug).Info("DataImage requested for deletion")
 		if isImageAttached {
 			info.log.Info("detaching DataImage as its deletion has been requested")
-			err := r.detachDataImage(ctx, prov, info, dataImage)
+			err := r.detachDataImage(ctx, dataImageAPI, info, dataImage)
 			if err != nil {
 				return actionError{fmt.Errorf("failed to detach, %w", err)}
 			}
@@ -1972,7 +1978,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(ctx context.Context, pr
 		info.log.V(VerbosityLevelDebug).Info("DataImage change detected")
 		if attachedURL != "" {
 			info.log.Info("detaching DataImage as its URL has changed")
-			err := r.detachDataImage(ctx, prov, info, dataImage)
+			err := r.detachDataImage(ctx, dataImageAPI, info, dataImage)
 			if err != nil {
 				return actionError{fmt.Errorf("failed to detach, %w", err)}
 			}
@@ -1985,7 +1991,7 @@ func (r *BareMetalHostReconciler) handleDataImageActions(ctx context.Context, pr
 		if requestedURL != "" {
 			info.log.Info("attaching DataImage",
 				LogFieldDataImage, requestedURL)
-			err := r.attachDataImage(ctx, prov, info, dataImage)
+			err := r.attachDataImage(ctx, dataImageAPI, info, dataImage)
 			if err != nil {
 				return actionError{fmt.Errorf("failed to attach, %w", err)}
 			}
@@ -2024,9 +2030,9 @@ func ownerReferenceExists(owner metav1.Object, resource metav1.Object) bool {
 }
 
 // Attach the DataImage to the BareMetalHost.
-func (r *BareMetalHostReconciler) attachDataImage(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) error {
+func (r *BareMetalHostReconciler) attachDataImage(ctx context.Context, api provisioner.DataImageAPI, info *reconcileInfo, dataImage *metal3api.DataImage) error {
 	info.log.V(VerbosityLevelTrace).Info("attachDataImage started")
-	if err := prov.AttachDataImage(ctx, dataImage.Spec.URL); err != nil {
+	if err := api.AttachDataImage(ctx, dataImage.Spec.URL); err != nil {
 		info.log.Info("error while attaching DataImage",
 			LogFieldDataImage, dataImage.Spec.URL,
 			LogFieldError, err.Error())
@@ -2057,9 +2063,9 @@ func (r *BareMetalHostReconciler) attachDataImage(ctx context.Context, prov prov
 }
 
 // Detach the DataImage from the BareMetalHost.
-func (r *BareMetalHostReconciler) detachDataImage(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, dataImage *metal3api.DataImage) error {
+func (r *BareMetalHostReconciler) detachDataImage(ctx context.Context, api provisioner.DataImageAPI, info *reconcileInfo, dataImage *metal3api.DataImage) error {
 	info.log.V(VerbosityLevelTrace).Info("detachDataImage started")
-	if err := prov.DetachDataImage(ctx); err != nil {
+	if err := api.DetachDataImage(ctx); err != nil {
 		info.log.Info("error while detaching DataImage",
 			LogFieldDataImage, dataImage.Name,
 			LogFieldError, err.Error())

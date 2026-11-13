@@ -191,8 +191,26 @@ func (r *DataImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("failed to create provisioner: %w", err)
 	}
 
-	// Check if any attach/detach action is pending or failed to attach
-	isImageAttached, vmediaGetError := prov.GetDataImageStatus(ctx)
+	var isImageAttached bool
+	var vmediaGetError error
+
+	dataImageAPI, vmediaGetError := provisioner.GetDataImageAPI(prov)
+	if vmediaGetError != nil {
+		// Allow deletion if the provisioner doesn't support DataImage API, but only if the image was not configured previously
+		// (presumably with a supported provisioner).
+		if !di.DeletionTimestamp.IsZero() && di.Status.AttachedImage.URL == "" {
+			reqLogger.Info("allowing data image deletion with unsupported provisioner")
+			if controllerutil.RemoveFinalizer(di, metal3api.DataImageFinalizer) {
+				if err := r.Update(ctx, di); err != nil {
+					return ctrl.Result{RequeueAfter: dataImageRetryDelay}, fmt.Errorf("failed to update resource after remove finalizer, %w", err)
+				}
+			}
+			return ctrl.Result{}, nil
+		}
+	} else {
+		// Check if any attach/detach action is pending or failed to attach
+		isImageAttached, vmediaGetError = dataImageAPI.GetDataImageStatus(ctx)
+	}
 
 	// In case there was an error fetching vmedia details
 	// upadate message and counter

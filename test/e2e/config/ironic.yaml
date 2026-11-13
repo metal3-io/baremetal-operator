@@ -30,7 +30,7 @@ variables:
   DEPLOY_IRONIC: "true"
   DEPLOY_BMO: "true"
   DEPLOY_CERT_MANAGER: "true"
-  IRSO_KUSTOMIZATION: "data/ironic-standalone-operator/operator/irso-v0.11"
+  IRSO_KUSTOMIZATION: "data/ironic-standalone-operator/operator/irso-v0.12"
   BMO_KUSTOMIZATION: "../../config/overlays/e2e"
   IRONIC_KUSTOMIZATION: "data/ironic-standalone-operator/ironic/overlays/e2e"
 
@@ -114,21 +114,21 @@ bmoUpgradeSpecs:
   initBMOKustomization: "../../config/overlays/e2e-release-0.12"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.11"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.12"
 # Upgrade BMO 0.13 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.13"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.11"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.12"
 # Upgrade BMO 0.14 -> main
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.14"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-upgrade"
   upgradeBMOKustomization: "../../config/overlays/e2e-upgrade"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.11"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.12"
 
 ironicUpgradeSpecs:
 # Upgrade Ironic 33.0 -> 35.0 | BMO 0.12 (IrSO 0.9 is the newest release that still supports 33.0)
@@ -138,17 +138,17 @@ ironicUpgradeSpecs:
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-33.0"
   upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-35.0"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.9"
-# Upgrade Ironic 35.0 -> 38.0 (latest) | BMO 0.13 (IrSO 0.11 is the newest release, supports up to the true latest Ironic)
+# Upgrade Ironic 35.0 -> 38.0 | BMO 0.13 (IrSO 0.11 supports Ironic 35.0)
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.13"
   initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-35.0"
   upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-38.0"
   irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.11"
-# Upgrade Ironic 37.0 -> 38.0 (latest) | BMO 0.14 (IrSO 0.11 is the newest release, supports up to the true latest Ironic)
+# Upgrade Ironic 38.0 -> 39.0 (latest) | BMO 0.14 (IrSO 0.12 supports Ironic 39.0)
 - deployIronic: true
   deployBMO: true
   initBMOKustomization: "../../config/overlays/e2e-release-0.14"
-  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-37.0"
-  upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-38.0"
-  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.11"
+  initIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-38.0"
+  upgradeIronicKustomization: "data/ironic-standalone-operator/ironic/overlays/e2e-release-39.0"
+  irsoKustomization: "data/ironic-standalone-operator/operator/irso-v0.12"

@@ -1137,6 +1137,372 @@ func TestRebootWithoutServicing(t *testing.T) {
 	)
 }
 
+// TestRebootWithOnRequestPolicy ensures that a reboot does not apply changes
+// whose HostUpdatePolicy is onRequest.
+func TestRebootWithOnRequestPolicy(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{metal3api.RebootAnnotationPrefix: ""}
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	hup := newHostUpdatePolicy(host, metal3api.HostUpdatePolicyOnRequest)
+	hfs := newHostFirmwareSettings(host,
+		[]metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	)
+
+	fix := fixture.Fixture{PoweredOn: true}
+	r := newTestReconcilerWithFixture(t, &fix, host, hup, hfs)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.NotEqual(t, metal3api.OperationalStatusServicing, host.Status.OperationalStatus)
+			return !host.Status.PoweredOn
+		},
+	)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.NotEqual(t, metal3api.OperationalStatusServicing, host.Status.OperationalStatus)
+			return host.Status.PoweredOn
+		},
+	)
+}
+
+func newHostUpdatePolicy(host *metal3api.BareMetalHost, policy metal3api.UpdatePolicy) *metal3api.HostUpdatePolicy {
+	return &metal3api.HostUpdatePolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+		Spec: metal3api.HostUpdatePolicySpec{
+			FirmwareSettings: policy,
+			FirmwareUpdates:  policy,
+		},
+	}
+}
+
+func hasEventWithReason(t *testing.T, r *BareMetalHostReconciler, host *metal3api.BareMetalHost, reason string) bool {
+	t.Helper()
+	events := &corev1.EventList{}
+	require.NoError(t, r.List(t.Context(), events, client.InNamespace(host.Namespace)))
+	for _, event := range events.Items {
+		if event.Reason == reason && event.InvolvedObject.Name == host.Name {
+			return true
+		}
+	}
+	return false
+}
+
+// TestServiceAnnotationWithServicing tests that the service annotation
+// triggers servicing without powering the host off.
+func TestServiceAnnotationWithServicing(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{metal3api.ServiceAnnotation: ""}
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	hup := newHostUpdatePolicy(host, metal3api.HostUpdatePolicyOnRequest)
+	hfs := newHostFirmwareSettings(host,
+		[]metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	)
+
+	fix := fixture.Fixture{PoweredOn: true}
+	r := newTestReconcilerWithFixture(t, &fix, host, hup, hfs)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.True(t, host.Status.PoweredOn)
+			return host.Status.OperationalStatus == metal3api.OperationalStatusServicing
+		},
+	)
+
+	// The annotation is kept while servicing is in progress
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.True(t, host.Status.PoweredOn)
+			assert.Equal(t, metal3api.OperationalStatusServicing, host.Status.OperationalStatus)
+			assert.Contains(t, host.Annotations, metal3api.ServiceAnnotation)
+			return fix.LastServicingData != nil
+		},
+	)
+
+	require.NoError(t, r.Get(t.Context(), client.ObjectKeyFromObject(hfs), hfs))
+	hfs.Status.Conditions = []metav1.Condition{
+		{Type: "ChangeDetected", Status: "False", Reason: "Success"},
+		{Type: "Valid", Status: "True", Reason: "Success"},
+	}
+	require.NoError(t, r.Status().Update(t.Context(), hfs))
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.True(t, host.Status.PoweredOn)
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK
+		},
+	)
+
+	// The annotation is removed once servicing has finished
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.True(t, host.Status.PoweredOn)
+			assert.Equal(t, metal3api.OperationalStatusOK, host.Status.OperationalStatus)
+			_, exists := host.Annotations[metal3api.ServiceAnnotation]
+			return !exists
+		},
+	)
+
+	// make sure we don't go into another servicing or power cycle
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn && host.Status.OperationalStatus == metal3api.OperationalStatusOK
+		},
+	)
+
+	assert.False(t, hasEventWithReason(t, r, host, "ServiceAnnotationIgnored"))
+}
+
+// TestServiceAnnotationPoweredOff tests that the service annotation triggers
+// servicing of a powered off host without powering it on.
+func TestServiceAnnotationPoweredOff(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{metal3api.ServiceAnnotation: ""}
+	host.Status.PoweredOn = false
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = false
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	hup := newHostUpdatePolicy(host, metal3api.HostUpdatePolicyOnRequest)
+	hfs := newHostFirmwareSettings(host,
+		[]metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	)
+
+	fix := fixture.Fixture{PoweredOn: false}
+	r := newTestReconcilerWithFixture(t, &fix, host, hup, hfs)
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.False(t, host.Status.PoweredOn)
+			return host.Status.OperationalStatus == metal3api.OperationalStatusServicing
+		},
+	)
+
+	require.NoError(t, r.Get(t.Context(), client.ObjectKeyFromObject(hfs), hfs))
+	hfs.Status.Conditions = []metav1.Condition{
+		{Type: "ChangeDetected", Status: "False", Reason: "Success"},
+		{Type: "Valid", Status: "True", Reason: "Success"},
+	}
+	require.NoError(t, r.Status().Update(t.Context(), hfs))
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.False(t, host.Status.PoweredOn)
+			_, exists := host.Annotations[metal3api.ServiceAnnotation]
+			return host.Status.OperationalStatus == metal3api.OperationalStatusOK && !exists
+		},
+	)
+}
+
+func newHostFirmwareComponents(host *metal3api.BareMetalHost) *metal3api.HostFirmwareComponents {
+	return &metal3api.HostFirmwareComponents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+		Spec: metal3api.HostFirmwareComponentsSpec{
+			Updates: []metal3api.FirmwareUpdate{
+				{Component: "bmc", URL: "http://example.com/bmc.exe"},
+			},
+		},
+		Status: metal3api.HostFirmwareComponentsStatus{
+			Conditions: []metav1.Condition{
+				{Type: string(metal3api.HostFirmwareComponentsChangeDetected), Status: "True", Reason: "Success"},
+				{Type: string(metal3api.HostFirmwareComponentsValid), Status: "True", Reason: "Success"},
+			},
+		},
+	}
+}
+
+// TestServicingMixedPolicies ensures that servicing only applies changes
+// whose HostUpdatePolicy matches what triggered it.
+func TestServicingMixedPolicies(t *testing.T) {
+	testCases := []struct {
+		Scenario         string
+		Annotation       string
+		ExpectSettings   bool
+		ExpectComponents bool
+	}{
+		{
+			Scenario:         "service annotation applies onRequest changes",
+			Annotation:       metal3api.ServiceAnnotation,
+			ExpectComponents: true,
+		},
+		{
+			Scenario:       "reboot applies onReboot changes",
+			Annotation:     metal3api.RebootAnnotationPrefix,
+			ExpectSettings: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := newDefaultHost(t)
+			host.Annotations = map[string]string{tc.Annotation: ""}
+			host.Status.PoweredOn = true
+			host.Status.Provisioning.State = metal3api.StateProvisioned
+			host.Spec.Online = true
+			host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+			host.Status.Provisioning.Image.URL = "foo"
+
+			hup := &metal3api.HostUpdatePolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      host.Name,
+					Namespace: host.Namespace,
+				},
+				Spec: metal3api.HostUpdatePolicySpec{
+					FirmwareSettings: metal3api.HostUpdatePolicyOnReboot,
+					FirmwareUpdates:  metal3api.HostUpdatePolicyOnRequest,
+				},
+			}
+			hfs := newHostFirmwareSettings(host,
+				[]metav1.Condition{
+					{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+					{Type: "Valid", Status: "True", Reason: "Success"},
+				},
+			)
+			hfc := newHostFirmwareComponents(host)
+
+			fix := fixture.Fixture{PoweredOn: true}
+			r := newTestReconcilerWithFixture(t, &fix, host, hup, hfs, hfc)
+
+			tryReconcile(t, r, host,
+				func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+					return fix.LastServicingData != nil
+				},
+			)
+
+			assert.Equal(t, tc.ExpectSettings, len(fix.LastServicingData.TargetFirmwareSettings) > 0)
+			assert.Equal(t, tc.ExpectComponents, len(fix.LastServicingData.TargetFirmwareComponents) > 0)
+		})
+	}
+}
+
+// TestServiceAnnotationWithoutServicing ensures that the service annotation is
+// removed without servicing when there is nothing to apply on request.
+func TestServiceAnnotationWithoutServicing(t *testing.T) {
+	testCases := []struct {
+		Scenario      string
+		Policy        metal3api.UpdatePolicy
+		ChangePending bool
+		ExpectEvent   bool
+	}{
+		{
+			Scenario:      "no policy",
+			ChangePending: true,
+			ExpectEvent:   true,
+		},
+		{
+			Scenario:      "onReboot policy",
+			Policy:        metal3api.HostUpdatePolicyOnReboot,
+			ChangePending: true,
+			ExpectEvent:   true,
+		},
+		{
+			Scenario:      "onRequest policy without changes",
+			Policy:        metal3api.HostUpdatePolicyOnRequest,
+			ChangePending: false,
+			ExpectEvent:   false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := newDefaultHost(t)
+			host.Annotations = map[string]string{metal3api.ServiceAnnotation: ""}
+			host.Status.PoweredOn = true
+			host.Status.Provisioning.State = metal3api.StateProvisioned
+			host.Spec.Online = true
+			host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+			host.Status.Provisioning.Image.URL = "foo"
+
+			changeDetected := metav1.ConditionFalse
+			if tc.ChangePending {
+				changeDetected = metav1.ConditionTrue
+			}
+			hfs := newHostFirmwareSettings(host,
+				[]metav1.Condition{
+					{Type: "ChangeDetected", Status: changeDetected, Reason: "Success"},
+					{Type: "Valid", Status: "True", Reason: "Success"},
+				},
+			)
+			objects := []runtime.Object{host, hfs}
+			if tc.Policy != "" {
+				objects = append(objects, newHostUpdatePolicy(host, tc.Policy))
+			}
+
+			fix := fixture.Fixture{PoweredOn: true}
+			r := newTestReconcilerWithFixture(t, &fix, objects...)
+
+			tryReconcile(t, r, host,
+				func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+					assert.True(t, host.Status.PoweredOn)
+					assert.NotEqual(t, metal3api.OperationalStatusServicing, host.Status.OperationalStatus)
+					_, exists := host.Annotations[metal3api.ServiceAnnotation]
+					return !exists
+				},
+			)
+
+			assert.Equal(t, tc.ExpectEvent, hasEventWithReason(t, r, host, "ServiceAnnotationIgnored"))
+		})
+	}
+}
+
+// TestServiceAnnotationNotProvisioned ensures that the service annotation is
+// kept until the host is provisioned.
+func TestServiceAnnotationNotProvisioned(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Annotations = map[string]string{metal3api.ServiceAnnotation: ""}
+	host.Status.PoweredOn = true
+	host.Status.Provisioning.State = metal3api.StateAvailable
+	host.Spec.Online = true
+
+	hup := newHostUpdatePolicy(host, metal3api.HostUpdatePolicyOnRequest)
+	hfs := newHostFirmwareSettings(host,
+		[]metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	)
+
+	fix := fixture.Fixture{PoweredOn: true}
+	r := newTestReconcilerWithFixture(t, &fix, host, hup, hfs)
+
+	iterations := 0
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			assert.True(t, host.Status.PoweredOn)
+			assert.NotEqual(t, metal3api.OperationalStatusServicing, host.Status.OperationalStatus)
+			assert.Contains(t, host.Annotations, metal3api.ServiceAnnotation)
+			iterations++
+			return iterations >= 10
+		},
+	)
+}
+
 func getHostSecret(t *testing.T, r *BareMetalHostReconciler, host *metal3api.BareMetalHost) (secret *corev1.Secret) {
 	t.Helper()
 	secret = &corev1.Secret{}

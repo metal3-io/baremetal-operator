@@ -420,6 +420,90 @@ var _ = Describe("Host Firmware Settings", Label("required", "firmware", "ironic
 			Logf("WARNING: Skipping SSH check since SSH_CHECK_PROVISIONED != true")
 		}
 
+		By("Waiting for the BMH to be powered on after the reboot")
+		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  PoweredOn,
+		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
+
+		By("Changing the HostUpdatePolicy to apply firmware changes on request")
+		Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(hup), hup)).To(Succeed())
+		helper, err = patch.NewHelper(hup, clusterProxy.GetClient())
+		Expect(err).NotTo(HaveOccurred())
+		hup.Spec.FirmwareSettings = metal3api.HostUpdatePolicyOnRequest
+		Expect(helper.Patch(ctx, hup)).To(Succeed())
+
+		By("Updating HostFirmwareSettings with the original value")
+		helper, err = patch.NewHelper(hfs, clusterProxy.GetClient())
+		Expect(err).NotTo(HaveOccurred())
+		hfs.Spec.Settings = metal3api.DesiredSettingsMap{
+			hfsTestKey2: intstr.FromString(hfsTestOrigValue2),
+		}
+		Expect(helper.Patch(ctx, hfs)).To(Succeed())
+
+		By("Verifying the conditions on firmware setting")
+		Eventually(func(g Gomega) {
+			g.Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+				Name:      bmhName,
+				Namespace: namespace.Name,
+			}, hfs)).To(Succeed())
+			g.Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsValid), metav1.ConditionTrue))
+			g.Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsChangeDetected), metav1.ConditionTrue))
+		}, e2eConfig.GetIntervals(specName, "wait-reconcile")...).Should(Succeed())
+
+		By("Triggering servicing without a reboot via annotation")
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, &bmh)).To(Succeed())
+		AnnotateBmh(ctx, clusterProxy.GetClient(), bmh, metal3api.ServiceAnnotation, ptr.To(""))
+
+		By("Waiting for the BMH to enter servicing without being powered off")
+		Eventually(func(g Gomega) {
+			current := metal3api.BareMetalHost{}
+			g.Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(&bmh), &current)).To(Succeed())
+			if !current.Status.PoweredOn {
+				StopTrying("BMH was powered off before servicing started").Now()
+			}
+			if current.Status.OperationalStatus == metal3api.OperationalStatusError {
+				StopTrying("BMH is in an unexpected state: " + string(current.Status.OperationalStatus)).Now()
+			}
+			g.Expect(current.Status.OperationalStatus).To(Equal(metal3api.OperationalStatusServicing))
+		}, e2eConfig.GetIntervals(specName, "wait-servicing")...).Should(Succeed())
+
+		By("Waiting for servicing to complete")
+		WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  metal3api.OperationalStatusOK,
+			UndesiredStates: []metal3api.OperationalStatus{
+				metal3api.OperationalStatusError,
+			},
+		}, e2eConfig.GetIntervals(specName, "wait-firmware-settings")...)
+
+		By("Verifying the original firmware setting was restored in HFS status")
+		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{
+			Name:      bmhName,
+			Namespace: namespace.Name,
+		}, hfs)).To(Succeed())
+		Expect(hfs.Status.Settings).To(HaveKeyWithValue(hfsTestKey2, hfsTestOrigValue2))
+		Expect(hfs.Status.Conditions).To(ContainCondition(string(metal3api.FirmwareSettingsChangeDetected), metav1.ConditionFalse))
+
+		By("Waiting for the service annotation to be removed")
+		Eventually(func(g Gomega) {
+			current := metal3api.BareMetalHost{}
+			g.Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(&bmh), &current)).To(Succeed())
+			g.Expect(current.Annotations).NotTo(HaveKey(metal3api.ServiceAnnotation))
+		}, e2eConfig.GetIntervals(specName, "wait-firmware-settings")...).Should(Succeed())
+
+		By("Verifying the BMH is powered on")
+		WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
+			Client: clusterProxy.GetClient(),
+			Bmh:    bmh,
+			State:  PoweredOn,
+		}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
+
 		By("Deleting the BMH")
 		Expect(clusterProxy.GetClient().Delete(ctx, &bmh)).To(Succeed())
 

@@ -55,6 +55,12 @@ const (
 	// when rebooting - hard/soft.
 	RebootAnnotationPrefix = "reboot.metal3.io"
 
+	// ServiceAnnotation is the annotation which requests servicing of a
+	// provisioned host without rebooting it first.
+	// Only changes with the onRequest HostUpdatePolicy are applied.
+	// It is removed once servicing has finished or if there is nothing to do.
+	ServiceAnnotation = "service.metal3.io"
+
 	// InspectAnnotationPrefix is used to specify if automatic introspection carried out
 	// during registration of BMH is enabled or disabled.
 	InspectAnnotationPrefix = "inspect.metal3.io"

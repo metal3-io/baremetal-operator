@@ -511,6 +511,15 @@ func clearRebootAnnotations(host *metal3api.BareMetalHost) (dirty bool) {
 	return
 }
 
+// clearServiceAnnotation removes the service annotation from the host.
+func (r *BareMetalHostReconciler) clearServiceAnnotation(ctx context.Context, info *reconcileInfo) actionResult {
+	delete(info.host.Annotations, metal3api.ServiceAnnotation)
+	if err := r.Update(ctx, info.host); err != nil {
+		return actionError{fmt.Errorf("failed to remove service annotation from host: %w", err)}
+	}
+	return actionContinue{}
+}
+
 // inspectionRefreshRequested checks for existence of inspect.metal3.io
 // annotation and returns true if it exist.
 func inspectionRefreshRequested(host *metal3api.BareMetalHost) bool {
@@ -1623,12 +1632,13 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 	return actionComplete{}
 }
 
-func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy) (result actionResult) {
+// doServiceIfNeeded starts or continues servicing. Only changes whose HostUpdatePolicy is in expectedPolicies are applied.
+func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo, hup *metal3api.HostUpdatePolicy, expectedPolicies []metal3api.UpdatePolicy) (result actionResult) {
 	info.log.V(VerbosityLevelTrace).Info("doServiceIfNeeded started")
 	servicingData := provisioner.ServicingData{}
 
 	// (NOTE)janders: since Servicing is an opt-in feature that requires HostUpdatePolicy to be created and set to onReboot
-	// set below booleans to false by default and change to true based on policy settings
+	// or onRequest, set below booleans to false by default and change to true based on policy settings
 
 	var hfsDirty bool
 	var hfcDirty bool
@@ -1636,8 +1646,8 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 	var liveFirmwareSettingsAllowed, liveFirmwareUpdatesAllowed bool
 
 	if hup != nil {
-		liveFirmwareSettingsAllowed = (hup.Spec.FirmwareSettings == metal3api.HostUpdatePolicyOnReboot)
-		liveFirmwareUpdatesAllowed = (hup.Spec.FirmwareUpdates == metal3api.HostUpdatePolicyOnReboot)
+		liveFirmwareSettingsAllowed = slices.Contains(expectedPolicies, hup.Spec.FirmwareSettings)
+		liveFirmwareUpdatesAllowed = slices.Contains(expectedPolicies, hup.Spec.FirmwareUpdates)
 	}
 
 	if liveFirmwareSettingsAllowed {
@@ -1793,8 +1803,15 @@ func (r *BareMetalHostReconciler) manageHostPower(ctx context.Context, prov prov
 		}
 	}
 
-	servicingAllowed := isProvisioned && !info.host.Status.PoweredOn && desiredPowerOnState
-	if servicingAllowed || info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing || info.host.Status.ErrorType == metal3api.ServicingError {
+	// The service annotation requests servicing without powering the host off first and applies
+	// onRequest changes. Powering on applies onReboot changes. The annotation is kept until
+	// servicing has finished, so that servicing in progress only applies the requested changes.
+	_, hasServiceAnnotation := info.host.Annotations[metal3api.ServiceAnnotation]
+	serviceRequested := isProvisioned && hasServiceAnnotation
+	rebootRequested := isProvisioned && desiredPowerOnState && !info.host.Status.PoweredOn
+	servicingInProgress := info.host.Status.OperationalStatus == metal3api.OperationalStatusServicing || info.host.Status.ErrorType == metal3api.ServicingError
+
+	if serviceRequested || rebootRequested || servicingInProgress {
 		var hup *metal3api.HostUpdatePolicy
 		hup, err = r.acquireHostUpdatePolicy(ctx, info)
 		if err != nil {
@@ -1803,9 +1820,28 @@ func (r *BareMetalHostReconciler) manageHostPower(ctx context.Context, prov prov
 			return actionError{fmt.Errorf("failed setting owner reference on hostUpdatePolicy: %w", err)}
 		}
 
-		result := r.doServiceIfNeeded(ctx, prov, info, hup)
+		if serviceRequested && (hup == nil || (hup.Spec.FirmwareSettings != metal3api.HostUpdatePolicyOnRequest && hup.Spec.FirmwareUpdates != metal3api.HostUpdatePolicyOnRequest)) {
+			info.publishEvent("ServiceAnnotationIgnored",
+				fmt.Sprintf("%s annotation removed: no HostUpdatePolicy field is set to %s", metal3api.ServiceAnnotation, metal3api.HostUpdatePolicyOnRequest))
+			return r.clearServiceAnnotation(ctx, info)
+		}
+
+		var expectedPolicies []metal3api.UpdatePolicy
+		if serviceRequested {
+			expectedPolicies = append(expectedPolicies, metal3api.HostUpdatePolicyOnRequest)
+		}
+		if rebootRequested || (servicingInProgress && !serviceRequested) {
+			expectedPolicies = append(expectedPolicies, metal3api.HostUpdatePolicyOnReboot)
+		}
+
+		result := r.doServiceIfNeeded(ctx, prov, info, hup, expectedPolicies)
 		if result != nil {
 			return result
+		}
+
+		if serviceRequested {
+			// Servicing has finished or there is nothing to apply
+			return r.clearServiceAnnotation(ctx, info)
 		}
 	}
 

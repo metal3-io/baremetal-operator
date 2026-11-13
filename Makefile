@@ -177,9 +177,18 @@ verify-e2e-prerequisites: ## Check that required tools exist for e2e tests
 
 .PHONY: test-e2e
 test-e2e: $(GINKGO) ## Run the end-to-end tests
+	ginkgo_timeout="$(GINKGO_TIMEOUT)"; \
+	if [ -n "$${E2E_JOB_DEADLINE:-}" ]; then \
+		remaining_seconds=$$((E2E_JOB_DEADLINE - $$(date +%s) - 300)); \
+		if [ "$${remaining_seconds}" -le 0 ]; then \
+			echo "No time remains to run E2E tests before the artifact collection window"; \
+			exit 1; \
+		fi; \
+		ginkgo_timeout="$${remaining_seconds}s"; \
+	fi; \
 	$(GINKGO) -v --trace -poll-progress-after=$(GINKGO_POLL_PROGRESS_AFTER) \
 		-poll-progress-interval=$(GINKGO_POLL_PROGRESS_INTERVAL) --tags=e2e,vbmctl --focus="$(GINKGO_FOCUS)" \
-		$(_SKIP_ARGS) $(_LABEL_FILTER_ARGS) --nodes=$(GINKGO_NODES) --timeout=$(GINKGO_TIMEOUT) --no-color=$(GINKGO_NOCOLOR) \
+		$(_SKIP_ARGS) $(_LABEL_FILTER_ARGS) --nodes=$(GINKGO_NODES) --timeout="$${ginkgo_timeout}" --no-color=$(GINKGO_NOCOLOR) \
 		--output-dir="$(ARTIFACTS)" --junit-report="junit.e2e_suite.1.xml" $(GINKGO_ARGS) test/e2e -- \
 		-e2e.config="$(E2E_CONF_FILE)" -e2e.bmcsConfig="$(E2E_BMCS_CONF_FILE)" \
 		-e2e.use-existing-cluster=$(USE_EXISTING_CLUSTER) \

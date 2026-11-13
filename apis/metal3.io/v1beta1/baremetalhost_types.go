@@ -608,27 +608,27 @@ type BareMetalHostSpec struct {
 	// the image will cause the host to start provisioning.
 	Image *Image `json:"image,omitempty"`
 
-	// UserData holds the reference to the Secret containing the user data
+	// UserDataName is the name of the Secret containing the user data
 	// which is passed to the Config Drive and interpreted by the
 	// first-boot software such as cloud-init. The format of user data is
 	// specific to the first-boot software.
-	UserData *corev1.SecretReference `json:"userData,omitempty"`
+	UserDataName string `json:"userDataName,omitempty"`
 
 	// PreprovisioningNetworkDataName is the name of the Secret in the
 	// local namespace containing network configuration which is passed to
 	// the preprovisioning image, and to the Config Drive if not overridden
-	// by specifying NetworkData.
+	// by specifying NetworkDataName.
 	PreprovisioningNetworkDataName string `json:"preprovisioningNetworkDataName,omitempty"`
 
-	// NetworkData holds the reference to the Secret containing network
+	// NetworkDataName is the name of the Secret containing network
 	// configuration which is passed to the Config Drive and interpreted
 	// by the first boot software such as cloud-init.
-	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
+	NetworkDataName string `json:"networkDataName,omitempty"`
 
-	// MetaData holds the reference to the Secret containing host metadata
+	// MetaDataName is the name of the Secret containing host metadata
 	// which is passed to the Config Drive. By default, metadata will be
 	// generated for the host, so most users do not need to set this field.
-	MetaData *corev1.SecretReference `json:"metaData,omitempty"`
+	MetaDataName string `json:"metaDataName,omitempty"`
 
 	// Description is a human-entered text used to help identify the host.
 	Description string `json:"description,omitempty"`

@@ -1926,38 +1926,18 @@ spec:
                 - agent
                 - fast
                 type: string
-              metaData:
+              metaDataName:
                 description: |-
-                  MetaData holds the reference to the Secret containing host metadata
+                  MetaDataName is the name of the Secret containing host metadata
                   which is passed to the Config Drive. By default, metadata will be
                   generated for the host, so most users do not need to set this field.
-                properties:
-                  name:
-                    description: name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
-              networkData:
+                type: string
+              networkDataName:
                 description: |-
-                  NetworkData holds the reference to the Secret containing network
+                  NetworkDataName is the name of the Secret containing network
                   configuration which is passed to the Config Drive and interpreted
                   by the first boot software such as cloud-init.
-                properties:
-                  name:
-                    description: name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
+                type: string
               networkInterfaces:
                 description: |-
                   NetworkInterfaces defines the network configuration for each interface.
@@ -2044,7 +2024,7 @@ spec:
                   PreprovisioningNetworkDataName is the name of the Secret in the
                   local namespace containing network configuration which is passed to
                   the preprovisioning image, and to the Config Drive if not overridden
-                  by specifying NetworkData.
+                  by specifying NetworkDataName.
                 type: string
               raid:
                 description: |-
@@ -2307,23 +2287,13 @@ spec:
                   - key
                   type: object
                 type: array
-              userData:
+              userDataName:
                 description: |-
-                  UserData holds the reference to the Secret containing the user data
+                  UserDataName is the name of the Secret containing the user data
                   which is passed to the Config Drive and interpreted by the
                   first-boot software such as cloud-init. The format of user data is
                   specific to the first-boot software.
-                properties:
-                  name:
-                    description: name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
+                type: string
             required:
             - online
             type: object

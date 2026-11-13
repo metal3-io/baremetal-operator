@@ -12,7 +12,3 @@ config:
 
 # Don't autofix anything, we're linting here
 fix: false
-
-# CLAUDE.md is a pointer file for AI tooling, not prose documentation
-ignores:
-- "CLAUDE.md"

@@ -6,6 +6,27 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// Defaults shared by VM, volume, and libvirt network configurations.
+const (
+	// DefaultVMMemory is the default VM memory in MB.
+	DefaultVMMemory = 4096
+
+	// DefaultVMVCPUs is the default number of VM vCPUs.
+	DefaultVMVCPUs = 2
+
+	// DefaultVolumeSize is the default volume size in GB.
+	DefaultVolumeSize = 20
+
+	// DefaultNetworkBridge is the default network interface name.
+	DefaultNetworkBridge = "metal3"
+
+	// DefaultNetworkAddress is the default address for the bridge interface.
+	DefaultNetworkAddress = "192.168.222.1"
+
+	// DefaultNetworkNetmask is the default netmask for the network.
+	DefaultNetworkNetmask = 24
+)
+
 // VMConfig represents the configuration for a virtual machine.
 type VMConfig struct {
 	// Name is the name of the virtual machine.
@@ -238,10 +259,10 @@ type DockerBridgeNetwork struct {
 func (c VMConfig) Defaults() VMConfig {
 	cfg := c
 	if cfg.Memory == 0 {
-		cfg.Memory = 4096 // 4GB default
+		cfg.Memory = DefaultVMMemory
 	}
 	if cfg.VCPUs == 0 {
-		cfg.VCPUs = 2 // 2 vCPUs default
+		cfg.VCPUs = DefaultVMVCPUs
 	}
 	return cfg
 }
@@ -250,7 +271,7 @@ func (c VMConfig) Defaults() VMConfig {
 func (c VolumeConfig) Defaults() VolumeConfig {
 	cfg := c
 	if cfg.Size == 0 {
-		cfg.Size = 20 // 20GB default
+		cfg.Size = DefaultVolumeSize
 	}
 	return cfg
 }
@@ -259,13 +280,13 @@ func (c VolumeConfig) Defaults() VolumeConfig {
 func (c NetworkConfig) Defaults() NetworkConfig {
 	cfg := c
 	if cfg.Bridge == "" {
-		cfg.Bridge = "metal3"
+		cfg.Bridge = DefaultNetworkBridge
 	}
 	if cfg.Address == "" {
-		cfg.Address = "192.168.222.1"
+		cfg.Address = DefaultNetworkAddress
 	}
 	if cfg.Netmask == 0 {
-		cfg.Netmask = 24
+		cfg.Netmask = DefaultNetworkNetmask
 	}
 	return cfg
 }

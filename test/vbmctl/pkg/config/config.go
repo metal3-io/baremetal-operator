@@ -34,22 +34,22 @@ const (
 	DefaultPoolPath = "/tmp/pool_oo"
 
 	// DefaultVMMemory is the default VM memory in MB.
-	DefaultVMMemory = 4096
+	DefaultVMMemory = vbmctlapi.DefaultVMMemory
 
 	// DefaultVMVCPUs is the default number of VM vCPUs.
-	DefaultVMVCPUs = 2
+	DefaultVMVCPUs = vbmctlapi.DefaultVMVCPUs
 
 	// DefaultVolumeSize is the default volume size in GB.
-	DefaultVolumeSize = 20
+	DefaultVolumeSize = vbmctlapi.DefaultVolumeSize
 
 	// DefaultNetworkBridge is the default network interface name.
-	DefaultNetworkBridge = "metal3"
+	DefaultNetworkBridge = vbmctlapi.DefaultNetworkBridge
 
 	// DefaultNetworkAddress is the default address for the bridge interface.
-	DefaultNetworkAddress = "192.168.222.1"
+	DefaultNetworkAddress = vbmctlapi.DefaultNetworkAddress
 
 	// DefaultNetworkNetmask is the default netmask for the network.
-	DefaultNetworkNetmask = 24
+	DefaultNetworkNetmask = vbmctlapi.DefaultNetworkNetmask
 
 	// dirPermissions is the default permission for directories.
 	dirPermissions = 0750

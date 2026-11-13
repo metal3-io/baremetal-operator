@@ -81,7 +81,7 @@ func getCredentialSecret(ctx context.Context, c client.Client, namespace string)
 	return secret.Data
 }
 
-var _ = Describe("baremetalswitch", Serial, Label("required", "baremetalswitch"), func() {
+var _ = Describe("baremetalswitch", Serial, Label("optional", "baremetalswitch"), func() {
 	var (
 		specName                         = "baremetalswitch"
 		namespace                        *corev1.Namespace

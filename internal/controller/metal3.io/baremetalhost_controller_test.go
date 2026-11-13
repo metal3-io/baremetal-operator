@@ -1086,6 +1086,92 @@ func TestRebootWithServicing(t *testing.T) {
 	)
 }
 
+// TestServicingEvents checks that a servicing run publishes one
+// ServicingStarted and one ServicingComplete event.
+func TestServicingEvents(t *testing.T) {
+	host := newDefaultHost(t)
+	host.Status.PoweredOn = false
+	host.Status.Provisioning.State = metal3api.StateProvisioned
+	host.Spec.Online = true
+	host.Spec.Image = &metal3api.Image{URL: "foo", Checksum: "123"}
+	host.Status.Provisioning.Image.URL = "foo"
+
+	hup := &metal3api.HostUpdatePolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: namespace,
+		},
+		Spec: metal3api.HostUpdatePolicySpec{
+			FirmwareSettings: metal3api.HostUpdatePolicyOnReboot,
+		},
+	}
+
+	hfs := newHostFirmwareSettings(host,
+		[]metav1.Condition{
+			{Type: "ChangeDetected", Status: "True", Reason: "Success"},
+			{Type: "Valid", Status: "True", Reason: "Success"},
+		},
+	)
+	hfsKey := client.ObjectKey{
+		Name:      hfs.Name,
+		Namespace: hfs.Namespace,
+	}
+
+	r := newTestReconciler(t, host, hup, hfs)
+
+	eventsWithReason := func(reason string) []corev1.Event {
+		events := &corev1.EventList{}
+		require.NoError(t, r.Client.List(t.Context(), events))
+		return slices.DeleteFunc(events.Items, func(e corev1.Event) bool {
+			return e.Reason != reason
+		})
+	}
+	countEvents := func(reason string) int {
+		return len(eventsWithReason(reason))
+	}
+
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.OperationalStatus == metal3api.OperationalStatusServicing
+		},
+	)
+	assert.Equal(t, 1, countEvents("ServicingStarted"))
+	assert.Equal(t, 0, countEvents("ServicingComplete"))
+
+	// Reconcile again while servicing is in progress, the event must not repeat.
+	for range 3 {
+		_, err := r.Reconcile(t.Context(), newRequest(host))
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 1, countEvents("ServicingStarted"))
+
+	// The settings are applied.
+	require.NoError(t, r.Client.Get(t.Context(), hfsKey, hfs))
+	hfs.Status.Conditions = []metav1.Condition{
+		{Type: "ChangeDetected", Status: "False", Reason: "Success"},
+		{Type: "Valid", Status: "True", Reason: "Success"},
+	}
+	require.NoError(t, r.Client.Status().Update(t.Context(), hfs))
+
+	waitForStatus(t, r, host, metal3api.OperationalStatusOK)
+	assert.Equal(t, 1, countEvents("ServicingStarted"))
+	assert.Equal(t, 1, countEvents("ServicingComplete"))
+	// The message must not claim success: servicing also ends this way when
+	// the provisioner aborts it because the firmware specs were removed.
+	if completed := eventsWithReason("ServicingComplete"); assert.Len(t, completed, 1) {
+		assert.Equal(t, "Host servicing finished", completed[0].Message)
+	}
+
+	// Nothing to service anymore, the servicing events must not repeat.
+	tryReconcile(t, r, host,
+		func(host *metal3api.BareMetalHost, result reconcile.Result) bool {
+			return host.Status.PoweredOn
+		},
+	)
+	assert.Equal(t, 1, countEvents("ServicingStarted"))
+	assert.Equal(t, 1, countEvents("ServicingComplete"))
+}
+
 // TestRebootWithoutServicing ensures Servicing is not triggered if HostUpdatePolicy doesn't exist.
 func TestRebootWithoutServicing(t *testing.T) {
 	host := newDefaultHost(t)

@@ -237,6 +237,10 @@ Example configuration:
 				if err != nil {
 					return err
 				}
+				err = containers.WaitForBMCEmulatorReadiness(ctx, cfg.Spec.BMCEmulator)
+				if err != nil {
+					return err
+				}
 			} else {
 				//nolint:forbidigo // CLI output is intentional
 				fmt.Println("No BMC emulator configuration found in the config file.")

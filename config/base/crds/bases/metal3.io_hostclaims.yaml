@@ -191,6 +191,16 @@ spec:
                       as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
                       Only used when Image.URL has the oci:// scheme.
                     type: string
+                  rootFilesystemUUID:
+                    description: |-
+                      RootFilesystemUUID identifies the root filesystem of a whole-disk
+                      image, by its filesystem UUID. Required when deploying a whole-disk
+                      image onto a host with software RAID configured, since the root
+                      filesystem is assembled from multiple disks and Ironic's deploy
+                      process needs this UUID to locate it and correctly reinstall a
+                      RAID-aware bootloader afterwards. Not needed for plain (non-RAID)
+                      deploys.
+                    type: string
                   url:
                     description: URL is a location of an image to deploy.
                     type: string

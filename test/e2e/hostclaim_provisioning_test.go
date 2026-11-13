@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/test/framework"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -181,13 +182,84 @@ var _ = Describe("Associate a hostclaim to a BMH and delete the claim.", Label("
 			By("Waiting for the HostClaim to become associated")
 			checkAssociation(specName, hostClaim, bmh)
 
+			By("Populating the HostClaim")
+			helper, err := patch.NewHelper(hostClaim, clusterProxy.GetClient())
+			Expect(err).NotTo(HaveOccurred())
+			hostClaim.Spec.Image = &metal3api.Image{
+				URL:          e2eConfig.GetVariable("IMAGE_URL"),
+				Checksum:     e2eConfig.GetVariable("IMAGE_CHECKSUM"),
+				ChecksumType: metal3api.AutoChecksum,
+			}
+
+			hostClaim.Spec.PoweredOn = true
+			Expect(helper.Patch(ctx, hostClaim)).To(Succeed())
+
+			By("Waiting for the BMH to be in provisioning state")
+			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    *bmh,
+				State:  metal3api.StateProvisioning,
+			}, e2eConfig.GetIntervals(specName, "wait-provisioning")...)
+
+			By("Waiting for the BMH to become provisioned and running")
+			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    *bmh,
+				State:  metal3api.StateProvisioned,
+			}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
+
+			WaitForBmhInPowerState(ctx, WaitForBmhInPowerStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    *bmh,
+				State:  PoweredOn,
+			}, e2eConfig.GetIntervals(specName, "wait-power-state")...)
+
 			By("Deleting the hostclaim")
 			err = clusterProxy.GetClient().Delete(ctx, hostClaim)
 			Expect(err).NotTo(HaveOccurred())
 			checkNoConsumer(specName, bmh)
+			WaitForHostClaimDeleted(ctx, clusterProxy.GetClient(), hostClaim, e2eConfig.GetIntervals(specName, "wait-deleted")...)
+
+			By("Creating a claim with forged BMH link")
+			hostClaim = &metal3api.HostClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      specName,
+					Namespace: namespaceClaim.Name,
+				},
+				Spec: metal3api.HostClaimSpec{
+					HostSelector: metal3api.HostSelector{
+						MatchLabels: map[string]string{selectorLabel: "other"},
+					},
+					PoweredOn: true,
+				},
+			}
+			Expect(clusterProxy.GetClient().Create(ctx, hostClaim)).To(Succeed())
+			toCleanupClaim = append(toCleanupClaim, hostClaim)
+			Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(hostClaim), hostClaim)).To(Succeed())
+			patch := client.MergeFrom(hostClaim.DeepCopy())
+			hostClaim.Status.BareMetalHost = &metal3api.ObjectReference{
+				Namespace: bmh.Namespace,
+				Name:      bmh.Name,
+			}
+			Expect(clusterProxy.GetClient().Status().Patch(ctx, hostClaim, patch)).To(Succeed())
+
+			By("Wait for association to fail and BareMetalHost reference reset to nil")
+			WaitForHostClaimCondition(ctx, WaitForHostClaimConditionInput{
+				Client:        clusterProxy.GetClient(),
+				HostClaim:     hostClaim,
+				ConditionType: metal3api.AssociatedCondition,
+				Status:        metav1.ConditionFalse,
+			}, e2eConfig.GetIntervals(specName, "wait-associated")...)
+			keyHostClaim := client.ObjectKeyFromObject(hostClaim)
+			Eventually(func(g Gomega) {
+				g.Expect(clusterProxy.GetClient().Get(ctx, keyHostClaim, hostClaim)).To(Succeed())
+				g.Expect(hostClaim.Status.BareMetalHost).To(BeNil())
+			}, e2eConfig.GetIntervals(specName, "wait-associated")...).Should(Succeed())
+
 		})
 
 		AfterEach(func() {
+			CollectSerialLogs(bmc.Name, path.Join(artifactFolder, specName))
 			DumpResources(ctx, e2eConfig, clusterProxy, path.Join(artifactFolder, specName))
 			if !skipCleanup {
 				Cleanup(ctx, clusterProxy, namespaceBMH, cancelWatches, e2eConfig, toCleanupBMH)

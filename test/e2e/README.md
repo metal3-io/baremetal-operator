@@ -36,20 +36,33 @@ Please note that the script installs Go in `/usr/local/go`. If you want to invok
 the e2e Makefile target directly with `make test-e2e`, you may need to adjust your
 `PATH` accordingly.
 
-Currently there are two sets of tests, which cannot be ran together in the same
-cluster. One is the "optional" set, currently consists of only the
-upgrade tests (`upgrade_*_test.go`), and the "required" set, which are the ones
-required to run in every BMO PR. Every spec is labeled (via Ginkgo's
-`Label(...)`) with its tier (`required` or `optional`), plus additional area
-labels (e.g. `provision`, `inspection`, `firmware`).
+The tests are divided into three tiers, each with its own CI job:
 
-Which tier(s) run is controlled entirely by the `GINKGO_LABEL_FILTER` env var,
+- `required` — relatively fast specs that catch most regressions. Runs on every
+  BMO PR and must pass before merging.
+- `optional` — slower specs that are unlikely to break on a typical change.
+  Triggered on demand on a PR and nightly.
+- `upgrade` — the upgrade specs (`upgrade_*_test.go`) only. Kept in their own
+  job because they create their own clusters and deploy their own
+  Ironic/BMO/cert-manager, so they cannot share the management cluster the
+  other specs use.
+
+Every spec is labeled (via Ginkgo's `Label(...)`) with exactly one tier, plus
+additional area labels (e.g. `provision`, `inspection`, `firmware`). The tier
+is normally set on the `Describe`, but where a feature has both a fast and a
+slow path (firmware settings, firmware components, automated cleaning) it is
+set per `It` instead, and the container carries only area labels. Specs added
+to those containers must carry a tier label of their own, or they will run in
+no job at all.
+
+Which tier runs is controlled entirely by the `GINKGO_LABEL_FILTER` env var,
 a single [Ginkgo label-filter expression](https://onsi.github.io/ginkgo/#spec-labels)
 applied consistently whether you invoke `make test-e2e` directly or through
 `hack/ci-e2e.sh`. `hack/ci-e2e.sh` defaults `GINKGO_LABEL_FILTER` to
-`required` (the mandatory tier); `make test-e2e` on its own (e.g. for
-the fixture provider) defaults it to an empty filter, running the whole
-suite.
+`required`; `make test-e2e` on its own (e.g. for the fixture provider) defaults
+it to an empty filter, running the whole suite. Selecting the `upgrade` tier
+also disables `DEPLOY_IRONIC`, `DEPLOY_BMO` and `DEPLOY_CERT_MANAGER`, since
+those specs deploy their own stack.
 
 E.g. Here is how to run the E2E required tests:
 
@@ -57,10 +70,10 @@ E.g. Here is how to run the E2E required tests:
 ./hack/ci-e2e.sh
 ```
 
-And here is how to run the E2E optional tests:
+And here is how to run the E2E optional or upgrade tests:
 
 ```bash
-export GINKGO_LABEL_FILTER="optional"
+export GINKGO_LABEL_FILTER="optional"  # or "upgrade"
 ./hack/ci-e2e.sh
 ```
 
@@ -146,10 +159,10 @@ to understand the file structure).
 ## Tests
 
 Here is a list of the currently implemented tests. As mentioned above, we divide
-them into two sets, one required and one optional. The required tests must pass
-on every PR before merging. Optional tests may be triggered for extra
-verification but are not expected to run on all PRs. All tests are checked with
-both redfish and ipmi protocols in CI.
+them into three tiers. The required tests must pass on every PR before merging.
+Optional and upgrade tests may be triggered for extra verification but are not
+expected to run on all PRs. All tests are checked with both redfish and ipmi
+protocols in CI.
 
 **Required tests:**
 
@@ -158,8 +171,6 @@ both redfish and ipmi protocols in CI.
 - External inspection: Check that a BareMetalHost, with inspection disabled and
   hardware details added through an annotation, skips inspection, accepts the
   hardware details from the annotation and becomes available.
-- Re-inspection: Check that an available BareMetalHost is re-inspected when the
-  inspect annotation is added and that this updates the hardware details.
 - Provisioning: Check that an available BareMetalHost can be provisioned, that
   it can be detatched, deleted and re-created, with the status annotation,
   without affecting the host. Finally checks that the BareMetalHost can be
@@ -171,10 +182,30 @@ both redfish and ipmi protocols in CI.
 - Networking: Check that switch port configurations specified via NetworkInterfaces
   and HostNetworkAttachments are correctly resolved, validated, and applied to
   Ironic ports during registration.
+- Host Firmware Settings: Check that firmware settings created before the host
+  are applied through Preparing, and that a new value can be applied to an
+  available host. Only runs with Redfish.
+- Host Firmware Components: Check that a BIOS firmware update is applied via
+  servicing on a provisioned host. Only runs with Redfish.
 
 **Optional tests:**
+
+- Re-inspection: Check that an available BareMetalHost is re-inspected when the
+  inspect annotation is added and that this updates the hardware details.
+- Automated cleaning: Check that the disks are cleaned before provisioning when
+  cleaning is enabled on enrollment.
+- Host Firmware Settings: Check that firmware settings can be updated via
+  servicing, on both provisioned and externally provisioned hosts. Only runs
+  with Redfish.
+- Host Firmware Components: Check that a BIOS firmware update is applied during
+  cleaning, and via servicing on an externally provisioned host. Only runs with
+  Redfish.
+
+**Upgrade tests:**
 
 - Bare Metal Operator upgrade: Check that an older version of the Bare Metal
   Operator works by creating a BareMetalHost with external inspection. Then
   upgrade the Bare Metal Operator and check the BareMetalHost can be
   provisioned with the upgraded version.
+- Ironic upgrade: The same, upgrading Ironic instead of the Bare Metal
+  Operator.

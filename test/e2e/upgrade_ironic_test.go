@@ -205,7 +205,7 @@ func getIronicUpgradeTestCaseName(input *IronicUpgradeSpec) string {
 // The Ordered decorator ensures upgrade tests run one at a time.
 // This is important since the same provisioning IP is used in each test.
 // They can still run in parallel with other tests (since they use another IP).
-var _ = Describe("Ironic upgrade", Serial, Ordered, Label("optional", "upgrade", "ironic-upgrade"), func() {
+var _ = Describe("Ironic upgrade", Serial, Ordered, Label("upgrade", "ironic-upgrade"), func() {
 	var (
 		upgradeClusterProxy    framework.ClusterProxy
 		upgradeClusterProvider bootstrap.ClusterProvider

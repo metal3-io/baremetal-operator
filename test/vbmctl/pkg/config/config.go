@@ -275,6 +275,21 @@ func (c *Config) Validate() error {
 		if c.Spec.ImageServer.ContainerName == "" {
 			return errors.New("image server container name is required")
 		}
+		for i, m := range c.Spec.ImageServer.ExtraMounts {
+			if m.HostPath == "" || m.ContainerPath == "" {
+				return fmt.Errorf("image server extraMounts[%d] requires both hostPath and containerPath", i)
+			}
+		}
+		seenPorts := map[uint16]bool{c.Spec.ImageServer.ContainerPort: true}
+		for i, p := range c.Spec.ImageServer.ExtraPorts {
+			if p.HostPort == 0 || p.ContainerPort == 0 {
+				return fmt.Errorf("image server extraPorts[%d] requires both hostPort and containerPort", i)
+			}
+			if seenPorts[p.ContainerPort] {
+				return fmt.Errorf("image server extraPorts[%d] container port %d is already in use", i, p.ContainerPort)
+			}
+			seenPorts[p.ContainerPort] = true
+		}
 	}
 
 	// Validate BMC emulator config

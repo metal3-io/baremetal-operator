@@ -6,6 +6,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"text/tabwriter"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	containers "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/containers"
@@ -13,6 +15,10 @@ import (
 	"github.com/spf13/cobra"
 	libvirtgo "libvirt.org/go/libvirt"
 )
+
+// statusTablePadding is the number of spaces tabwriter inserts between columns
+// of the "status" VM table.
+const statusTablePadding = 2
 
 func newStatusCmd() *cobra.Command {
 	var containerName string
@@ -78,18 +84,20 @@ func newStatusCmd() *cobra.Command {
 				return err
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Image Server container: %s\n", containerInfo)
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("BMC Emulator container: %s\n", emulatorInfo)
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Virtual Machines:")
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("  NAME\t\tSTATE\t\tMEMORY\tVCPUs")
+			fmt.Fprintf(os.Stdout, "Image Server container: %s\n", containerInfo)
+			fmt.Fprintf(os.Stdout, "BMC Emulator container: %s\n", emulatorInfo)
+			fmt.Fprintln(os.Stdout, "Virtual Machines:")
+
+			// Use a tabwriter so the columns stay aligned regardless of VM name
+			// length (names are only validated as non-empty, so they may be long).
+			w := tabwriter.NewWriter(os.Stdout, 0, 0, statusTablePadding, ' ', 0)
+			fmt.Fprintln(w, "  NAME\tSTATE\tMEMORY\tVCPUs")
 			for _, vm := range vms {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  %s\t\t%s\t\t%dMB\t%d\n",
+				fmt.Fprintf(w, "  %s\t%s\t%dMB\t%d\n",
 					vm.Config.Name, vm.State, vm.Config.Memory, vm.Config.VCPUs)
+			}
+			if err := w.Flush(); err != nil {
+				return fmt.Errorf("failed to write VM table: %w", err)
 			}
 
 			return nil

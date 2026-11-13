@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"os"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
 	"github.com/vishvananda/netlink"
@@ -92,10 +92,10 @@ func ConnectAllWithVeth(ctx context.Context, vethPairs []vbmctlapi.VethPair) err
 		err := ConnectWithVeth(ctx, pair.Link1, pair.Link2, pair.Veth1, pair.Veth2)
 		if err != nil {
 			// Clean up previously created pairs
-			log.Printf("Failed to create veth pair %s, cleaning up %d previously created pair(s)\n", pair.Veth1, len(createdPairs))
+			fmt.Fprintf(os.Stderr, "Failed to create veth pair %s, cleaning up %d previously created pair(s)\n", pair.Veth1, len(createdPairs))
 			for _, created := range createdPairs {
 				if delErr := DeleteLink(ctx, created.Veth1); delErr != nil {
-					log.Printf("Warning: failed to clean up veth pair %s: %v\n", created.Veth1, delErr)
+					fmt.Fprintf(os.Stderr, "Warning: failed to clean up veth pair %s: %v\n", created.Veth1, delErr)
 				}
 			}
 			return fmt.Errorf("failed to create veth pair %s: %w", pair.Veth1, err)
@@ -109,7 +109,7 @@ func DeleteLink(_ context.Context, link string) error {
 	l, err := netlink.LinkByName(link)
 	var notFound netlink.LinkNotFoundError
 	if errors.As(err, &notFound) {
-		log.Printf("cannot delete network interface, interface %s does not exist", link)
+		fmt.Fprintf(os.Stderr, "Cannot delete network interface, interface %s does not exist\n", link)
 		return nil
 	}
 	if err != nil {
@@ -126,7 +126,7 @@ func DeleteAllVeth(ctx context.Context, vethPairs []vbmctlapi.VethPair) error {
 	var lastErr error
 	for _, pair := range vethPairs {
 		if err := DeleteLink(ctx, pair.Veth1); err != nil {
-			log.Printf("Error deleting veth pair %s: %v\n", pair.Veth1, err)
+			fmt.Fprintf(os.Stderr, "Error deleting veth pair %s: %v\n", pair.Veth1, err)
 			lastErr = err
 		}
 	}

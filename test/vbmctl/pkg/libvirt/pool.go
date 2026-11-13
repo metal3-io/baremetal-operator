@@ -66,7 +66,7 @@ func (m *PoolManager) EnsurePool(_ context.Context, cfg vbmctlapi.PoolConfig) (*
 
 	// Set autostart
 	if err = pool.SetAutostart(true); err != nil {
-		log.Printf("Warning: failed to set pool autostart: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to set pool autostart: %v\n", err)
 	}
 
 	// Start the pool
@@ -74,7 +74,7 @@ func (m *PoolManager) EnsurePool(_ context.Context, cfg vbmctlapi.PoolConfig) (*
 		return nil, fmt.Errorf("failed to start storage pool: %w", err)
 	}
 
-	log.Printf("Created storage pool %s at %s\n", cfg.Name, cfg.Path)
+	fmt.Fprintf(os.Stdout, "Created storage pool %s at %s\n", cfg.Name, cfg.Path)
 	return m.getPoolInfo(pool, cfg)
 }
 
@@ -93,7 +93,8 @@ func (m *PoolManager) ensurePoolActive(existingPool *libvirt.StoragePool, cfg vb
 		}
 	}
 
-	log.Printf("Pool %s already exists\n", cfg.Name)
+	// No status message here: EnsurePool runs once per VM during a lab create,
+	// so announcing an already-existing pool would repeat for every VM.
 	return m.getPoolInfo(existingPool, cfg)
 }
 
@@ -109,7 +110,7 @@ func (m *PoolManager) CreateVolume(_ context.Context, poolName, volumeName strin
 	existingVol, err := pool.LookupStorageVolByName(volumeName + ".qcow2")
 	if err == nil {
 		_ = existingVol.Free()
-		log.Printf("Volume %s already exists\n", volumeName)
+		fmt.Fprintf(os.Stderr, "Volume %s already exists\n", volumeName)
 		return nil
 	}
 
@@ -129,7 +130,7 @@ func (m *PoolManager) CreateVolume(_ context.Context, poolName, volumeName strin
 	}
 	defer func() { _ = volume.Free() }()
 
-	log.Printf("Created volume %s in pool %s\n", volumeName, poolName)
+	fmt.Fprintf(os.Stdout, "Created volume %s in pool %s\n", volumeName, poolName)
 	return nil
 }
 
@@ -140,7 +141,7 @@ func (m *PoolManager) DeleteVolume(_ context.Context, poolName, volumeName strin
 		var libvirtErr libvirt.Error
 		if errors.As(err, &libvirtErr) {
 			if libvirtErr.Code == libvirt.ERR_NO_STORAGE_POOL {
-				log.Printf("Pool %s does not exist, skipping volume deletion\n", poolName)
+				fmt.Fprintf(os.Stderr, "Pool %s does not exist, skipping volume deletion\n", poolName)
 				return nil
 			}
 		}
@@ -158,7 +159,7 @@ func (m *PoolManager) DeleteVolume(_ context.Context, poolName, volumeName strin
 		}
 	}
 
-	log.Printf("Volume %s not found in pool %s, skipping\n", volumeName, poolName)
+	fmt.Fprintf(os.Stderr, "Volume %s not found in pool %s, skipping\n", volumeName, poolName)
 	return nil
 }
 
@@ -174,7 +175,7 @@ func (m *PoolManager) tryDeleteVolume(pool *libvirt.StoragePool, poolName, volum
 		return false, fmt.Errorf("failed to delete volume %s: %w", volumeName, err)
 	}
 
-	log.Printf("Deleted volume %s from pool %s\n", volumeName, poolName)
+	fmt.Fprintf(os.Stdout, "Deleted volume %s from pool %s\n", volumeName, poolName)
 	return true, nil
 }
 

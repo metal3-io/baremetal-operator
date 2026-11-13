@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
@@ -39,8 +40,7 @@ test environments for the Bare Metal Operator (BMO) and CAPM3.`,
 		SilenceUsage: true,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			if showVersion {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("vbmctl version %s\n", config.Version)
+				log.Printf("vbmctl version %s", config.Version)
 				os.Exit(0)
 			}
 			return nil

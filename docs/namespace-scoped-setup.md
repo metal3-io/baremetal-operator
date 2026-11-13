@@ -205,7 +205,7 @@ Secret-only Role and RoleBinding there for BMO's service account. Setting
 
   **Example Error Log:**
 
-    ```yaml
+    ```text
   "level": "error",
   "ts": 1754219075.4855175,
   "logger": "controller-runtime.cache.UnhandledError",

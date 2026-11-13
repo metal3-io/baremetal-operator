@@ -193,6 +193,33 @@ func TestGetLLDPData(t *testing.T) {
 	assert.Equal(t, expected, lldpData)
 }
 
+func TestGetNICDetailsInfiniBandClientID(t *testing.T) {
+	clientID := "ff:00:00:00:00:00:02:00:00:02:c9:00:7c:fe:90:03:00:29:26:52"
+	interfaces := []inventory.InterfaceType{
+		{
+			Name:        "ib0",
+			IPV4Address: "192.0.2.10",
+			IPV6Address: "2001:db8::10",
+			MACAddress:  "7c:fe:90:29:26:52",
+			ClientID:    clientID,
+		},
+		{
+			Name:       "eth0",
+			MACAddress: "00:11:22:33:44:55",
+		},
+	}
+
+	nics := getNICDetails(interfaces, inventory.StandardPluginData{})
+
+	// ib0 has both an IPv4 and an IPv6 address, so it results in two items
+	assert.Len(t, nics, 3)
+	assert.Equal(t, clientID, nics[0].InfinibandClientID)
+	assert.Equal(t, "192.0.2.10", nics[0].IP)
+	assert.Equal(t, clientID, nics[1].InfinibandClientID)
+	assert.Equal(t, "2001:db8::10", nics[1].IP)
+	assert.Empty(t, nics[2].InfinibandClientID)
+}
+
 func TestGetNICDetails(t *testing.T) {
 	ironicData := inventory.StandardPluginData{
 		AllInterfaces: map[string]inventory.ProcessedInterfaceType{

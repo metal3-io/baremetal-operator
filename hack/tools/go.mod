@@ -9,7 +9,7 @@ require (
 	golang.org/x/crypto v0.58.0
 	golang.org/x/oauth2 v0.37.0
 	k8s.io/code-generator v0.37.0
-	sigs.k8s.io/cluster-api/test v1.14.3
+	sigs.k8s.io/cluster-api/test v1.14.4
 	sigs.k8s.io/controller-tools v0.22.0
 	sigs.k8s.io/kustomize/api v0.21.2
 	sigs.k8s.io/kustomize/kustomize/v5 v5.8.2

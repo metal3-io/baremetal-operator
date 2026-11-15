@@ -26,6 +26,11 @@ const (
 	// Finalizer for HostClaims that are handled by the hostclaim_controller.
 	HostClaimFinalizer = "metal3.io/hostclaim"
 
+	// DisassociatedLabel marks a HostClaim that lost its association with its BareMetalHost and is
+	// being held for manual review before a new association is performed. Any value blocks reassociation.
+	// Remove the label once the situation has been investigated to let reassociation proceed.
+	DisassociatedLabel = "hostclaim.metal3.io/disassociated"
+
 	// AssociateCondition documents the status of the association of HostClaim with a BareMetalHost.
 	AssociatedCondition = "Associated"
 
@@ -51,6 +56,11 @@ const (
 	HostClaimDeletingReason = "HostClaimDeleting"
 	// HostClaimDeletionFailedReason is used when the deletion of hostclaim encountered an unexpected error.
 	HostClaimDeletionFailedReason = "HostClaimDeletionFailed"
+	// UnexpectedDisassociationReason is the AssociatedCondition reason set when a HostClaim's
+	// BareMetalHost association was lost outside of normal deletion/retry flow (the BareMetalHost
+	// disappeared, or its ConsumerRef no longer points back to this claim). The condition message
+	// explains that manual review is required; see DisassociatedLabel.
+	UnexpectedDisassociationReason = "UnexpectedDisassociation"
 
 	// SynchronizedCondition documents the status of the transfer of information from the
 	// HostClaim to the BareMetalHost.
@@ -74,55 +84,80 @@ const (
 
 // HostClaimSpec defines the desired state of HostClaim.
 type HostClaimSpec struct {
-	// Should the compute resource be powered on? Changing this value will trigger
+	// poweredOn indicates if the compute resource should be powered on. Changing this value will trigger
 	// a change in power state of the targeted host.
 	PoweredOn bool `json:"poweredOn"`
 
-	// Image holds the details of the image to be provisioned. Populating
+	// image holds the details of the image to be provisioned. Populating
 	// the image will cause the target host to start provisioning.
+	// +optional
 	Image *Image `json:"image,omitempty"`
 
-	// UserData holds the reference to the Secret containing the user data
+	// userData holds the reference to the Secret containing the user data
 	// which is passed to the Config Drive and interpreted by the
 	// first-boot software such as cloud-init. The format of user data is
 	// specific to the first-boot software.
+	// +optional
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
-	// NetworkData holds the reference to the Secret containing network
+	// networkData holds the reference to the Secret containing network
 	// configuration which is passed to the Config Drive and interpreted
 	// by the first boot software such as cloud-init.
+	// +optional
 	NetworkData *corev1.SecretReference `json:"networkData,omitempty"`
 
-	// MetaData holds the reference to the Secret containing host metadata
+	// metaData holds the reference to the Secret containing host metadata
 	// (e.g. meta_data.json) which is passed to the Config Drive.
+	// +optional
 	MetaData *corev1.SecretReference `json:"metaData,omitempty"`
 
-	// A custom deploy procedure. This is an advanced feature that allows
+	// customDeploy defines a custom deploy procedure. This is an advanced feature that allows
 	// using a custom deploy step provided by a site-specific deployment
 	// ramdisk. Most users will want to use "image" instead. Setting this
 	// field triggers provisioning.
 	// +optional
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
 
-	// HostSelector specifies matching criteria for labels on BareMetalHosts.
+	// hostSelector specifies matching criteria for labels on BareMetalHosts.
 	// This is used to limit the set of BareMetalHost objects considered for
 	// claiming for a HostClaim.
 	// +optional
 	HostSelector HostSelector `json:"hostSelector,omitempty"`
 
-	// ConsumerRef can be used to store information about something
+	// consumerRef can be used to store information about something
 	// that is using a host. When it is not empty, the host is
 	// considered "in use". The common use case is a link to a Machine
 	// resource when the host is used by Cluster API.
+	// +optional
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
 
-	// FailureDomain is the failure domain unique identifier this HostClaim
+	// failureDomain is the failure domain unique identifier this HostClaim
 	// should be attached to, as defined in Cluster API. It is implemented
 	// when set as a preference for binding BareMetalHost having the label
 	// infrastructure.cluster.x-k8s.io/failure-domain set to the value of
 	// the field.
+	// +optional
 	FailureDomain string `json:"failureDomain,omitempty"`
+
+	// disassociationPolicy controls how a HostClaim reacts to losing its association with
+	// its BareMetalHost. When absent, or set to manual, it
+	// sets hostclaim.metal3.io/disassociated and waits for manual review. If set to
+	// auto-recover, the HostClaim automatically reassociates.
+	// +optional
+	// +kubebuilder:validation:Enum:=manual;auto-recover
+	DisassociationPolicy DisassociationPolicy `json:"disassociationPolicy,omitempty"`
 }
+
+type DisassociationPolicy string
+
+const (
+	// DisassociationPolicyAutoRecover is used to opt a
+	// HostClaim out of manual-review fencing and performs automatic reassociation.
+	DisassociationPolicyAutoRecover DisassociationPolicy = "auto-recover"
+	// DisassociationPolicyManual is the default disassociation policy.
+	// The HostClaim will not reassociate until the label is removed.
+	DisassociationPolicyManual DisassociationPolicy = "manual"
+)
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.
 // This is used to limit the set of BareMetalHost objects considered for

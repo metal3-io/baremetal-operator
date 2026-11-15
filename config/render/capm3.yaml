@@ -3971,7 +3971,7 @@ spec:
             properties:
               consumerRef:
                 description: |-
-                  ConsumerRef can be used to store information about something
+                  consumerRef can be used to store information about something
                   that is using a host. When it is not empty, the host is
                   considered "in use". The common use case is a link to a Machine
                   resource when the host is used by Cluster API.
@@ -4018,7 +4018,7 @@ spec:
                 x-kubernetes-map-type: atomic
               customDeploy:
                 description: |-
-                  A custom deploy procedure. This is an advanced feature that allows
+                  customDeploy defines a custom deploy procedure. This is an advanced feature that allows
                   using a custom deploy step provided by a site-specific deployment
                   ramdisk. Most users will want to use "image" instead. Setting this
                   field triggers provisioning.
@@ -4032,9 +4032,19 @@ spec:
                 required:
                 - method
                 type: object
+              disassociationPolicy:
+                description: |-
+                  disassociationPolicy controls how a HostClaim reacts to losing its association with
+                  its BareMetalHost. When absent, or set to manual, it
+                  sets hostclaim.metal3.io/disassociated and waits for manual review. If set to
+                  auto-recover, the HostClaim automatically reassociates.
+                enum:
+                - manual
+                - auto-recover
+                type: string
               failureDomain:
                 description: |-
-                  FailureDomain is the failure domain unique identifier this HostClaim
+                  failureDomain is the failure domain unique identifier this HostClaim
                   should be attached to, as defined in Cluster API. It is implemented
                   when set as a preference for binding BareMetalHost having the label
                   infrastructure.cluster.x-k8s.io/failure-domain set to the value of
@@ -4042,7 +4052,7 @@ spec:
                 type: string
               hostSelector:
                 description: |-
-                  HostSelector specifies matching criteria for labels on BareMetalHosts.
+                  hostSelector specifies matching criteria for labels on BareMetalHosts.
                   This is used to limit the set of BareMetalHost objects considered for
                   claiming for a HostClaim.
                 properties:
@@ -4083,7 +4093,7 @@ spec:
                 type: object
               image:
                 description: |-
-                  Image holds the details of the image to be provisioned. Populating
+                  image holds the details of the image to be provisioned. Populating
                   the image will cause the target host to start provisioning.
                 properties:
                   checksum:
@@ -4129,7 +4139,7 @@ spec:
                 type: object
               metaData:
                 description: |-
-                  MetaData holds the reference to the Secret containing host metadata
+                  metaData holds the reference to the Secret containing host metadata
                   (e.g. meta_data.json) which is passed to the Config Drive.
                 properties:
                   name:
@@ -4144,7 +4154,7 @@ spec:
                 x-kubernetes-map-type: atomic
               networkData:
                 description: |-
-                  NetworkData holds the reference to the Secret containing network
+                  networkData holds the reference to the Secret containing network
                   configuration which is passed to the Config Drive and interpreted
                   by the first boot software such as cloud-init.
                 properties:
@@ -4160,12 +4170,12 @@ spec:
                 x-kubernetes-map-type: atomic
               poweredOn:
                 description: |-
-                  Should the compute resource be powered on? Changing this value will trigger
+                  poweredOn indicates if the compute resource should be powered on. Changing this value will trigger
                   a change in power state of the targeted host.
                 type: boolean
               userData:
                 description: |-
-                  UserData holds the reference to the Secret containing the user data
+                  userData holds the reference to the Secret containing the user data
                   which is passed to the Config Drive and interpreted by the
                   first-boot software such as cloud-init. The format of user data is
                   specific to the first-boot software.

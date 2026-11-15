@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"math/big"
 	"regexp"
 	"slices"
@@ -55,7 +56,7 @@ const (
 	// a HostClaim.
 	PausedAnnotationValue = "metal3.io/hostclaim"
 	// Requeueing after 0 is in fact not requeuing.
-	TerminalReueueDelay time.Duration = 0
+	TerminalRequeueDelay time.Duration = 0
 	// Standard delay when waiting for other to settle.
 	HostClaimRequeueDelay = time.Second * 30
 	// Small delay for an internal action.
@@ -154,6 +155,23 @@ func (m *Manager) Associate(ctx context.Context) error {
 		// Should have been picked earlier. Do not requeue
 		m.Log.Info("No hostclaim in Associate")
 		return nil
+	}
+
+	if m.isDisassociationBlocked() {
+		m.Log.Info("HostClaim is marked as disassociated; waiting for manual review before reassociating")
+		// markDisassociated already set a more informative condition (naming the lost
+		// BareMetalHost) when the label was first applied; don't stomp it with a generic one on
+		// every subsequent reconcile. Only set a fallback message if the condition isn't already
+		// in that state, e.g. the label was set by hand on a HostClaim that was never associated.
+		if existing := conditions.Get(m.HostClaim, metal3api.AssociatedCondition); existing == nil ||
+			existing.Reason != metal3api.UnexpectedDisassociationReason {
+			m.SetConditionHostToFalse(
+				metal3api.AssociatedCondition, metal3api.UnexpectedDisassociationReason,
+				fmt.Sprintf("Manual intervention required: remove the %s label to allow reassociation",
+					metal3api.DisassociatedLabel))
+		}
+		// HostClaim reconciliation will not proceed further unless the label is removed.
+		return RequeueAfterError{RequeueAfter: TerminalRequeueDelay}
 	}
 
 	bmh, err := m.chooseBMH(ctx)
@@ -284,10 +302,15 @@ func (m *Manager) Update(ctx context.Context) error {
 	bmh, err := m.getAssociatedBMH(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNoBMH) {
-			// The reference to BareMetalHost is wrong (bmh gone, bad ConsumerRef).
-			// Reset status to get a new association. returns nil as the
-			// recovery can be considered as a normal transition.
+			lostRef := m.HostClaim.Status.BareMetalHost
 			m.clearDisassociatedHostClaim()
+			if lostRef != nil && !m.autoRecoverDisassociation() {
+				m.markDisassociated(lostRef.Namespace, lostRef.Name)
+			} else {
+				m.SetConditionHostToFalse(
+					metal3api.AssociatedCondition, metal3api.MissingBareMetalHostReason,
+					"Associated BareMetalHost no longer exists")
+			}
 			return nil
 		}
 		return err
@@ -320,18 +343,18 @@ func (m *Manager) Update(ctx context.Context) error {
 	return nil
 }
 
-// clearDisassociatedHostClaim resets the status of the HostClaim (references and conditions)
-// when the associated BareMetalHost is gone so that it can be associated again.
+// clearDisassociatedHostClaim resets the status of the HostClaim (references and
+// mirrored-from-host conditions) when the associated BareMetalHost is gone. The AssociatedCondition
+// is left to the caller so that both the manual (UnexpectedDisassociation) and auto-recover
+// (MissingBareMetalHost) paths can write it exactly once with the right reason.
 func (m *Manager) clearDisassociatedHostClaim() {
 	hostClaim := m.HostClaim
 	hostClaim.Status.BareMetalHost = nil
 	hostClaim.Status.HardwareData = nil
 	hostClaim.Status.PoweredOn = false
-	message := "Associated BareMetalHost no longer exists"
 	m.SetConditionHostToFalse(
-		metal3api.AssociatedCondition, metal3api.MissingBareMetalHostReason, message)
-	m.SetConditionHostToFalse(
-		metal3api.SynchronizedCondition, metal3api.BareMetalHostNotSynchronizedReason, message)
+		metal3api.SynchronizedCondition, metal3api.BareMetalHostNotSynchronizedReason,
+		"Associated BareMetalHost no longer exists")
 	for _, cond := range []string{metal3api.ProvisionedCondition, metal3api.AvailableForProvisioningCondition, metal3api.HostReadyCondition} {
 		conditions.Set(hostClaim, metav1.Condition{
 			Type:   cond,
@@ -341,6 +364,36 @@ func (m *Manager) clearDisassociatedHostClaim() {
 	}
 	now := metav1.Now()
 	hostClaim.Status.LastUpdated = &now
+}
+
+// autoRecoverDisassociation reports whether this HostClaim opted out of manual-review fencing .
+func (m *Manager) autoRecoverDisassociation() bool {
+	return m.HostClaim.Spec.DisassociationPolicy == metal3api.DisassociationPolicyAutoRecover
+}
+
+// isDisassociationBlocked reports whether this HostClaim is currently held pending manual review.
+func (m *Manager) isDisassociationBlocked() bool {
+	_, ok := m.HostClaim.Labels[metal3api.DisassociatedLabel]
+	return ok
+}
+
+// markDisassociated records that the HostClaim unexpectedly lost its association with the given
+// BareMetalHost, by setting DisassociatedLabel and the AssociatedCondition accordingly, so that
+// Associate() refuses to pick a new BareMetalHost until a human reviews and clears the label.
+func (m *Manager) markDisassociated(lostNamespace, lostName string) {
+	hostClaim := m.HostClaim
+	if hostClaim.Labels == nil {
+		hostClaim.Labels = map[string]string{}
+	}
+	// Presence-based: isDisassociationBlocked only checks the label is present (any value also
+	// blocks). We write an empty value to match the convention used by the paused annotation.
+	hostClaim.Labels[metal3api.DisassociatedLabel] = ""
+	m.SetConditionHostToFalse(
+		metal3api.AssociatedCondition, metal3api.UnexpectedDisassociationReason,
+		fmt.Sprintf(
+			"Lost association with BareMetalHost %s/%s. Manual intervention required: remove the %s "+
+				"label once reviewed to allow reassociation.",
+			lostNamespace, lostName, metal3api.DisassociatedLabel))
 }
 
 // getAssociatedBMH gets the associated BareMetalHost by looking for the status of the HostClaim.

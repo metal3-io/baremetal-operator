@@ -316,6 +316,11 @@ func (hb *HostClaimBuilder) SetAssociatedBMH(namespace, name string) *HostClaimB
 	return hb
 }
 
+func (hb *HostClaimBuilder) SetDisassociationPolicy(policy metal3api.DisassociationPolicy) *HostClaimBuilder {
+	hb.hostClaim.Spec.DisassociationPolicy = policy
+	return hb
+}
+
 type HostDeployPolicyBuilder struct {
 	hostDeployPolicy metal3api.HostDeployPolicy
 }

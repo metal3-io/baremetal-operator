@@ -349,6 +349,7 @@ var _ = Describe("HostClaim manager", func() {
 		HostClaim     *metal3api.HostClaim
 		ExpectFails   bool
 		ExpectRequeue bool
+		ExpectBlocked bool
 	}
 
 	It("test hide conflict error",
@@ -392,6 +393,13 @@ var _ = Describe("HostClaim manager", func() {
 				Expect(err).To(HaveOccurred())
 				var requeueAfterError RequeueAfterError
 				Expect(errors.As(err, &requeueAfterError)).To(Equal(tc.ExpectRequeue))
+				if tc.ExpectBlocked {
+					assoc := conditions.Get(tc.HostClaim, metal3api.AssociatedCondition)
+					Expect(assoc).NotTo(BeNil())
+					Expect(assoc.Status).To(Equal(metav1.ConditionFalse))
+					Expect(assoc.Reason).To(Equal(metal3api.UnexpectedDisassociationReason))
+					Expect(tc.HostClaim.Status.BareMetalHost).To(BeNil())
+				}
 				return
 			}
 			Expect(err).NotTo(HaveOccurred())
@@ -420,6 +428,21 @@ var _ = Describe("HostClaim manager", func() {
 					Key: "k", Operator: selection.Exists, Values: []string{}}}).Build(),
 			ExpectFails:   true,
 			ExpectRequeue: true,
+		}),
+		Entry("Blocked by DisassociatedLabel", testCaseAssociate{
+			HostClaim: NewHostclaim(HostclaimName).
+				SetLabels(map[string]string{metal3api.DisassociatedLabel: "true"}).Build(),
+			ExpectFails:   true,
+			ExpectRequeue: true,
+			ExpectBlocked: true,
+		}),
+		Entry("Label cleared, residual UnexpectedDisassociation condition: rebinds", testCaseAssociate{
+			HostClaim: NewHostclaim(HostclaimName).SetImage(defaultImage).SetUserData("sec-user-data").
+				SetCondition(metal3api.AssociatedCondition, false, metal3api.UnexpectedDisassociationReason).Build(),
+		}),
+		Entry("Auto-recover policy, unlabeled: rebinds", testCaseAssociate{
+			HostClaim: NewHostclaim(HostclaimName).SetImage(defaultImage).SetUserData("sec-user-data").
+				SetDisassociationPolicy(metal3api.DisassociationPolicyAutoRecover).Build(),
 		}),
 	)
 
@@ -529,15 +552,17 @@ var _ = Describe("HostClaim manager", func() {
 		})
 
 	type testCaseUpdate struct {
-		HostClaim              *metal3api.HostClaim
-		BareMetalHost          *metal3api.BareMetalHost
-		ExpectFail             bool
-		ExpectClear            bool
-		ExpectSyncReason       string
-		ExpectBmhImageURL      string
-		ExpectBmhOnline        bool
-		ExpectHostClaimPowerOn bool
-		ExpectHardwareData     bool
+		HostClaim                *metal3api.HostClaim
+		BareMetalHost            *metal3api.BareMetalHost
+		ExpectFail               bool
+		ExpectClear              bool
+		ExpectAssociatedReason   string
+		ExpectDisassociatedLabel bool
+		ExpectSyncReason         string
+		ExpectBmhImageURL        string
+		ExpectBmhOnline          bool
+		ExpectHostClaimPowerOn   bool
+		ExpectHardwareData       bool
 	}
 	DescribeTable("test Update",
 		func(tc testCaseUpdate) {
@@ -575,7 +600,16 @@ var _ = Describe("HostClaim manager", func() {
 				assoc := conditions.Get(hc, metal3api.AssociatedCondition)
 				Expect(assoc).NotTo(BeNil())
 				Expect(assoc.Status).To(Equal(metav1.ConditionFalse))
-				Expect(assoc.Reason).To(Equal(metal3api.MissingBareMetalHostReason))
+				expectedReason := tc.ExpectAssociatedReason
+				if expectedReason == "" {
+					expectedReason = metal3api.MissingBareMetalHostReason
+				}
+				Expect(assoc.Reason).To(Equal(expectedReason))
+				if tc.ExpectDisassociatedLabel {
+					Expect(hc.Labels).To(HaveKey(metal3api.DisassociatedLabel))
+				} else {
+					Expect(hc.Labels).NotTo(HaveKey(metal3api.DisassociatedLabel))
+				}
 				for _, condType := range []string{metal3api.ProvisionedCondition, metal3api.AvailableForProvisioningCondition} {
 					c := conditions.Get(hc, condType)
 					Expect(c).NotTo(BeNil(), condType)
@@ -639,17 +673,28 @@ var _ = Describe("HostClaim manager", func() {
 			ExpectHardwareData:     true,
 		}),
 		Entry("badly associated case", testCaseUpdate{
-			HostClaim:        NewHostclaim("other").SetAssociatedBMH("ns", "bmh").Build(),
-			ExpectSyncReason: metal3api.BareMetalHostNotSynchronizedReason,
-			ExpectClear:      true,
+			HostClaim:                NewHostclaim("other").SetAssociatedBMH("ns", "bmh").Build(),
+			ExpectSyncReason:         metal3api.BareMetalHostNotSynchronizedReason,
+			ExpectClear:              true,
+			ExpectAssociatedReason:   metal3api.UnexpectedDisassociationReason,
+			ExpectDisassociatedLabel: true,
 		}),
 		Entry("no bmh", testCaseUpdate{
-			HostClaim:        NewHostclaim(HostclaimName).SetAssociatedBMH("ns", "other").Build(),
-			ExpectSyncReason: metal3api.BareMetalHostNotSynchronizedReason,
-			ExpectClear:      true,
+			HostClaim:                NewHostclaim(HostclaimName).SetAssociatedBMH("ns", "other").Build(),
+			ExpectSyncReason:         metal3api.BareMetalHostNotSynchronizedReason,
+			ExpectClear:              true,
+			ExpectAssociatedReason:   metal3api.UnexpectedDisassociationReason,
+			ExpectDisassociatedLabel: true,
 		}),
 		Entry("no status reference", testCaseUpdate{
 			HostClaim:        NewHostclaim(HostclaimName).Build(),
+			ExpectSyncReason: metal3api.BareMetalHostNotSynchronizedReason,
+			ExpectClear:      true,
+		}),
+		Entry("no bmh, but auto-recover policy opts out of fencing", testCaseUpdate{
+			HostClaim: NewHostclaim(HostclaimName).
+				SetDisassociationPolicy(metal3api.DisassociationPolicyAutoRecover).
+				SetAssociatedBMH("ns", "other").Build(),
 			ExpectSyncReason: metal3api.BareMetalHostNotSynchronizedReason,
 			ExpectClear:      true,
 		}),

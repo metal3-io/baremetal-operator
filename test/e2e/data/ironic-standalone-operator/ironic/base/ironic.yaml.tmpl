@@ -19,4 +19,9 @@ spec:
     ipAddressManager: "keepalived"
   deployRamdisk:
     sshKey: "${SSH_PUB_KEY_CONTENT}"
-    extraKernelParams: "console=ttyS0 bmo-e2e-kernel-params-ok"
+    # ironic-image always emits its own "ipa-insecure=<IRONIC_IPA_INSECURE>"
+    # (default 1) before these extra parameters, so ipa-insecure appears twice
+    # on the kernel command line. IPA takes the last occurrence, so the trailing
+    # "ipa-insecure=0" wins and makes IPA verify TLS certificates. This is
+    # verified in VerifyIronicManagedBoot (test/e2e/common.go). Keep it last.
+    extraKernelParams: "console=ttyS0 bmo-e2e-kernel-params-ok ipa-insecure=0"

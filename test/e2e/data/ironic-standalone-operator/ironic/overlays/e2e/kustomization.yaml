@@ -8,3 +8,4 @@ resources:
 components:
 - ../../../components/tls
 - ../../../components/basic-auth
+- ../../../components/trusted-ca

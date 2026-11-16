@@ -11,7 +11,8 @@ generatorOptions:
 configMapGenerator:
 - name: ironic-operator-config
   literals:
-  - IPA_BASEURI=http://192.168.222.1
+  - IPA_BASEURI=https://192.168.222.1
+  - FEATURE_GATES=Overrides=true
 
 patches:
 - target:

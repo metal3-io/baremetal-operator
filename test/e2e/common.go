@@ -621,6 +621,20 @@ func UsesIPXE(bmcAddress string) bool {
 	return !strings.Contains(bmcAddress, "virtualmedia")
 }
 
+// effectiveKernelParam returns the value of the last "key=value" entry in a
+// kernel command line, mirroring how IPA parses /proc/cmdline (later
+// occurrences override earlier ones). It returns an empty string if the key is
+// not present.
+func effectiveKernelParam(cmdline, key string) string {
+	value := ""
+	for field := range strings.FieldsSeq(cmdline) {
+		if v, ok := strings.CutPrefix(field, key+"="); ok {
+			value = v
+		}
+	}
+	return value
+}
+
 // VerifyIronicManagedBoot SSHes into IPA during inspection and checks
 // /proc/cmdline to verify that IPA was booted by an Ironic-managed process
 // (per-node iPXE config or virtual media ISO), not the inspector.ipxe fallback.
@@ -675,6 +689,21 @@ func VerifyIronicManagedBoot(e2eConfig *Config, bmcAddress, ipAddress string) {
 			"Ironic.spec.deployRamdisk.extraKernelParams. "+
 			"This indicates a problem with Ironic's kernel parameter pipeline. "+
 			"Full cmdline: %s", cmdline)
+
+	// ironic-image always renders its own "ipa-insecure=<IRONIC_IPA_INSECURE>"
+	// (default 1) *before* IRONIC_KERNEL_PARAMS, so the "ipa-insecure=0" from
+	// Ironic.spec.deployRamdisk.extraKernelParams makes the parameter appear
+	// twice. IPA parses the kernel command line into a dictionary, so the last
+	// occurrence wins. IrSO currently has no way to set IRONIC_IPA_INSECURE, so
+	// verify the effective (last) value to catch any change in ordering, which
+	// would silently turn TLS verification in IPA off again.
+	ipaInsecure := effectiveKernelParam(cmdline, "ipa-insecure")
+	Expect(ipaInsecure).To(Equal("0"),
+		"The effective (last) 'ipa-insecure' value in the kernel command line "+
+			"is %q, expected \"0\" so that IPA verifies TLS certificates. "+
+			"'ipa-insecure=0' is set in Ironic.spec.deployRamdisk.extraKernelParams "+
+			"and must come after the default set by ironic-image. "+
+			"Full cmdline: %s", ipaInsecure, cmdline)
 
 	// All Ironic-managed boots (both iPXE per-node config and virtual media ISO)
 	// include kernel parameters from kernel_append_params, which contains "nofb".

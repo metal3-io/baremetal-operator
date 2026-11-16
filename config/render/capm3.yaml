@@ -983,6 +983,11 @@ spec:
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
+                        infinibandClientID:
+                          description: |-
+                            The InfiniBand client ID of the interface, as discovered by Ironic.
+                            Only set for InfiniBand interfaces.
+                          type: string
                         ip:
                           description: |-
                             The IP address of the interface. This will be an IPv4 or IPv6 address
@@ -2585,6 +2590,11 @@ spec:
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
+                        infinibandClientID:
+                          description: |-
+                            The InfiniBand client ID of the interface, as discovered by Ironic.
+                            Only set for InfiniBand interfaces.
+                          type: string
                         ip:
                           description: |-
                             The IP address of the interface. This will be an IPv4 or IPv6 address
@@ -3804,6 +3814,11 @@ spec:
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
+                        infinibandClientID:
+                          description: |-
+                            The InfiniBand client ID of the interface, as discovered by Ironic.
+                            Only set for InfiniBand interfaces.
+                          type: string
                         ip:
                           description: |-
                             The IP address of the interface. This will be an IPv4 or IPv6 address
@@ -4047,6 +4062,11 @@ spec:
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
+                        infinibandClientID:
+                          description: |-
+                            The InfiniBand client ID of the interface, as discovered by Ironic.
+                            Only set for InfiniBand interfaces.
+                          type: string
                         ip:
                           description: |-
                             The IP address of the interface. This will be an IPv4 or IPv6 address

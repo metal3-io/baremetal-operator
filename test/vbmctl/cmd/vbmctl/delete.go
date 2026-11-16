@@ -153,34 +153,10 @@ func newDeleteBMLCmd() *cobra.Command {
 				networks[i] = network.Name
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleting libvirt networks (%d networks)...\n", len(networks))
-
-			if err = networkManager.DeleteNetworks(ctx, networks); err != nil {
-				// Don't fail whole command if network deletion fails
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Warning: failed to delete network: %v\n", err)
-			}
-
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Deleted networks:")
-			for _, name := range networks {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - %s\n", name)
-			}
-
-			err = containers.DeleteBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
-			if err != nil {
-				// Don't fail whole command if network deletion fails
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Warning: failed to delete Docker network: %v\n", err)
-			}
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Println("Deleted Docker networks:")
-			for _, net := range cfg.Spec.DockerNetworks {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("  - name: %s\n", net.Name)
-			}
+			// Don't fail whole command if network deletion fails. Both functions
+			// print what they deleted and a warning for each network they could not.
+			_ = networkManager.DeleteNetworks(ctx, networks)
+			_ = containers.DeleteBridgeNetworks(ctx, cfg.Spec.DockerNetworks)
 
 			if cfg.Spec.ImageServer != nil {
 				err := containers.DeleteImageServerInstance(ctx, cfg.Spec.ImageServer.ContainerName)
@@ -244,8 +220,6 @@ func newDeleteNetworkCmd() *cobra.Command {
 				return fmt.Errorf("failed to delete network: %w", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Deleted network %s\n", name)
 			return nil
 		},
 	}

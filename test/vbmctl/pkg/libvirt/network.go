@@ -147,16 +147,21 @@ func (m *NetworkManager) DeleteNetwork(_ context.Context, name string) error {
 	if err := network.Free(); err != nil {
 		return fmt.Errorf("failed to free network object %s after deletion: %w", name, err)
 	}
+	log.Printf("Deleted libvirt network %s\n", name)
 	return nil
 }
 
+// DeleteNetworks deletes the libvirt networks with the given names. It keeps
+// going when a network cannot be deleted, prints a warning for it and returns
+// all such errors at the end.
 func (m *NetworkManager) DeleteNetworks(ctx context.Context, names []string) error {
-	var lastErr error
+	log.Printf("Deleting libvirt networks (%d networks)...\n", len(names))
+	var errs []error
 	for _, name := range names {
 		if err := m.DeleteNetwork(ctx, name); err != nil {
-			log.Printf("Error deleting network %s: %v\n", name, err)
-			lastErr = err
+			log.Printf("Warning: %v\n", err)
+			errs = append(errs, err)
 		}
 	}
-	return lastErr
+	return errors.Join(errs...)
 }

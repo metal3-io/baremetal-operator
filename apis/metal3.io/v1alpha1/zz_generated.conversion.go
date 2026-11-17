@@ -621,7 +621,7 @@ func autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in 
 	out.ErrorType = v1beta1.ErrorType(in.ErrorType)
 	out.LastUpdated = (*metav1.Time)(unsafe.Pointer(in.LastUpdated))
 	// WARNING: in.HardwareProfile requires manual conversion: does not exist in peer-type
-	out.HardwareDetails = (*v1beta1.HardwareDetails)(unsafe.Pointer(in.HardwareDetails))
+	// WARNING: in.HardwareDetails requires manual conversion: does not exist in peer-type
 	if err := Convert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(&in.Provisioning, &out.Provisioning, s); err != nil {
 		return err
 	}
@@ -648,7 +648,6 @@ func autoConvert_v1beta1_BareMetalHostStatus_To_v1alpha1_BareMetalHostStatus(in 
 	out.OperationalStatus = OperationalStatus(in.OperationalStatus)
 	out.ErrorType = ErrorType(in.ErrorType)
 	out.LastUpdated = (*metav1.Time)(unsafe.Pointer(in.LastUpdated))
-	out.HardwareDetails = (*HardwareDetails)(unsafe.Pointer(in.HardwareDetails))
 	if err := Convert_v1beta1_ProvisionStatus_To_v1alpha1_ProvisionStatus(&in.Provisioning, &out.Provisioning, s); err != nil {
 		return err
 	}

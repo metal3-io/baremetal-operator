@@ -61,6 +61,7 @@ func (src *BareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 	// annotation counts towards the object size limit.
 	data := bareMetalHostConversionData{
 		HardwareProfile: newHardwareProfileConversionData(src),
+		HardwareDetails: src.Status.HardwareDetails,
 	}
 	if data.isEmpty() {
 		return nil
@@ -89,6 +90,11 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 		dst.Status.HardwareProfile = profile.StatusName
 	}
 
+	// The hardware details live in the HardwareData resource from v1beta1 on,
+	// but the v1alpha1 status still has its own copy and the controller still
+	// reads it, so put it back.
+	dst.Status.HardwareDetails = restored.HardwareDetails
+
 	return nil
 }
 
@@ -98,11 +104,16 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 // round-trip is lossless.
 type bareMetalHostConversionData struct {
 	HardwareProfile *hardwareProfileConversionData `json:"hardwareProfile,omitempty"`
+
+	// HardwareDetails is Status.HardwareDetails, which v1beta1 replaces with
+	// the HardwareData resource. The same data is in that resource, but the
+	// conversion cannot read it, so it is stored here.
+	HardwareDetails *HardwareDetails `json:"hardwareDetails,omitempty"`
 }
 
 // isEmpty reports whether there is nothing to store.
 func (d *bareMetalHostConversionData) isEmpty() bool {
-	return d.HardwareProfile == nil
+	return d.HardwareProfile == nil && d.HardwareDetails == nil
 }
 
 // hardwareProfileConversionData records the hardware profile of a v1alpha1
@@ -140,8 +151,8 @@ func Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMet
 
 // Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus converts
 // the spoke status to the hub status. It is written by hand because
-// Status.HardwareProfile has no peer in v1beta1; the value is preserved in the
-// conversion-data annotation by ConvertTo instead.
+// Status.HardwareProfile and Status.HardwareDetails have no peer in v1beta1;
+// both are preserved in the conversion-data annotation by ConvertTo instead.
 func Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in *BareMetalHostStatus, out *metal3apiv1beta1.BareMetalHostStatus, s apimachineryconversion.Scope) error {
 	return autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in, out, s)
 }

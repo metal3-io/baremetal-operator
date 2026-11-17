@@ -15,7 +15,7 @@ require (
 	github.com/onsi/gomega v1.44.0
 	github.com/spf13/cobra v1.10.2
 	github.com/vishvananda/netlink v1.3.1
-	golang.org/x/crypto v0.58.0
+	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2
 	golang.org/x/sys v0.49.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.36.5
@@ -25,8 +25,8 @@ require (
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd
 	libvirt.org/go/libvirt v1.12007.0
-	sigs.k8s.io/cluster-api v1.14.3
-	sigs.k8s.io/cluster-api/test v1.14.3
+	sigs.k8s.io/cluster-api v1.14.4
+	sigs.k8s.io/cluster-api/test v1.14.4
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/kind v0.33.0
 	sigs.k8s.io/kustomize/api v0.21.2
@@ -130,7 +130,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/term v0.47.0 // indirect

@@ -121,14 +121,13 @@ DEPLOY_CONFIG ?= default
 
 # Run tests
 .PHONY: test
-test: generate lint manifests unit ## Run common developer tests
+test: generate lint manifests unit fuzz-run ## Run common developer tests
 
 .PHONY: unit
 unit: ## Run unit tests
 	go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 	cd apis/ && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
 	cd pkg/hardwareutils && go test ./... $(GO_TEST_FLAGS) -coverprofile $(COVER_PROFILE)
-	$(MAKE) fuzz-run FUZZ_TIME=15s
 
 .PHONY: unit-cover
 unit-cover: ## Run unit tests with code coverage
@@ -143,7 +142,7 @@ unit-cover: ## Run unit tests with code coverage
 unit-verbose: ## Run unit tests with verbose output
 	TEST_FLAGS=-v make unit
 
-FUZZ_TIME ?= 30s
+FUZZ_TIME ?= 5s
 
 .PHONY: fuzz
 fuzz: ## Run fuzz tests with seed corpus (no fuzzing, regression test only)

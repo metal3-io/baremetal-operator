@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metal3apiv1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
+	apimachineryconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -57,6 +58,43 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 	if err := Convert_v1beta1_BareMetalHost_To_v1alpha1_BareMetalHost(src, dst, nil); err != nil {
 		return err
 	}
+	return nil
+}
+
+// --- RootDeviceHints ---
+
+// Three hints were renamed in v1beta1: DeviceName became DevicePath, because it
+// may also be a by-path link rather than a device name, and Model and Vendor
+// became ModelContains and VendorContains, because they match a substring of
+// the actual value rather than all of it. The values themselves do not change,
+// so the conversion is lossless in both directions and conversion-gen only
+// needs help matching the fields up.
+
+// Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints converts the root
+// device hints to the hub version, mapping the renamed fields.
+func Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(in *RootDeviceHints, out *metal3apiv1beta1.RootDeviceHints, s apimachineryconversion.Scope) error {
+	if err := autoConvert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(in, out, s); err != nil {
+		return err
+	}
+
+	out.DevicePath = in.DeviceName
+	out.ModelContains = in.Model
+	out.VendorContains = in.Vendor
+
+	return nil
+}
+
+// Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints converts the root
+// device hints from the hub version, mapping the renamed fields back.
+func Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *metal3apiv1beta1.RootDeviceHints, out *RootDeviceHints, s apimachineryconversion.Scope) error {
+	if err := autoConvert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in, out, s); err != nil {
+		return err
+	}
+
+	out.DeviceName = in.DevicePath
+	out.Model = in.ModelContains
+	out.Vendor = in.VendorContains
+
 	return nil
 }
 

@@ -2152,9 +2152,9 @@ spec:
                               RootDeviceHints holds the hints for specifying the storage location
                               for the root filesystem for the image.
                             properties:
-                              deviceName:
+                              devicePath:
                                 description: |-
-                                  A Linux device name like "/dev/vda", or a by-path link to it like
+                                  A Linux device path like "/dev/vda", or a by-path link to it like
                                   "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
                                   the actual value exactly.
                                 type: string
@@ -2167,9 +2167,9 @@ spec:
                                 description: The minimum size of the device in Gigabytes.
                                 minimum: 0
                                 type: integer
-                              model:
+                              modelContains:
                                 description: |-
-                                  A vendor-specific device identifier. The hint can be a
+                                  A vendor-specific device identifier. The hint matches when it is a
                                   substring of the actual value.
                                 type: string
                               rotational:
@@ -2181,10 +2181,10 @@ spec:
                                   Device serial number. The hint must match the actual value
                                   exactly.
                                 type: string
-                              vendor:
+                              vendorContains:
                                 description: |-
                                   The name of the vendor or manufacturer of the device. The hint
-                                  can be a substring of the actual value.
+                                  matches when it is a substring of the actual value.
                                 type: string
                               wwn:
                                 description: |-
@@ -2229,9 +2229,9 @@ spec:
                   being provisioned. The default is currently to use /dev/sda as
                   the root device.
                 properties:
-                  deviceName:
+                  devicePath:
                     description: |-
-                      A Linux device name like "/dev/vda", or a by-path link to it like
+                      A Linux device path like "/dev/vda", or a by-path link to it like
                       "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
                       the actual value exactly.
                     type: string
@@ -2244,9 +2244,9 @@ spec:
                     description: The minimum size of the device in Gigabytes.
                     minimum: 0
                     type: integer
-                  model:
+                  modelContains:
                     description: |-
-                      A vendor-specific device identifier. The hint can be a
+                      A vendor-specific device identifier. The hint matches when it is a
                       substring of the actual value.
                     type: string
                   rotational:
@@ -2258,10 +2258,10 @@ spec:
                       Device serial number. The hint must match the actual value
                       exactly.
                     type: string
-                  vendor:
+                  vendorContains:
                     description: |-
                       The name of the vendor or manufacturer of the device. The hint
-                      can be a substring of the actual value.
+                      matches when it is a substring of the actual value.
                     type: string
                   wwn:
                     description: |-
@@ -3066,9 +3066,9 @@ spec:
                                   RootDeviceHints holds the hints for specifying the storage location
                                   for the root filesystem for the image.
                                 properties:
-                                  deviceName:
+                                  devicePath:
                                     description: |-
-                                      A Linux device name like "/dev/vda", or a by-path link to it like
+                                      A Linux device path like "/dev/vda", or a by-path link to it like
                                       "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
                                       the actual value exactly.
                                     type: string
@@ -3082,9 +3082,9 @@ spec:
                                       Gigabytes.
                                     minimum: 0
                                     type: integer
-                                  model:
+                                  modelContains:
                                     description: |-
-                                      A vendor-specific device identifier. The hint can be a
+                                      A vendor-specific device identifier. The hint matches when it is a
                                       substring of the actual value.
                                     type: string
                                   rotational:
@@ -3096,10 +3096,10 @@ spec:
                                       Device serial number. The hint must match the actual value
                                       exactly.
                                     type: string
-                                  vendor:
+                                  vendorContains:
                                     description: |-
                                       The name of the vendor or manufacturer of the device. The hint
-                                      can be a substring of the actual value.
+                                      matches when it is a substring of the actual value.
                                     type: string
                                   wwn:
                                     description: |-
@@ -3141,9 +3141,9 @@ spec:
                   rootDeviceHints:
                     description: The root device hints used to provision the host.
                     properties:
-                      deviceName:
+                      devicePath:
                         description: |-
-                          A Linux device name like "/dev/vda", or a by-path link to it like
+                          A Linux device path like "/dev/vda", or a by-path link to it like
                           "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
                           the actual value exactly.
                         type: string
@@ -3156,9 +3156,9 @@ spec:
                         description: The minimum size of the device in Gigabytes.
                         minimum: 0
                         type: integer
-                      model:
+                      modelContains:
                         description: |-
-                          A vendor-specific device identifier. The hint can be a
+                          A vendor-specific device identifier. The hint matches when it is a
                           substring of the actual value.
                         type: string
                       rotational:
@@ -3170,10 +3170,10 @@ spec:
                           Device serial number. The hint must match the actual value
                           exactly.
                         type: string
-                      vendor:
+                      vendorContains:
                         description: |-
                           The name of the vendor or manufacturer of the device. The hint
-                          can be a substring of the actual value.
+                          matches when it is a substring of the actual value.
                         type: string
                       wwn:
                         description: |-

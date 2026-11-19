@@ -97,22 +97,22 @@ const (
 // RootDeviceHints holds the hints for specifying the storage location
 // for the root filesystem for the image.
 type RootDeviceHints struct {
-	// A Linux device name like "/dev/vda", or a by-path link to it like
+	// A Linux device path like "/dev/vda", or a by-path link to it like
 	// "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
 	// the actual value exactly.
-	DeviceName string `json:"deviceName,omitempty"`
+	DevicePath string `json:"devicePath,omitempty"`
 
 	// A SCSI bus address like 0:0:0:0. The hint must match the actual
 	// value exactly.
 	HCTL string `json:"hctl,omitempty"`
 
-	// A vendor-specific device identifier. The hint can be a
+	// A vendor-specific device identifier. The hint matches when it is a
 	// substring of the actual value.
-	Model string `json:"model,omitempty"`
+	ModelContains string `json:"modelContains,omitempty"`
 
 	// The name of the vendor or manufacturer of the device. The hint
-	// can be a substring of the actual value.
-	Vendor string `json:"vendor,omitempty"`
+	// matches when it is a substring of the actual value.
+	VendorContains string `json:"vendorContains,omitempty"`
 
 	// Device serial number. The hint must match the actual value
 	// exactly.

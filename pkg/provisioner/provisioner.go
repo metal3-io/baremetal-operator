@@ -248,6 +248,16 @@ type Provisioner interface {
 	// GetFirmwareComponents gets all firmware components available from a note
 	GetFirmwareComponents(ctx context.Context) (components []metal3api.FirmwareComponentStatus, err error)
 
+	HasPowerFailure(ctx context.Context) bool
+
+	// GetHealth returns the health status of the node from the provisioner.
+	// Possible values are HealthOK, HealthWarning, HealthCritical, or
+	// empty string if unavailable.
+	GetHealth(ctx context.Context) string
+}
+
+// DataImageAPI must be implemented by provisioners that support data image API.
+type DataImageAPI interface {
 	// Get DataImage
 	GetDataImageStatus(ctx context.Context) (isImageAttached bool, err error)
 
@@ -256,13 +266,15 @@ type Provisioner interface {
 
 	// Detach DataImage
 	DetachDataImage(ctx context.Context) (err error)
+}
 
-	HasPowerFailure(ctx context.Context) bool
-
-	// GetHealth returns the health status of the node from the provisioner.
-	// Possible values are HealthOK, HealthWarning, HealthCritical, or
-	// empty string if unavailable.
-	GetHealth(ctx context.Context) string
+// GetDataImageAPI is a helper to get a DataImageAPI from a Provisioner.
+func GetDataImageAPI(prov Provisioner) (DataImageAPI, error) {
+	result, supported := prov.(DataImageAPI)
+	if result == nil || !supported {
+		return nil, errors.New("provisioner doesn't support data image API")
+	}
+	return result, nil
 }
 
 // Health status values returned by GetHealth().

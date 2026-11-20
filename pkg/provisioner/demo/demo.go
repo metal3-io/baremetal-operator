@@ -323,18 +323,6 @@ func (p *demoProvisioner) GetFirmwareComponents(_ context.Context) (components [
 	return components, nil
 }
 
-func (p *demoProvisioner) GetDataImageStatus(_ context.Context) (isImageAttached bool, err error) {
-	return false, nil
-}
-
-func (p *demoProvisioner) AttachDataImage(_ context.Context, _ string) (err error) {
-	return nil
-}
-
-func (p *demoProvisioner) DetachDataImage(_ context.Context) (err error) {
-	return nil
-}
-
 func (p *demoProvisioner) HasPowerFailure(_ context.Context) bool {
 	return false
 }

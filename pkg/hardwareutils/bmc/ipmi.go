@@ -58,7 +58,7 @@ func (a *ipmiAccessDetails) NeedsMAC() bool {
 }
 
 func (a *ipmiAccessDetails) Driver() string {
-	return "ipmi"
+	return ipmi
 }
 
 func (a *ipmiAccessDetails) DisableCertificateVerification() bool {

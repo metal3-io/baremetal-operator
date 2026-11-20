@@ -196,6 +196,217 @@ func TestRegisterFastInspectionUnsupported(t *testing.T) {
 	assert.Contains(t, result.ErrorMessage, "does not support fast (out-of-band) inspection")
 }
 
+func TestRegisterCreateNodeInspectionDisabled(t *testing.T) {
+	testCases := []struct {
+		Scenario          string
+		InspectInterfaces map[string][]string
+		ExpectedInterface string
+	}{
+		{
+			Scenario:          "no-inspect enabled",
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+			ExpectedInterface: "no-inspect",
+		},
+		{
+			Scenario:          "no-inspect not enabled",
+			InspectInterfaces: map[string][]string{"test": {"agent", "redfish"}},
+			ExpectedInterface: "agent",
+		},
+		{
+			Scenario:          "no-inspect only enabled for another driver",
+			InspectInterfaces: map[string][]string{"test": {"agent"}, "ipmi": {"agent", "no-inspect"}},
+			ExpectedInterface: "agent",
+		},
+		{
+			Scenario:          "driver without any inspect interface enabled",
+			InspectInterfaces: map[string][]string{"test": nil},
+			ExpectedInterface: "agent",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := makeHost()
+			// A MAC is required when inspection is disabled
+			host.Spec.BootMACAddress = "aa:bb:cc:dd:ee:ff"
+			host.Spec.Image = nil
+			host.Status.Provisioning.ID = "" // so we don't lookup by uuid
+
+			var createdNode *nodes.Node
+			createdPorts := []ports.Port{}
+
+			createCallback := func(node nodes.Node) {
+				createdNode = &node
+			}
+
+			ironic := testserver.NewIronic(t).CreateNodes(createCallback).NoNode(host.Namespace + nameSeparator + host.Name).NoNode(host.Name)
+			ironic.AddDefaultResponse("/v1/nodes/node-0", "PATCH", http.StatusOK, "{}")
+			ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+			ironic.AddDefaultResponse("/v1/ports/detail", "GET", http.StatusOK, `{"ports": []}`)
+			ironic.Start()
+			defer ironic.Stop()
+
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+			require.NoError(t, err)
+			prov.availableFeatures.InspectInterfaces = tc.InspectInterfaces
+
+			result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisableInspection: true}, false, false)
+			require.NoError(t, err)
+			assert.Empty(t, result.ErrorMessage)
+			// The enabled interfaces come with the client, so Register
+			// does not call the drivers API.
+			assert.NotContains(t, ironic.Requests, "/v1/drivers")
+			require.NotNil(t, createdNode)
+			assert.Equal(t, tc.ExpectedInterface, createdNode.InspectInterface)
+		})
+	}
+}
+
+func TestRegisterExistingNodeInspectionDisabled(t *testing.T) {
+	testCases := []struct {
+		Scenario          string
+		ProvisionState    nodes.ProvisionState
+		NodeDriver        string // the driver of the BMC ("test") if empty
+		InspectInterface  string
+		DisableInspection bool
+		InspectInterfaces map[string][]string
+		ExpectedInterface string // empty if the interface must not be changed
+	}{
+		{
+			Scenario:          "manageable",
+			ProvisionState:    nodes.Manageable,
+			InspectInterface:  "agent",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+			ExpectedInterface: "no-inspect",
+		},
+		{
+			Scenario:          "enroll",
+			ProvisionState:    nodes.Enroll,
+			InspectInterface:  "agent",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+			ExpectedInterface: "no-inspect",
+		},
+		{
+			Scenario:          "available",
+			ProvisionState:    nodes.Available,
+			InspectInterface:  "agent",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+			ExpectedInterface: "no-inspect",
+		},
+		{
+			Scenario:          "active, changing interfaces is not allowed",
+			ProvisionState:    nodes.Active,
+			InspectInterface:  "agent",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+		},
+		{
+			Scenario:          "verifying, changing interfaces is not allowed",
+			ProvisionState:    nodes.Verifying,
+			InspectInterface:  "agent",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+		},
+		{
+			Scenario:          "inspect wait, inspection is running",
+			ProvisionState:    nodes.InspectWait,
+			InspectInterface:  "agent",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+		},
+		{
+			Scenario:          "no-inspect only enabled for the BMC driver",
+			ProvisionState:    nodes.Manageable,
+			NodeDriver:        "ipmi",
+			InspectInterface:  "agent",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}, "ipmi": {"agent"}},
+		},
+		{
+			Scenario:          "no-inspect not enabled",
+			ProvisionState:    nodes.Manageable,
+			InspectInterface:  "agent",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent"}},
+		},
+		{
+			Scenario:          "inspection enabled",
+			ProvisionState:    nodes.Manageable,
+			InspectInterface:  "agent",
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+		},
+		{
+			Scenario:          "already no-inspect",
+			ProvisionState:    nodes.Manageable,
+			InspectInterface:  "no-inspect",
+			DisableInspection: true,
+			InspectInterfaces: map[string][]string{"test": {"agent", "no-inspect"}},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := makeHost()
+			host.Spec.BootMACAddress = "aa:bb:cc:dd:ee:ff"
+
+			createCallback := func(node nodes.Node) {
+				t.Fatal("create callback should not be invoked for existing node")
+			}
+
+			nodeDriver := tc.NodeDriver
+			if nodeDriver == "" {
+				nodeDriver = "test"
+			}
+
+			ironic := testserver.NewIronic(t).CreateNodes(createCallback).Node(nodes.Node{
+				Name:             host.Namespace + nameSeparator + host.Name,
+				UUID:             host.Status.Provisioning.ID,
+				Driver:           nodeDriver,
+				ProvisionState:   string(tc.ProvisionState),
+				InspectInterface: tc.InspectInterface,
+			}).NodeUpdate(nodes.Node{
+				UUID:           host.Status.Provisioning.ID,
+				ProvisionState: string(tc.ProvisionState),
+			}).WithNodeStatesProvisionUpdate(host.Status.Provisioning.ID)
+			createdPorts := []ports.Port{}
+			ironic.Handler("/v1/ports", setupPortHandler(&createdPorts))
+			ironic.AddDefaultResponse("/v1/ports/detail", "GET", http.StatusOK, `{"ports": []}`)
+			ironic.Start()
+			defer ironic.Stop()
+
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+			require.NoError(t, err)
+			prov.availableFeatures.InspectInterfaces = tc.InspectInterfaces
+
+			result, _, err := prov.Register(t.Context(), provisioner.ManagementAccessData{DisableInspection: tc.DisableInspection}, false, false)
+			require.NoError(t, err)
+			assert.Empty(t, result.ErrorMessage)
+			assert.NotContains(t, ironic.Requests, "/v1/drivers")
+
+			// Register can send more than one PATCH for an existing
+			// node, so check all of them.
+			var changedInterfaces []any
+			for _, updates := range ironic.GetNodeUpdateRequestsFor(host.Status.Provisioning.ID) {
+				for _, update := range updates {
+					if update.Path == "/inspect_interface" {
+						changedInterfaces = append(changedInterfaces, update.Value)
+					}
+				}
+			}
+			if tc.ExpectedInterface == "" {
+				assert.Empty(t, changedInterfaces)
+			} else {
+				assert.Equal(t, []any{tc.ExpectedInterface}, changedInterfaces)
+			}
+		})
+	}
+}
+
 func TestRegisterExistingNode(t *testing.T) {
 	// Create a host without a bootMACAddress and with a BMC that
 	// does not require one.

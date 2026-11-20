@@ -109,7 +109,7 @@ func DeleteLink(_ context.Context, link string) error {
 	l, err := netlink.LinkByName(link)
 	var notFound netlink.LinkNotFoundError
 	if errors.As(err, &notFound) {
-		log.Printf("cannot delete network interface, interface %s does not exist", link)
+		log.Printf("Cannot delete network interface, interface %s does not exist\n", link)
 		return nil
 	}
 	if err != nil {

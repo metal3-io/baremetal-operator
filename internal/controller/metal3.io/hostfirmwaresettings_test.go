@@ -540,6 +540,47 @@ func TestStoreHostFirmwareSettings(t *testing.T) {
 	}
 }
 
+// updateStatus always builds a fresh status, so setCondition must decide
+// whether anything changed by comparing against the stored HFS status.
+func TestSetConditionDetectsChanges(t *testing.T) {
+	info := &rInfo{hfs: &metal3api.HostFirmwareSettings{
+		Status: metal3api.HostFirmwareSettingsStatus{
+			Conditions: []metav1.Condition{{
+				Type:               string(metal3api.FirmwareSettingsValid),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(reasonSuccess),
+				ObservedGeneration: 1,
+			}},
+		},
+	}}
+
+	testCases := []struct {
+		name       string
+		generation int64
+		status     metav1.ConditionStatus
+		reason     conditionReason
+		message    string
+		expected   bool
+	}{
+		{name: "nothing changed", generation: 1, status: metav1.ConditionTrue, reason: reasonSuccess, expected: false},
+		{name: "generation changed", generation: 2, status: metav1.ConditionTrue, reason: reasonSuccess, expected: true},
+		{name: "status changed", generation: 1, status: metav1.ConditionFalse, reason: reasonSuccess, expected: true},
+		{name: "reason changed", generation: 1, status: metav1.ConditionTrue, reason: reasonConfigurationError, expected: true},
+		{name: "message changed", generation: 1, status: metav1.ConditionTrue, reason: reasonSuccess, message: "new message", expected: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			newStatus := &metal3api.HostFirmwareSettingsStatus{}
+			changed := setCondition(tc.generation, newStatus, info,
+				metal3api.FirmwareSettingsValid, tc.status, tc.reason, tc.message)
+			assert.Equal(t, tc.expected, changed)
+			require.Len(t, newStatus.Conditions, 1)
+			assert.Equal(t, tc.generation, newStatus.Conditions[0].ObservedGeneration)
+		})
+	}
+}
+
 // Test the function to validate hostFirmwareSettings.
 func TestValidateHostFirmwareSettings(t *testing.T) {
 	testCases := []struct {

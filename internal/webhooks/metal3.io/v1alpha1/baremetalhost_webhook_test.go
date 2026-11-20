@@ -209,6 +209,46 @@ func TestRAIDValidate(t *testing.T) {
 			wantedErr: "softwareRAIDVolumes[1] with rootVolume set must use RAID level 1",
 		},
 		{
+			name: "invalid-first-volume-non-raid1",
+			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
+				Kind:       "BareMetalHost",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.BareMetalHostSpec{
+				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+					{
+						Level: "0",
+					},
+					{
+						Level: "1",
+					},
+				}},
+			}},
+			wantedErr: "softwareRAIDVolumes[0] must use RAID level 1",
+		},
+		{
+			name: "valid-second-volume-non-raid1",
+			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
+				Kind:       "BareMetalHost",
+				APIVersion: "metal3.io/v1alpha1",
+			}, ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test-namespace",
+			}, Spec: metal3api.BareMetalHostSpec{
+				RAID: &metal3api.RAIDConfig{SoftwareRAIDVolumes: []metal3api.SoftwareRAIDVolume{
+					{
+						Level: "1",
+					},
+					{
+						Level: "1+0",
+					},
+				}},
+			}},
+			wantedErr: "",
+		},
+		{
 			name: "invalid-set-both-root-volume-and-rootDeviceHints",
 			bmh: &metal3api.BareMetalHost{TypeMeta: metav1.TypeMeta{
 				Kind:       "BareMetalHost",

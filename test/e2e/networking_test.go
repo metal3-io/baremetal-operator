@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("networking", Label("required", "networking"), func() {
+var _ = Describe("networking", Label("optional", "networking"), func() {
 	var (
 		specName      = "networking"
 		namespace     *corev1.Namespace

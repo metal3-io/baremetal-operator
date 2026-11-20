@@ -1010,6 +1010,115 @@ func TestRegisterUpdateBMCAddressProtocol(t *testing.T) {
 	assert.Equal(t, "https://192.168.122.1:623", newValues["redfish_address"])
 }
 
+// The BMC address field in Ironic only holds the host name or IP address, so a
+// change to anything else in spec.bmc must still reach driver_info.
+func TestRegisterUpdateBMCSettings(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario                       string
+		Address                        string
+		DisableCertificateVerification bool
+		DriverInfo                     map[string]any
+		ExpectedUpdates                []nodes.UpdateOperation
+	}{
+		{
+			Scenario:                       "certificate verification disabled",
+			Address:                        "redfish://192.168.122.1/redfish/v1/Systems/1",
+			DisableCertificateVerification: true,
+			DriverInfo: map[string]any{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_username":  "",
+				"redfish_password":  "******", // ironic returns a placeholder
+				"redfish_system_id": "/redfish/v1/Systems/1",
+			},
+			ExpectedUpdates: []nodes.UpdateOperation{
+				{Op: nodes.AddOp, Path: "/driver_info/redfish_verify_ca", Value: false},
+			},
+		},
+		{
+			Scenario: "certificate verification enabled again",
+			Address:  "redfish://192.168.122.1/redfish/v1/Systems/1",
+			DriverInfo: map[string]any{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_username":  "",
+				"redfish_password":  "******",
+				"redfish_system_id": "/redfish/v1/Systems/1",
+				"redfish_verify_ca": false,
+			},
+			ExpectedUpdates: []nodes.UpdateOperation{
+				{Op: nodes.RemoveOp, Path: "/driver_info/redfish_verify_ca"},
+			},
+		},
+		{
+			Scenario: "redfish system ID changed",
+			Address:  "redfish://192.168.122.1/redfish/v1/Systems/2",
+			DriverInfo: map[string]any{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_username":  "",
+				"redfish_password":  "******",
+				"redfish_system_id": "/redfish/v1/Systems/1",
+			},
+			ExpectedUpdates: []nodes.UpdateOperation{
+				{Op: nodes.AddOp, Path: "/driver_info/redfish_system_id", Value: "/redfish/v1/Systems/2"},
+			},
+		},
+		{
+			Scenario: "ipmi port changed",
+			Address:  "ipmi://192.168.122.1:624",
+			DriverInfo: map[string]any{
+				"ipmi_address":    "192.168.122.1",
+				"ipmi_port":       "623",
+				"ipmi_username":   "",
+				"ipmi_password":   "******",
+				"ipmi_priv_level": "ADMINISTRATOR",
+			},
+			ExpectedUpdates: []nodes.UpdateOperation{
+				{Op: nodes.AddOp, Path: "/driver_info/ipmi_port", Value: "624"},
+			},
+		},
+		{
+			Scenario:                       "nothing changed",
+			Address:                        "redfish://192.168.122.1/redfish/v1/Systems/1",
+			DisableCertificateVerification: true,
+			DriverInfo: map[string]any{
+				"redfish_address":   "https://192.168.122.1",
+				"redfish_username":  "",
+				"redfish_password":  "******",
+				"redfish_system_id": "/redfish/v1/Systems/1",
+				"redfish_verify_ca": false,
+			},
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := makeHost()
+			host.Spec.BMC.Address = tc.Address
+			host.Spec.BMC.DisableCertificateVerification = tc.DisableCertificateVerification
+			host.Status.Provisioning.ID = "uuid"
+
+			node := nodes.Node{
+				Name:           host.Namespace + nameSeparator + host.Name,
+				UUID:           "uuid",
+				DriverInfo:     tc.DriverInfo,
+				ProvisionState: string(nodes.Verifying),
+			}
+			ironic := testserver.NewIronic(t).Node(node).NodeUpdate(node)
+			ironic.Start()
+			defer ironic.Stop()
+
+			auth := clients.AuthConfig{Type: clients.NoAuth}
+			prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+			require.NoError(t, err)
+
+			result, provID, err := prov.Register(t.Context(), provisioner.ManagementAccessData{}, false, false)
+			require.NoError(t, err)
+			assert.Empty(t, result.ErrorMessage)
+			assert.Equal(t, "uuid", provID)
+
+			updates := ironic.GetLastNodeUpdateRequestFor("uuid")
+			assert.ElementsMatch(t, tc.ExpectedUpdates, updates)
+		})
+	}
+}
+
 func TestPreprovisioningImageFormats(t *testing.T) {
 	ironicEndpoint := "http://ironic.test"
 	auth := clients.AuthConfig{Type: clients.NoAuth}

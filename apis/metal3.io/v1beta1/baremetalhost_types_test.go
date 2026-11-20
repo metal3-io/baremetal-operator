@@ -9,83 +9,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func TestHostNeedsHardwareInspection(t *testing.T) {
-	testCases := []struct {
-		Scenario string
-		Host     BareMetalHost
-		Expected bool
-	}{
-		{
-			Scenario: "no hardware details",
-			Host: BareMetalHost{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "myhost",
-					Namespace: "myns",
-				},
-			},
-			Expected: true,
-		},
-
-		{
-			Scenario: "host with details",
-			Host: BareMetalHost{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "myhost",
-					Namespace: "myns",
-				},
-				Status: BareMetalHostStatus{
-					HardwareDetails: &HardwareDetails{},
-				},
-			},
-			Expected: false,
-		},
-
-		{
-			Scenario: "unprovisioned host with consumer",
-			Host: BareMetalHost{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "myhost",
-					Namespace: "myns",
-				},
-				Spec: BareMetalHostSpec{
-					ConsumerRef: &corev1.ObjectReference{},
-				},
-			},
-			Expected: true,
-		},
-
-		{
-			Scenario: "provisioned host",
-			Host: BareMetalHost{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "myhost",
-					Namespace: "myns",
-				},
-				Status: BareMetalHostStatus{
-					Provisioning: ProvisionStatus{
-						Image: Image{
-							URL: "not-empty",
-						},
-					},
-				},
-			},
-			Expected: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.Scenario, func(t *testing.T) {
-			actual := tc.Host.NeedsHardwareInspection()
-			if tc.Expected && !actual {
-				t.Error("expected to need hardware inspection")
-			}
-			if !tc.Expected && actual {
-				t.Error("did not expect to need hardware inspection")
-			}
-		})
-	}
-}
-
 func TestHostNeedsProvisioning(t *testing.T) {
 	testCases := []struct {
 		Scenario string
@@ -632,54 +555,6 @@ func TestSetOperationalStatus(t *testing.T) {
 			}
 			if !tc.Expected && actual {
 				t.Error("Did not expect a change in operational status")
-			}
-		})
-	}
-}
-
-func TestSetHardwareProfile(t *testing.T) {
-	for _, tc := range []struct {
-		Scenario string
-		Host     BareMetalHost
-		name     string
-		Expected bool
-	}{
-		{
-			Scenario: "Host hardware profile and name is same",
-			Host: BareMetalHost{
-				Status: BareMetalHostStatus{
-					HardwareProfile: "test",
-				},
-			},
-			name:     "test",
-			Expected: false,
-		},
-		{
-			Scenario: "Host hardware profile and name are different",
-			Host: BareMetalHost{
-				Status: BareMetalHostStatus{
-					HardwareProfile: "test",
-				},
-			},
-			name:     "newtest",
-			Expected: true,
-		},
-		{
-			Scenario: "Host hardware profile is not defined",
-			Host: BareMetalHost{
-				Status: BareMetalHostStatus{},
-			},
-			name:     "test",
-			Expected: true,
-		},
-	} {
-		t.Run(tc.Scenario, func(t *testing.T) {
-			actual := tc.Host.SetHardwareProfile(tc.name)
-			if tc.Expected && !actual {
-				t.Error("Expected a change in hardware profile")
-			}
-			if !tc.Expected && actual {
-				t.Error("Did not expect a change in hardware profile")
 			}
 		})
 	}

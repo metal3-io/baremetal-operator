@@ -568,16 +568,8 @@ type BareMetalHostSpec struct {
 	// values and support the generic Redfish-based drivers.
 	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
-	// What is the name of the hardware profile for this host?
-	// Hardware profiles are deprecated and should not be used.
-	// Use the separate fields Architecture and RootDeviceHints instead.
-	// Set to "empty" to prepare for the future version of the API
-	// without hardware profiles.
-	HardwareProfile string `json:"hardwareProfile,omitempty"`
-
 	// Provide guidance about how to choose the device for the image
-	// being provisioned. The default is currently to use /dev/sda as
-	// the root device.
+	// being provisioned.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
 	// Select the method of initializing the hardware during boot.
@@ -883,15 +875,6 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
-	// The name of the profile matching the hardware details.
-	// Hardware profiles are deprecated and should not be relied on.
-	HardwareProfile string `json:"hardwareProfile,omitempty"`
-
-	// The hardware discovered to exist on the host.
-	// This field will be removed in the next API version in favour of the
-	// separate HardwareData resource.
-	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
-
 	// Information tracked by the provisioner.
 	Provisioning ProvisionStatus `json:"provisioning"`
 
@@ -1023,26 +1006,6 @@ func (host *BareMetalHost) HasBMCDetails() bool {
 	return host.Spec.BMC.Address != "" || host.Spec.BMC.CredentialsName != ""
 }
 
-// NeedsHardwareProfile returns true if the profile is not set.
-func (host *BareMetalHost) NeedsHardwareProfile() bool {
-	return host.Status.HardwareProfile == ""
-}
-
-// HardwareProfile returns the hardware profile name for the host.
-func (host *BareMetalHost) HardwareProfile() string {
-	return host.Status.HardwareProfile
-}
-
-// SetHardwareProfile updates the hardware profile name and returns
-// true when a change is made or false when no change is made.
-func (host *BareMetalHost) SetHardwareProfile(name string) (dirty bool) {
-	if host.Status.HardwareProfile != name {
-		host.Status.HardwareProfile = name
-		dirty = true
-	}
-	return dirty
-}
-
 // SetOperationalStatus updates the OperationalStatus field and returns
 // true when a change is made or false when no change is made.
 func (host *BareMetalHost) SetOperationalStatus(status OperationalStatus) bool {
@@ -1079,27 +1042,6 @@ func (host *BareMetalHost) InspectionDisabled() bool {
 	// Fall back to the legacy annotation for backward compatibility
 	annotations := host.GetAnnotations()
 	return annotations[InspectAnnotationPrefix] == InspectAnnotationValueDisabled
-}
-
-// NeedsHardwareInspection looks at the state of the host to determine
-// if hardware inspection should be run.
-func (host *BareMetalHost) NeedsHardwareInspection() bool {
-	if host.Spec.ExternallyProvisioned {
-		// Never perform inspection if we already know something is
-		// using the host and we didn't provision it.
-		return false
-	}
-	if host.WasProvisioned() {
-		// Never perform inspection if we have already provisioned
-		// this host, because we don't want to reboot it.
-		return false
-	}
-	if host.InspectionDisabled() {
-		// Never perform inspection if it's explicitly disabled
-		return false
-	}
-	// FIXME(dtantsur): the HardwareDetails field is deprecated.
-	return host.Status.HardwareDetails == nil
 }
 
 // NeedsProvisioning compares the settings with the provisioning

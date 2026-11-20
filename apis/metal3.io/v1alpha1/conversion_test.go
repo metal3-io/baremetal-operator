@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
@@ -267,4 +268,258 @@ func TestSecretAccessErrorConversion(t *testing.T) {
 	restored := &BareMetalHost{}
 	g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
 	g.Expect(restored.Status.ErrorType).To(gomega.Equal(SecretAccessError))
+}
+
+// TestDataNameConversionToHub checks that the userData, networkData and
+// metaData Secret references are converted to the v1beta1 *DataName fields.
+func TestDataNameConversionToHub(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ref      *corev1.SecretReference
+		expected string
+	}{
+		{
+			name:     "nil reference",
+			ref:      nil,
+			expected: "",
+		},
+		{
+			name:     "name only",
+			ref:      &corev1.SecretReference{Name: "secret"},
+			expected: "secret",
+		},
+		{
+			name:     "name and host namespace",
+			ref:      &corev1.SecretReference{Name: "secret", Namespace: "host-ns"},
+			expected: "secret",
+		},
+		{
+			name:     "name and other namespace",
+			ref:      &corev1.SecretReference{Name: "secret", Namespace: "other-ns"},
+			expected: "secret",
+		},
+		{
+			name:     "namespace without name",
+			ref:      &corev1.SecretReference{Namespace: "host-ns"},
+			expected: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			spoke := &BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{Name: "host", Namespace: "host-ns"},
+				Spec: BareMetalHostSpec{
+					UserData:    tc.ref.DeepCopy(),
+					NetworkData: tc.ref.DeepCopy(),
+					MetaData:    tc.ref.DeepCopy(),
+				},
+			}
+			hub := &metal3apiv1beta1.BareMetalHost{}
+			g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+
+			g.Expect(hub.Spec.UserDataName).To(gomega.Equal(tc.expected))
+			g.Expect(hub.Spec.NetworkDataName).To(gomega.Equal(tc.expected))
+			g.Expect(hub.Spec.MetaDataName).To(gomega.Equal(tc.expected))
+		})
+	}
+}
+
+// TestDataNameConversionFromHub checks that the v1beta1 *DataName fields are
+// converted to Secret references in the namespace of the host when there is
+// no conversion data to restore from.
+func TestDataNameConversionFromHub(t *testing.T) {
+	testCases := []struct {
+		name     string
+		dataName string
+		expected *corev1.SecretReference
+	}{
+		{
+			name:     "empty name",
+			dataName: "",
+			expected: nil,
+		},
+		{
+			name:     "name",
+			dataName: "secret",
+			expected: &corev1.SecretReference{Name: "secret", Namespace: "host-ns"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			hub := &metal3apiv1beta1.BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{Name: "host", Namespace: "host-ns"},
+				Spec: metal3apiv1beta1.BareMetalHostSpec{
+					UserDataName:    tc.dataName,
+					NetworkDataName: tc.dataName,
+					MetaDataName:    tc.dataName,
+				},
+			}
+			spoke := &BareMetalHost{}
+			g.Expect(spoke.ConvertFrom(hub)).To(gomega.Succeed())
+
+			g.Expect(spoke.Spec.UserData).To(gomega.Equal(tc.expected))
+			g.Expect(spoke.Spec.NetworkData).To(gomega.Equal(tc.expected))
+			g.Expect(spoke.Spec.MetaData).To(gomega.Equal(tc.expected))
+		})
+	}
+}
+
+// TestDataNameConversionRestore checks that the Secret references stashed in
+// the conversion-data annotation are restored only as long as the Secret
+// name has not been changed through v1beta1.
+func TestDataNameConversionRestore(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ref      *corev1.SecretReference
+		modify   func(*metal3apiv1beta1.BareMetalHostSpec)
+		expected *corev1.SecretReference
+	}{
+		{
+			name:     "empty namespace is preserved",
+			ref:      &corev1.SecretReference{Name: "secret"},
+			expected: &corev1.SecretReference{Name: "secret"},
+		},
+		{
+			name:     "host namespace is preserved",
+			ref:      &corev1.SecretReference{Name: "secret", Namespace: "host-ns"},
+			expected: &corev1.SecretReference{Name: "secret", Namespace: "host-ns"},
+		},
+		{
+			name:     "other namespace is preserved",
+			ref:      &corev1.SecretReference{Name: "secret", Namespace: "other-ns"},
+			expected: &corev1.SecretReference{Name: "secret", Namespace: "other-ns"},
+		},
+		{
+			name:     "reference without name is preserved",
+			ref:      &corev1.SecretReference{Namespace: "host-ns"},
+			expected: &corev1.SecretReference{Namespace: "host-ns"},
+		},
+		{
+			name:     "empty reference is preserved",
+			ref:      &corev1.SecretReference{},
+			expected: &corev1.SecretReference{},
+		},
+		{
+			name:     "nil reference is preserved",
+			ref:      nil,
+			expected: nil,
+		},
+		{
+			name: "name changed in v1beta1",
+			ref:  &corev1.SecretReference{Name: "secret"},
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.UserDataName = "new-secret"
+				spec.NetworkDataName = "new-secret"
+				spec.MetaDataName = "new-secret"
+			},
+			expected: &corev1.SecretReference{Name: "new-secret", Namespace: "host-ns"},
+		},
+		{
+			name: "name changed in v1beta1 for reference in other namespace",
+			ref:  &corev1.SecretReference{Name: "secret", Namespace: "other-ns"},
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.UserDataName = "new-secret"
+				spec.NetworkDataName = "new-secret"
+				spec.MetaDataName = "new-secret"
+			},
+			expected: &corev1.SecretReference{Name: "new-secret", Namespace: "host-ns"},
+		},
+		{
+			name: "name set in v1beta1",
+			ref:  nil,
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.UserDataName = "new-secret"
+				spec.NetworkDataName = "new-secret"
+				spec.MetaDataName = "new-secret"
+			},
+			expected: &corev1.SecretReference{Name: "new-secret", Namespace: "host-ns"},
+		},
+		{
+			name: "name removed in v1beta1",
+			ref:  &corev1.SecretReference{Name: "secret", Namespace: "host-ns"},
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.UserDataName = ""
+				spec.NetworkDataName = ""
+				spec.MetaDataName = ""
+			},
+			expected: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			spoke := &BareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{Name: "host", Namespace: "host-ns"},
+				Spec: BareMetalHostSpec{
+					UserData:    tc.ref.DeepCopy(),
+					NetworkData: tc.ref.DeepCopy(),
+					MetaData:    tc.ref.DeepCopy(),
+				},
+			}
+			hub := &metal3apiv1beta1.BareMetalHost{}
+			g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+
+			if tc.modify != nil {
+				tc.modify(&hub.Spec)
+			}
+
+			restored := &BareMetalHost{}
+			g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+
+			g.Expect(restored.Spec.UserData).To(gomega.Equal(tc.expected))
+			g.Expect(restored.Spec.NetworkData).To(gomega.Equal(tc.expected))
+			g.Expect(restored.Spec.MetaData).To(gomega.Equal(tc.expected))
+		})
+	}
+}
+
+// TestBareMetalHostConversionDataAnnotation checks the conversion-data
+// annotation handling: ConvertTo stashes the v1alpha1 object in the v1beta1
+// hub, ConvertFrom replaces it with a stash of the v1beta1 object, and neither
+// modifies the annotations of the object being converted.
+func TestBareMetalHostConversionDataAnnotation(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	spoke := &BareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "host",
+			Namespace:   "host-ns",
+			Annotations: map[string]string{"example.com/annotation": "value"},
+		},
+		Spec: BareMetalHostSpec{
+			UserData: &corev1.SecretReference{Name: "secret", Namespace: "other-ns"},
+		},
+	}
+	hub := &metal3apiv1beta1.BareMetalHost{}
+	g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+
+	// ConvertTo does not modify the v1alpha1 source, and stashes it in the hub.
+	g.Expect(spoke.Annotations).To(gomega.Equal(map[string]string{"example.com/annotation": "value"}))
+	g.Expect(hub.Annotations).To(gomega.HaveKeyWithValue("example.com/annotation", "value"))
+	g.Expect(hub.Annotations).To(gomega.HaveKey(DataAnnotation))
+	stashedSpoke := &BareMetalHost{}
+	g.Expect(UnmarshalData(hub.DeepCopy(), stashedSpoke)).To(gomega.BeTrue())
+	g.Expect(stashedSpoke.Spec).To(gomega.Equal(spoke.Spec))
+	hubAnnotations := maps.Clone(hub.Annotations)
+
+	restored := &BareMetalHost{}
+	g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+
+	// ConvertFrom does not modify the v1beta1 source, and replaces the
+	// stashed v1alpha1 object with a stash of the hub.
+	g.Expect(hub.Annotations).To(gomega.Equal(hubAnnotations))
+	g.Expect(restored.Annotations).To(gomega.HaveKeyWithValue("example.com/annotation", "value"))
+	g.Expect(restored.Annotations).To(gomega.HaveLen(2))
+	stashedHub := &metal3apiv1beta1.BareMetalHost{}
+	g.Expect(UnmarshalData(restored.DeepCopy(), stashedHub)).To(gomega.BeTrue())
+	g.Expect(stashedHub.Spec).To(gomega.Equal(hub.Spec))
+	g.Expect(restored.Spec).To(gomega.Equal(spoke.Spec))
 }

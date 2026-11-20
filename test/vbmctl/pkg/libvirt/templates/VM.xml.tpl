@@ -3,6 +3,14 @@
   <memory unit='KiB'>{{ .Memory }}</memory>
   <currentMemory unit='KiB'>{{ .Memory }}</currentMemory>
   <vcpu placement='static'>{{ .VCPUs }}</vcpu>
+  {{- if .OVMFCode }}
+  <os>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <loader readonly='yes' type='pflash'>{{ .OVMFCode }}</loader>
+    <nvram template='{{ .OVMFVars }}'/>
+    <boot dev='hd'/>
+  </os>
+  {{- else }}
   <os firmware="efi">
     <type arch='x86_64' machine='q35'>hvm</type>
     <firmware>
@@ -10,6 +18,7 @@
     </firmware>
     <boot dev='hd'/>
   </os>
+  {{- end }}
   <features>
     <acpi/>
     <apic/>

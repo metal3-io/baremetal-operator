@@ -13,6 +13,7 @@ import (
 
 	"github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/config"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 )
 
@@ -191,8 +192,30 @@ func CreateNetwork(ctx context.Context, name string, opts *client.NetworkCreateO
 	return createdNet.ID, nil
 }
 
-// GetNetworkByName finds the network with given name. If multiple networks
-// is found, the first match will be returned.
+// selectNetworkByName returns the ID of the network named exactly networkName,
+// or ErrNetworkNotFound if there is none. Docker's name filter also returns
+// networks whose name only contains networkName, so the filtered list has to
+// be checked here. If multiple networks have that name, the first one is
+// returned.
+func selectNetworkByName(networks []network.Summary, networkName string) (string, error) {
+	var networkIDs []string
+	for i := range networks {
+		if networks[i].Name == networkName {
+			networkIDs = append(networkIDs, networks[i].ID)
+		}
+	}
+	if len(networkIDs) == 0 {
+		return "", ErrNetworkNotFound
+	}
+	if len(networkIDs) > 1 {
+		log.Printf("Warning: found %d networks with name %s", len(networkIDs), networkName)
+	}
+	return networkIDs[0], nil
+}
+
+// GetNetworkByName finds the network named exactly networkName. If there is
+// none, ErrNetworkNotFound is returned. If multiple networks have that name,
+// the first match will be returned.
 func GetNetworkByName(ctx context.Context, networkName string) (string, error) {
 	apiClient, err := client.New(client.FromEnv, client.WithUserAgent("vbmctl/"+config.Version))
 	if err != nil {
@@ -208,13 +231,7 @@ func GetNetworkByName(ctx context.Context, networkName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to look for Docker network with name %s: %w", networkName, err)
 	}
-	if len(networks.Items) == 0 {
-		return "", ErrNetworkNotFound
-	}
-	if len(networks.Items) > 1 {
-		log.Printf("Warning: found %d networks with name %s", len(networks.Items), networkName)
-	}
-	return networks.Items[0].Network.ID, nil
+	return selectNetworkByName(networks.Items, networkName)
 }
 
 // DeleteNetwork deletes network with given ID. An error is returned if the network

@@ -154,6 +154,12 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		if credentialsChanged || bmcAddressChanged {
 			p.log.Info("Updating driver info because the credentials and/or the BMC address changed")
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
+		} else {
+			// The address check above only looks at the host part of the
+			// address. Apply changes to the other BMC settings (port, system
+			// ID, certificate verification) one field at a time, leaving the
+			// rest of driver_info alone.
+			updater.SetDriverInfoOpts(bmcSettingsFromDriverInfo(driverInfo), ironicNode)
 		}
 
 		// The updater only updates disable_power_off if it has changed
@@ -324,6 +330,29 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 	}
 
 	return ironicNode, false, nil
+}
+
+// bmcSettingsFromDriverInfo returns the driver_info fields that depend on
+// spec.bmc, other than the address and the credentials: the port, the system
+// ID, the certificate verification flag and so on. Fields that the BMC driver
+// leaves out when they do not apply are returned as nil, so that a stale value
+// in Ironic gets removed.
+func bmcSettingsFromDriverInfo(driverInfo map[string]any) clients.UpdateOptsData {
+	settings := clients.UpdateOptsData{}
+	for key, value := range driverInfo {
+		if strings.HasSuffix(key, "_address") ||
+			strings.HasSuffix(key, "_username") ||
+			strings.HasSuffix(key, "_password") {
+			continue
+		}
+		settings[key] = value
+	}
+	for _, key := range []string{"redfish_system_id", "redfish_verify_ca", "ipmi_verify_ca"} {
+		if _, ok := settings[key]; !ok {
+			settings[key] = nil
+		}
+	}
+	return settings
 }
 
 func (p *ironicProvisioner) createPortsForNode(ctx context.Context, ironicNode *nodes.Node, hardwareData *metal3api.HardwareData, updateExisting bool) error {

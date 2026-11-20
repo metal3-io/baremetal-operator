@@ -159,6 +159,7 @@ func (hsm *hostStateMachine) checkDelayedHost(ctx context.Context, info *reconci
 		}
 
 		// A slot is available, let's cleanup the status and retry
+		info.publishEvent("DelayEnded", fmt.Sprintf("Capacity is available, resuming %s", info.host.Status.Provisioning.State))
 		clearError(info.host)
 		return actionUpdate{}
 	}

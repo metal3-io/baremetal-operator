@@ -405,6 +405,14 @@ func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState)
 
 	info.postSaveCallbacks = append(info.postSaveCallbacks, counter.Inc)
 
+	// Only publish an event when the host starts waiting, not on every
+	// reconcile while it stays delayed.
+	if info.host.Status.OperationalStatus != metal3api.OperationalStatusDelayed {
+		info.publishEvent("Delayed", fmt.Sprintf(
+			"%s delayed: the limit of hosts being inspected, provisioned or deprovisioned at the same time (PROVISIONING_LIMIT) has been reached",
+			state))
+	}
+
 	info.host.SetOperationalStatus(metal3api.OperationalStatusDelayed)
 	return actionDelayed{}
 }

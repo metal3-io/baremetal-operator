@@ -17,7 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"maps"
+
 	metal3apiv1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
+	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -39,6 +42,12 @@ import (
 //     an annotation on the spoke.
 //   - ConvertTo (spoke -> hub) calls UnmarshalData to restore any previously
 //     stashed hub-only fields onto the freshly converted hub object.
+//
+// Spoke-only values (values that v1alpha1 accepts but v1beta1 does not) need
+// the opposite direction. Following the design document, ConvertTo stashes the
+// minimal sparse v1alpha1 object needed to restore them in the same annotation
+// on the HUB (see stashSpokeData), and ConvertFrom restores them from it (see
+// restoreSpokeData). This works because v1alpha1 is the storage version.
 
 // --- BareMetalHost ---
 
@@ -47,6 +56,12 @@ func (src *BareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*metal3apiv1beta1.BareMetalHost)
 	if err := Convert_v1alpha1_BareMetalHost_To_v1beta1_BareMetalHost(src, dst, nil); err != nil {
 		return err
+	}
+
+	stash := &BareMetalHost{}
+	needed := stashMD5Checksums(src, stash)
+	if needed {
+		return stashSpokeData(stash, dst)
 	}
 	return nil
 }
@@ -57,7 +72,91 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 	if err := Convert_v1beta1_BareMetalHost_To_v1alpha1_BareMetalHost(src, dst, nil); err != nil {
 		return err
 	}
+
+	stash := &BareMetalHost{}
+	ok, err := restoreSpokeData(dst, stash)
+	if err != nil || !ok {
+		return err
+	}
+	restoreMD5Checksums(stash, dst)
 	return nil
+}
+
+// stashSpokeData stores the sparse v1alpha1 object stash in the conversion-data
+// annotation of the hub object dst.
+func stashSpokeData(stash *BareMetalHost, dst *metal3apiv1beta1.BareMetalHost) error {
+	// The generated conversion shallow-copies ObjectMeta, so clone the
+	// annotations to avoid modifying the source object.
+	dst.SetAnnotations(maps.Clone(dst.GetAnnotations()))
+	return MarshalData(stash, dst)
+}
+
+// restoreSpokeData reads the sparse v1alpha1 object stashed by stashSpokeData
+// into stash and removes the conversion-data annotation from dst. It reports
+// whether the annotation was present.
+func restoreSpokeData(dst *BareMetalHost, stash *BareMetalHost) (bool, error) {
+	if _, ok := dst.GetAnnotations()[DataAnnotation]; !ok {
+		return false, nil
+	}
+	// The generated conversion shallow-copies ObjectMeta, so clone the
+	// annotations to avoid modifying the source object.
+	dst.SetAnnotations(maps.Clone(dst.GetAnnotations()))
+	ok, err := UnmarshalData(dst, stash)
+	if len(dst.GetAnnotations()) == 0 {
+		dst.SetAnnotations(nil)
+	}
+	return ok, err
+}
+
+// Convert_v1alpha1_Image_To_v1beta1_Image converts an Image to v1beta1. The
+// "md5" checksum type does not exist in v1beta1 and is unset, which lets
+// Ironic detect the algorithm from the checksum (same as "auto").
+func Convert_v1alpha1_Image_To_v1beta1_Image(in *Image, out *metal3apiv1beta1.Image, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_Image_To_v1beta1_Image(in, out, s); err != nil {
+		return err
+	}
+	if in.ChecksumType == MD5 {
+		out.ChecksumType = ""
+	}
+	return nil
+}
+
+// md5Image returns the part of image needed to restore its "md5" checksum
+// type, or nil if image does not use md5.
+func md5Image(image *Image) *Image {
+	if image == nil || image.ChecksumType != MD5 {
+		return nil
+	}
+	return &Image{URL: image.URL, Checksum: image.Checksum, ChecksumType: MD5}
+}
+
+// stashMD5Checksums records in stash the images of src that use the "md5"
+// checksum type. It reports whether any were found.
+func stashMD5Checksums(src *BareMetalHost, stash *BareMetalHost) bool {
+	stash.Spec.Image = md5Image(src.Spec.Image)
+	stash.Status.LastAttemptedImage = md5Image(src.Status.LastAttemptedImage)
+	if image := md5Image(&src.Status.Provisioning.Image); image != nil {
+		stash.Status.Provisioning.Image = *image
+	}
+	return stash.Spec.Image != nil || stash.Status.LastAttemptedImage != nil ||
+		stash.Status.Provisioning.Image.ChecksumType == MD5
+}
+
+// restoreMD5Checksums restores the "md5" checksum type recorded in stash on the
+// images of dst, as long as the image is unchanged and its type is still unset.
+// Otherwise a new checksum, e.g. a SHA256 one, would wrongly be labelled md5.
+func restoreMD5Checksums(stash *BareMetalHost, dst *BareMetalHost) {
+	restore := func(stashed, image *Image) {
+		if stashed == nil || stashed.ChecksumType != MD5 || image == nil {
+			return
+		}
+		if image.ChecksumType == "" && image.URL == stashed.URL && image.Checksum == stashed.Checksum {
+			image.ChecksumType = MD5
+		}
+	}
+	restore(stash.Spec.Image, dst.Spec.Image)
+	restore(stash.Status.LastAttemptedImage, dst.Status.LastAttemptedImage)
+	restore(&stash.Status.Provisioning.Image, &dst.Status.Provisioning.Image)
 }
 
 // --- HardwareData ---

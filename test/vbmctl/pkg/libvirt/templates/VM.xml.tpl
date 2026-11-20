@@ -8,6 +8,10 @@
     <firmware>
       <feature enabled="no" name="secure-boot"/>
     </firmware>
+    {{- if .OVMFCode }}
+    <loader readonly='yes' type='pflash'>{{ .OVMFCode }}</loader>
+    <nvram template='{{ .OVMFVars }}'/>
+    {{- end }}
     <boot dev='hd'/>
   </os>
   <features>

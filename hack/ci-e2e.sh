@@ -45,6 +45,13 @@ collect_artifacts() {
     mkdir -p "${logs_dir}/qemu"
     sudo cp -r /var/log/libvirt/qemu/. "${logs_dir}/qemu/"
     sudo chown -R "${USER}:${USER}" "${logs_dir}/qemu"
+    # BMC emulator containers exist only when vbmctl created them; against real
+    # hardware there are none, so skip the ones that are missing.
+    for name in vbmctl-vbmc vbmctl-sushy-tools vbmctl-sushy-tools-e2e; do
+      if docker inspect "${name}" &> /dev/null; then
+        docker logs "${name}" > "${logs_dir}/${name}.log" 2>&1
+      fi
+    done
   fi
   tar --directory "${REPO_ROOT}/test/e2e/" -czf "${REPO_ROOT}/artifacts-e2e-${BMO_E2E_EMULATOR}-${BMC_PROTOCOL}.tar.gz" _artifacts
 }

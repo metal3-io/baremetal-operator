@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"os"
 	"strings"
 	"text/template"
 
@@ -76,6 +77,10 @@ func (r *TemplateRenderer) RenderVM(cfg vbmctlapi.VMConfig, poolPath string) (st
 		PoolPath string
 		Networks []vbmctlapi.NetworkAttachment
 		Volumes  []VolumeAttachmentData
+		// OVMFCode and OVMFVars pin the UEFI firmware. If empty, libvirt
+		// auto-selects firmware.
+		OVMFCode string
+		OVMFVars string
 	}{
 		Name:     cfg.Name,
 		Memory:   memoryKiB,
@@ -84,6 +89,7 @@ func (r *TemplateRenderer) RenderVM(cfg vbmctlapi.VMConfig, poolPath string) (st
 		Networks: cfg.Networks,
 		Volumes:  volumes,
 	}
+	data.OVMFCode, data.OVMFVars = findOVMF()
 	return r.render("VM.xml.tpl", data)
 }
 
@@ -165,4 +171,29 @@ func RenderTemplate(inputFile string, data interface{}) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+// ovmfCandidates lists known (code, vars) pairs of plain, non-secureboot,
+// non-confidential-computing OVMF images across distributions.
+var ovmfCandidates = [][2]string{
+	{"/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"},         // Debian/Ubuntu
+	{"/usr/share/OVMF/OVMF_CODE.fd", "/usr/share/OVMF/OVMF_VARS.fd"},               // Debian/Ubuntu (legacy)
+	{"/usr/share/edk2/ovmf/OVMF_CODE.fd", "/usr/share/edk2/ovmf/OVMF_VARS.fd"},     // Fedora/CentOS
+	{"/usr/share/edk2/x64/OVMF_CODE.4m.fd", "/usr/share/edk2/x64/OVMF_VARS.4m.fd"}, // Arch
+}
+
+// findOVMF returns the first existing OVMF code/vars pair. Pinning the loader
+// avoids libvirt auto-selecting restricted images (e.g. OVMF.amdsev.fd on
+// Ubuntu 26.04) that AppArmor refuses to load.
+func findOVMF() (string, string) {
+	for _, c := range ovmfCandidates {
+		if _, err := os.Stat(c[0]); err != nil {
+			continue
+		}
+		if _, err := os.Stat(c[1]); err != nil {
+			continue
+		}
+		return c[0], c[1]
+	}
+	return "", ""
 }

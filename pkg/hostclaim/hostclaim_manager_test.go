@@ -334,6 +334,13 @@ var _ = Describe("HostClaim manager", func() {
 			BareMetalHosts:  []*metal3api.BareMetalHost{bmhns1},
 			ExpectedBmhName: "bmh1",
 		}),
+		Entry("ignores HostDeployPolicy being deleted", testCaseChooseBMH{
+			HostClaim:  NewHostclaim(HostclaimName).Build(),
+			Namespaces: []*corev1.Namespace{hcNs, ns1},
+			HostDeployPolicies: []*metal3api.HostDeployPolicy{
+				NewHostdeploypolicy("hdp", "ns1").AcceptNames([]string{HostclaimNamespace}).AddFinalizer().MarkDeleted().Build()},
+			BareMetalHosts: []*metal3api.BareMetalHost{bmhns1, bmhns2},
+		}),
 	)
 
 	type testCaseAssociate struct {

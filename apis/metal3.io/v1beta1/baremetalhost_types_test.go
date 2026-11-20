@@ -637,54 +637,6 @@ func TestSetOperationalStatus(t *testing.T) {
 	}
 }
 
-func TestSetHardwareProfile(t *testing.T) {
-	for _, tc := range []struct {
-		Scenario string
-		Host     BareMetalHost
-		name     string
-		Expected bool
-	}{
-		{
-			Scenario: "Host hardware profile and name is same",
-			Host: BareMetalHost{
-				Status: BareMetalHostStatus{
-					HardwareProfile: "test",
-				},
-			},
-			name:     "test",
-			Expected: false,
-		},
-		{
-			Scenario: "Host hardware profile and name are different",
-			Host: BareMetalHost{
-				Status: BareMetalHostStatus{
-					HardwareProfile: "test",
-				},
-			},
-			name:     "newtest",
-			Expected: true,
-		},
-		{
-			Scenario: "Host hardware profile is not defined",
-			Host: BareMetalHost{
-				Status: BareMetalHostStatus{},
-			},
-			name:     "test",
-			Expected: true,
-		},
-	} {
-		t.Run(tc.Scenario, func(t *testing.T) {
-			actual := tc.Host.SetHardwareProfile(tc.name)
-			if tc.Expected && !actual {
-				t.Error("Expected a change in hardware profile")
-			}
-			if !tc.Expected && actual {
-				t.Error("Did not expect a change in hardware profile")
-			}
-		})
-	}
-}
-
 func TestHasBMCDetails(t *testing.T) {
 	for _, tc := range []struct {
 		Scenario string

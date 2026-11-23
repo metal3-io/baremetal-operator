@@ -214,11 +214,12 @@ func validateRAID(host *metal3api.BareMetalHost) []error {
 	// host on disk failure. The first volume must also be RAID-1, otherwise the
 	// provisioner rejects the configuration later, while preparing the host.
 	for index, volume := range r.SoftwareRAIDVolumes {
-		switch {
-		case volume.RootVolume && volume.Level != "1":
-			errs = append(errs, fmt.Errorf("softwareRAIDVolumes[%d] with rootVolume set must use RAID level 1", index))
-		case index == 0 && volume.Level != "1":
-			errs = append(errs, errors.New("softwareRAIDVolumes[0] must use RAID level 1"))
+		if volume.Level != "1" {
+			if volume.RootVolume {
+				errs = append(errs, fmt.Errorf("softwareRAIDVolumes[%d] with rootVolume set must use RAID level 1", index))
+			} else if index == 0 {
+				errs = append(errs, errors.New("softwareRAIDVolumes[0] must use RAID level 1"))
+			}
 		}
 	}
 

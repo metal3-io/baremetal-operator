@@ -93,8 +93,8 @@ type AccessDetails interface {
 func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 	parsedURL, err = url.Parse(address)
 	if err != nil {
-		// We failed to parse the URL, but it may just be a host or
-		// host:port string (which the URL parser rejects because ":"
+		// We failed to parse the URL, but it may just be a schemeless IP or
+		// IP:port string (which the URL parser rejects because ":"
 		// is not allowed in the first segment of a
 		// path. Unfortunately there is no error class to represent
 		// that specific error, so we have to guess.

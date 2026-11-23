@@ -112,6 +112,17 @@ func normalizeConversionAnnotations(obj metav1.Object) {
 	}
 }
 
+// popConversionData checks that obj carries the conversion-data annotation,
+// unmarshals it into stash, and removes it from obj (see
+// normalizeConversionAnnotations), so that obj can be compared with an object
+// that was never converted.
+func popConversionData(g gomega.Gomega, obj metav1.Object, stash interface{}) {
+	hasData, err := UnmarshalData(obj, stash)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(hasData).To(gomega.BeTrue(), "expected the %s annotation", DataAnnotation)
+	normalizeConversionAnnotations(obj)
+}
+
 // getFuzzer returns a randfill.Filler seeded with the standard meta fuzzers
 // plus custom fuzzers for metav1.Time and intstr.IntOrString, which otherwise
 // fuzz to nil / are not fuzzed at all. This matches cluster-api's GetFuzzer.
@@ -318,22 +329,39 @@ func TestMD5ChecksumConversion(t *testing.T) {
 		// The source object must not be modified.
 		g.Expect(spoke).To(gomega.Equal(newSpoke()))
 
+		hubBefore := hub.DeepCopy()
+
 		restored := &BareMetalHost{}
 		g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
-		g.Expect(restored).To(gomega.Equal(newSpoke()))
 		// The source hub must not be modified either.
-		g.Expect(hub.Annotations).To(gomega.HaveKey(DataAnnotation))
+		g.Expect(hub).To(gomega.Equal(hubBefore))
+
+		// ConvertFrom replaces the stashed v1alpha1 object with a stash of
+		// the hub, in which the md5 checksum type is unset.
+		stashedHub := &metal3apiv1beta1.BareMetalHost{}
+		popConversionData(g, restored, stashedHub)
+		g.Expect(stashedHub.Spec).To(gomega.Equal(hub.Spec))
+		g.Expect(stashedHub.Status).To(gomega.Equal(hub.Status))
+		g.Expect(stashedHub.Spec.Image.ChecksumType).To(gomega.BeEmpty())
+
+		g.Expect(restored).To(gomega.Equal(newSpoke()))
 	})
 
-	t.Run("no annotation without md5", func(t *testing.T) {
+	t.Run("annotation is set without md5", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		spoke := &BareMetalHost{Spec: BareMetalHostSpec{Image: &Image{
 			URL: "http://example.com/image.qcow2", Checksum: "shahash", ChecksumType: SHA256,
 		}}}
 		hub := &metal3apiv1beta1.BareMetalHost{}
 		g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
-		g.Expect(hub.Annotations).To(gomega.BeNil())
 		g.Expect(hub.Spec.Image.ChecksumType).To(gomega.Equal(metal3apiv1beta1.SHA256))
+
+		// The whole v1alpha1 object is stashed, even if v1beta1 can represent
+		// it, and it is the only annotation.
+		stashedSpoke := &BareMetalHost{}
+		popConversionData(g, hub, stashedSpoke)
+		g.Expect(stashedSpoke.Spec).To(gomega.Equal(spoke.Spec))
+		g.Expect(hub.Annotations).To(gomega.BeNil())
 	})
 
 	t.Run("md5 is not restored for a changed image", func(t *testing.T) {
@@ -349,6 +377,13 @@ func TestMD5ChecksumConversion(t *testing.T) {
 		g.Expect(restored.Spec.Image.ChecksumType).To(gomega.BeEmpty())
 		g.Expect(restored.Status.LastAttemptedImage.ChecksumType).To(gomega.BeEmpty())
 		g.Expect(restored.Status.Provisioning.Image.ChecksumType).To(gomega.Equal(SHA512))
+
+		// The stash of the hub carries the changed images.
+		stashedHub := &metal3apiv1beta1.BareMetalHost{}
+		popConversionData(g, restored, stashedHub)
+		g.Expect(stashedHub.Spec.Image).To(gomega.Equal(hub.Spec.Image))
+		g.Expect(stashedHub.Status.LastAttemptedImage).To(gomega.Equal(hub.Status.LastAttemptedImage))
+		g.Expect(stashedHub.Status.Provisioning.Image).To(gomega.Equal(hub.Status.Provisioning.Image))
 		g.Expect(restored.Annotations).To(gomega.Equal(map[string]string{"foo": "bar"}))
 	})
 
@@ -376,8 +411,17 @@ func TestMD5ChecksumConversion(t *testing.T) {
 			g.Expect(spoke.ConvertFrom(hub.DeepCopy())).To(gomega.Succeed())
 			g.Expect(spoke.Spec.Image.ChecksumType).To(gomega.Equal(ChecksumType(checksumType)))
 
+			// ConvertFrom stashes the hub in the spoke.
+			g.Expect(spoke.Annotations).To(gomega.HaveKey(DataAnnotation))
+
 			hubAfter := &metal3apiv1beta1.BareMetalHost{}
 			g.Expect(spoke.ConvertTo(hubAfter)).To(gomega.Succeed())
+
+			// ConvertTo replaces the stashed hub with a stash of the spoke,
+			// so the annotation is carried back to the hub as well.
+			stashedSpoke := &BareMetalHost{}
+			popConversionData(g, hubAfter, stashedSpoke)
+			g.Expect(stashedSpoke.Spec.Image.ChecksumType).To(gomega.Equal(ChecksumType(checksumType)))
 			g.Expect(hubAfter).To(gomega.Equal(hub))
 		})
 	}

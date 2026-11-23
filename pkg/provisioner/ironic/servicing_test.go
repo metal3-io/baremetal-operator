@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"net/http"
 	"net/url"
 	"testing"
 	"time"
@@ -42,14 +43,15 @@ func TestService(t *testing.T) {
 
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
-		name                 string
-		ironic               *testserver.IronicMock
-		unprepared           bool
-		skipConfig           bool
-		expectedStarted      bool
-		expectedDirty        bool
-		expectedError        bool
-		expectedRequestAfter int
+		name                     string
+		ironic                   *testserver.IronicMock
+		unprepared               bool
+		skipConfig               bool
+		expectedStarted          bool
+		expectedDirty            bool
+		expectedError            bool
+		expectedRequestAfter     int
+		expectedMaintenanceUnset bool
 	}{
 		{
 			name: "active, no new steps",
@@ -94,6 +96,22 @@ func TestService(t *testing.T) {
 			expectedStarted:      true,
 			expectedRequestAfter: 3,
 			expectedDirty:        true,
+		},
+		{
+			name: "serviceFail state(abort with maintenance - no firmware spec)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState:    string(nodes.ServiceFail),
+				UUID:              nodeUUID,
+				Maintenance:       true,
+				MaintenanceReason: "service step timed out",
+				Fault:             "service failure",
+			}).NodeMaintenance(nodes.Node{
+				UUID: nodeUUID,
+			}, false),
+			skipConfig:               true,
+			expectedStarted:          false,
+			expectedDirty:            true,
+			expectedMaintenanceUnset: true,
 		},
 		{
 			name: "serviceFail state(retry)",
@@ -211,6 +229,12 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
+			}
+			if tc.expectedMaintenanceUnset {
+				_, found := tc.ironic.GetLastRequestFor("/v1/nodes/"+nodeUUID+"/maintenance", http.MethodDelete)
+				assert.True(t, found, "maintenance should be unset, requests: %s", tc.ironic.Requests)
+				_, found = tc.ironic.GetLastRequestFor("/v1/nodes/"+nodeUUID+"/states/provision", http.MethodPut)
+				assert.False(t, found, "provision state must not change before maintenance is unset, requests: %s", tc.ironic.Requests)
 			}
 		})
 	}

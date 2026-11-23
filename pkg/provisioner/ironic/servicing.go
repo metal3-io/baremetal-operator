@@ -83,6 +83,14 @@ func (p *ironicProvisioner) Service(ctx context.Context, data provisioner.Servic
 		// When servicing failed and user removed all firmware specs,
 		// abort the servicing operation to back out
 		if !data.HasFirmwareSpec {
+			// Ironic may set maintenance with a fault on servicing failures,
+			// which blocks any provision state change, including abort.
+			if ironicNode.Maintenance {
+				p.log.Info("clearing maintenance flag before aborting servicing",
+					"fault", ironicNode.Fault, "reason", ironicNode.MaintenanceReason)
+				result, err = p.setMaintenanceFlag(ctx, ironicNode, false, "")
+				return result, started, err
+			}
 			return p.abortServicing(ctx, ironicNode)
 		}
 

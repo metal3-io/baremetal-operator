@@ -336,9 +336,12 @@ var _ = Describe("Inspection", Label("required", "inspection", "ironic"), func()
 			}, e2eConfig.GetIntervals(specName, "wait-deployment")...)
 
 			By("Get ports in Ironic after re-attachment and check if they are the same")
-			portsAfter, errPortsAfter := getIronicNodePorts(ctx, e2eConfig, ironicNodeName)
-			Expect(errPortsAfter).NotTo(HaveOccurred())
-			Expect(getMacList(portsAfter)).To(ConsistOf(getMacList(portsBefore)))
+			Eventually(func(g Gomega) {
+				portsAfter, errPortsAfter := getIronicNodePorts(ctx, e2eConfig, ironicNodeName)
+				g.Expect(errPortsAfter).NotTo(HaveOccurred())
+				g.Expect(getMacList(portsAfter)).To(ConsistOf(getMacList(portsBefore)))
+			}, e2eConfig.GetIntervals(specName, "wait-deployment")...).Should(Succeed())
+
 		}
 	})
 

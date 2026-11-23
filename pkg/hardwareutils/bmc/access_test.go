@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -685,6 +686,99 @@ func TestDriverInfo(t *testing.T) {
 				if value != expectArg && ok {
 					t.Fatalf("unexpected value for %v (key present: %v): %v, expected %v",
 						ok, expectKey, value, expectArg)
+				}
+			}
+		})
+	}
+}
+
+func TestDriverInfoSettings(t *testing.T) {
+	for _, tc := range []struct {
+		Scenario                       string
+		input                          string
+		disableCertificateVerification bool
+		expects                        map[string]interface{}
+	}{
+		{
+			Scenario:                       "ipmi default port, verification disabled",
+			input:                          "ipmi://192.168.122.1",
+			disableCertificateVerification: true,
+			expects: map[string]interface{}{
+				"ipmi_port":       ipmiDefaultPort,
+				"ipmi_priv_level": "ADMINISTRATOR",
+				"ipmi_verify_ca":  false,
+			},
+		},
+		{
+			Scenario: "ipmi port and privilege level, verification enabled",
+			input:    "ipmi://192.168.122.1:6233?privilegelevel=OPERATOR",
+			expects: map[string]interface{}{
+				"ipmi_port":       "6233",
+				"ipmi_priv_level": "OPERATOR",
+				"ipmi_verify_ca":  nil,
+			},
+		},
+		{
+			Scenario:                       "redfish with system ID, verification disabled",
+			input:                          "redfish://192.168.122.1/foo/bar",
+			disableCertificateVerification: true,
+			expects: map[string]interface{}{
+				"redfish_system_id": "/foo/bar",
+				"redfish_verify_ca": false,
+			},
+		},
+		{
+			Scenario: "redfish default system ID, verification enabled",
+			input:    "redfish://192.168.122.1/redfish/v1",
+			expects: map[string]interface{}{
+				"redfish_system_id": nil,
+				"redfish_verify_ca": nil,
+			},
+		},
+		{
+			Scenario: "redfish virtual media with system ID, verification enabled",
+			input:    "redfish-virtualmedia://192.168.122.1/redfish/v1/Systems/1",
+			expects: map[string]interface{}{
+				"redfish_system_id": "/redfish/v1/Systems/1",
+				"redfish_verify_ca": nil,
+			},
+		},
+		{
+			Scenario:                       "idrac virtual media without system ID, verification disabled",
+			input:                          "idrac-virtualmedia://192.168.122.1/redfish/v1/",
+			disableCertificateVerification: true,
+			expects: map[string]interface{}{
+				"redfish_system_id": nil,
+				"redfish_verify_ca": false,
+			},
+		},
+		{
+			Scenario: "redfish uefihttp, verification enabled",
+			input:    "redfish-uefihttp://192.168.122.1/redfish/v1/Systems/1",
+			expects: map[string]interface{}{
+				"redfish_system_id": "/redfish/v1/Systems/1",
+				"redfish_verify_ca": nil,
+			},
+		},
+	} {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			acc, err := NewAccessDetails(tc.input, tc.disableCertificateVerification)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+			settings := acc.DriverInfoSettings()
+			if !reflect.DeepEqual(settings, tc.expects) {
+				t.Fatalf("unexpected settings: %#v, expected %#v", settings, tc.expects)
+			}
+			// The settings are part of the DriverInfo, except for the nil ones.
+			di := acc.DriverInfo(Credentials{})
+			for key, value := range settings {
+				diValue, ok := di[key]
+				if value == nil && ok {
+					t.Fatalf("key %v is nil in the settings but present in DriverInfo: %v", key, diValue)
+				}
+				if value != nil && (!ok || diValue != value) {
+					t.Fatalf("key %v: DriverInfo has %v (present: %v), settings have %v", key, diValue, ok, value)
 				}
 			}
 		})

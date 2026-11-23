@@ -53,10 +53,19 @@ func (a *redfishHTTPBootMediaAccessDetails) DisableCertificateVerification() boo
 // the kernel and ramdisk locations).
 func (a *redfishHTTPBootMediaAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
 	result := map[string]interface{}{
+		"redfish_username": bmcCreds.Username,
+		"redfish_password": bmcCreds.Password,
+		"redfish_address":  getRedfishAddress(a.bmcType, a.host),
+	}
+	return addDriverInfoSettings(result, a.DriverInfoSettings())
+}
+
+// DriverInfoSettings returns the DriverInfo fields other than the address and
+// the credentials.
+func (a *redfishHTTPBootMediaAccessDetails) DriverInfoSettings() map[string]interface{} {
+	result := map[string]interface{}{
 		"redfish_system_id": a.path,
-		"redfish_username":  bmcCreds.Username,
-		"redfish_password":  bmcCreds.Password,
-		"redfish_address":   getRedfishAddress(a.bmcType, a.host),
+		"redfish_verify_ca": nil,
 	}
 
 	if a.disableCertificateVerification {

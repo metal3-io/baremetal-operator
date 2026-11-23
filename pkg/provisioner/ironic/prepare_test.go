@@ -22,6 +22,7 @@ func (r *RAIDTestBMC) NeedsMAC() bool                                { return fa
 func (r *RAIDTestBMC) Driver() string                                { return "raid-test" }
 func (r *RAIDTestBMC) DisableCertificateVerification() bool          { return false }
 func (r *RAIDTestBMC) DriverInfo(bmc.Credentials) (i map[string]any) { return }
+func (r *RAIDTestBMC) DriverInfoSettings() (i map[string]any)        { return }
 func (r *RAIDTestBMC) SupportsISOPreprovisioningImage() bool         { return false }
 func (r *RAIDTestBMC) BIOSInterface() string                         { return "" }
 func (r *RAIDTestBMC) BootInterface() string                         { return "" }

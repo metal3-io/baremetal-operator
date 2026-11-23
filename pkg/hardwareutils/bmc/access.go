@@ -60,6 +60,13 @@ type AccessDetails interface {
 	// (such as the kernel and ramdisk locations).
 	DriverInfo(bmcCreds Credentials) map[string]interface{}
 
+	// DriverInfoSettings returns the DriverInfo fields that follow from the
+	// BMC settings other than the address and the credentials, such as the
+	// port or the certificate verification. A field that the driver does
+	// not set at the moment has the value nil, so that an existing value
+	// can be removed from a node.
+	DriverInfoSettings() map[string]interface{}
+
 	BIOSInterface() string
 
 	// Boot interface to set
@@ -86,6 +93,16 @@ type AccessDetails interface {
 
 	// RequiresProvisioningNetwork checks the driver requires provisioning network
 	RequiresProvisioningNetwork() bool
+}
+
+// addDriverInfoSettings adds the settings that are set (not nil) to driverInfo.
+func addDriverInfoSettings(driverInfo, settings map[string]interface{}) map[string]interface{} {
+	for key, value := range settings {
+		if value != nil {
+			driverInfo[key] = value
+		}
+	}
+	return driverInfo
 }
 
 func GetParsedURL(address string) (parsedURL *url.URL, err error) {

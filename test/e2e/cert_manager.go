@@ -78,7 +78,7 @@ func checkCertManagerWebhook(ctx context.Context, clusterProxy framework.Cluster
 		Spec: cmapi.CertificateSpec{
 			DNSNames:   []string{"cmapichecker.example"},
 			SecretName: "cmapichecker",
-			IssuerRef: cmmeta.ObjectReference{
+			IssuerRef: cmmeta.IssuerReference{
 				Name: "cmapichecker",
 			},
 		},

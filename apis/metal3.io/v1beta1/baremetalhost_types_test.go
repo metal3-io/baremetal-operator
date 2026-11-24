@@ -503,9 +503,9 @@ func TestGetImageChecksum(t *testing.T) {
 				},
 				Spec: BareMetalHostSpec{
 					Image: &Image{
-						URL:        "oci://example.com/image:latest",
-						Checksum:   "sha256hash",
-						DiskFormat: ptr.To("live-iso"),
+						URL:      "oci://example.com/image:latest",
+						Checksum: "sha256hash",
+						Format:   ptr.To("live-iso"),
 					},
 				},
 			},
@@ -521,8 +521,8 @@ func TestGetImageChecksum(t *testing.T) {
 				},
 				Spec: BareMetalHostSpec{
 					Image: &Image{
-						URL:        "http://example.com/image.iso",
-						DiskFormat: ptr.To("live-iso"),
+						URL:    "http://example.com/image.iso",
+						Format: ptr.To("live-iso"),
 					},
 				},
 			},
@@ -855,16 +855,16 @@ func TestIsLiveISO(t *testing.T) {
 		{
 			Scenario: "live-iso format",
 			Image: &Image{
-				URL:        "http://example.com/image.iso",
-				DiskFormat: ptr.To("live-iso"),
+				URL:    "http://example.com/image.iso",
+				Format: ptr.To("live-iso"),
 			},
 			Expected: true,
 		},
 		{
 			Scenario: "raw format",
 			Image: &Image{
-				URL:        "http://example.com/image.qcow2",
-				DiskFormat: ptr.To("raw"),
+				URL:    "http://example.com/image.qcow2",
+				Format: ptr.To("raw"),
 			},
 			Expected: false,
 		},

@@ -733,8 +733,8 @@ type Image struct {
 	// Format contains the format of the image (raw, qcow2, ...).
 	// When set to "live-iso", an ISO 9660 image referenced by the url will
 	// be live-booted and not deployed to disk.
-	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk;live-iso
-	DiskFormat *string `json:"format,omitempty"`
+	// +kubebuilder:validation:Enum=raw;qcow2;live-iso
+	Format *string `json:"format,omitempty"`
 
 	// OCIAuthSecretName optionally names a Docker-config secret containing
 	// registry credentials for oci:// images. Must be in the same namespace
@@ -744,7 +744,7 @@ type Image struct {
 }
 
 func (image *Image) IsLiveISO() bool {
-	return image != nil && image.DiskFormat != nil && *image.DiskFormat == "live-iso"
+	return image != nil && image.Format != nil && *image.Format == "live-iso"
 }
 
 // IsOCI returns true if the image URL uses the OCI scheme (oci://).
@@ -1246,7 +1246,7 @@ func (image *Image) GetChecksum() (checksum, checksumType string, err error) {
 		return "", "", nil
 	}
 
-	if image.DiskFormat != nil && *image.DiskFormat == "live-iso" {
+	if image.Format != nil && *image.Format == "live-iso" {
 		return "", "", nil
 	}
 

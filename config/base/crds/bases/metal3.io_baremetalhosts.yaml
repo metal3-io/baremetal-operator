@@ -1893,8 +1893,6 @@ spec:
                     enum:
                     - raw
                     - qcow2
-                    - vdi
-                    - vmdk
                     - live-iso
                     type: string
                   ociAuthSecretName:
@@ -2758,8 +2756,6 @@ spec:
                     enum:
                     - raw
                     - qcow2
-                    - vdi
-                    - vmdk
                     - live-iso
                     type: string
                   ociAuthSecretName:
@@ -2943,8 +2939,6 @@ spec:
                         enum:
                         - raw
                         - qcow2
-                        - vdi
-                        - vmdk
                         - live-iso
                         type: string
                       ociAuthSecretName:

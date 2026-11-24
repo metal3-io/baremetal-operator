@@ -25,6 +25,8 @@ linters:
             enable:
             - conditions
             - defaultorrequired
+            - defaults
+
             - duplicatemarkers
             - nodurations
             - nomaps

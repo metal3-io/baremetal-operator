@@ -712,6 +712,7 @@ func Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in *Bar
 }
 
 func autoConvert_v1beta1_BareMetalHostStatus_To_v1alpha1_BareMetalHostStatus(in *v1beta1.BareMetalHostStatus, out *BareMetalHostStatus, s conversion.Scope) error {
+	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.OperationalStatus = OperationalStatus(in.OperationalStatus)
 	out.ErrorType = ErrorType(in.ErrorType)
 	out.LastUpdated = (*metav1.Time)(unsafe.Pointer(in.LastUpdated))
@@ -742,7 +743,6 @@ func autoConvert_v1beta1_BareMetalHostStatus_To_v1alpha1_BareMetalHostStatus(in 
 	} else {
 		out.LastAttemptedImage = nil
 	}
-	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.AppliedNetworkAttachmentConfigs = *(*[]AppliedNetworkAttachmentConfig)(unsafe.Pointer(&in.AppliedNetworkAttachmentConfigs))
 	return nil
 }

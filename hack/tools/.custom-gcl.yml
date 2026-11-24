@@ -1,0 +1,11 @@
+# Configuration for building a custom golangci-lint binary that includes
+# the kube-api-linter (KAL) plugin. Used by `make kube-api-lint`.
+# Keep `version` in sync with GOLANGCI_LINT_VER in the Makefile. KAL has no
+# releases, so a pseudo-version is used. Newer KAL commits (from 2026-10-09)
+# require golangci-lint >= v2.14.0 and fail to build with older versions.
+version: v2.10.1
+name: golangci-lint-kube-api-linter
+destination: ./bin
+plugins:
+- module: sigs.k8s.io/kube-api-linter
+  version: v0.0.0-20261009145318-b220ac8ef947

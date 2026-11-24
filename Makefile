@@ -205,6 +205,18 @@ lint: $(GOLANGCI_LINT)
 	cd pkg/hardwareutils; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	cd hack/tools; $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS) ./... --timeout=10m
 	./hack/check-e2e.sh
+	$(MAKE) kube-api-lint
+
+KAL_LINT_BIN := $(TOOLS_BIN_DIR)/golangci-lint-kube-api-linter
+
+# Custom golangci-lint binary with the kube-api-linter plugin, see hack/tools/.custom-gcl.yml
+$(KAL_LINT_BIN): $(GOLANGCI_LINT) $(TOOLS_DIR)/.custom-gcl.yml
+	cd $(TOOLS_DIR); $(GOLANGCI_LINT) custom -v
+
+.PHONY: kube-api-lint
+kube-api-lint: $(KAL_LINT_BIN) ## Lint the v1beta1 API with kube-api-linter
+	cd apis; $(KAL_LINT_BIN) run -c .golangci-kal.yaml $(GOLANGCI_LINT_EXTRA_ARGS) ./metal3.io/v1beta1/... --timeout=10m
+
 
 .PHONY: lint-fix
 lint-fix: $(GOLANGCI_LINT) ## Lint the codebase and run auto-fixers if supported by the linter

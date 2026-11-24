@@ -332,16 +332,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*RootDeviceHints)(nil), (*v1beta1.RootDeviceHints)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(a.(*RootDeviceHints), b.(*v1beta1.RootDeviceHints), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta1.RootDeviceHints)(nil), (*RootDeviceHints)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(a.(*v1beta1.RootDeviceHints), b.(*RootDeviceHints), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*SoftwareRAIDVolume)(nil), (*v1beta1.SoftwareRAIDVolume)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_SoftwareRAIDVolume_To_v1beta1_SoftwareRAIDVolume(a.(*SoftwareRAIDVolume), b.(*v1beta1.SoftwareRAIDVolume), scope)
 	}); err != nil {
@@ -394,6 +384,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*Image)(nil), (*v1beta1.Image)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_Image_To_v1beta1_Image(a.(*Image), b.(*v1beta1.Image), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*RootDeviceHints)(nil), (*v1beta1.RootDeviceHints)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(a.(*RootDeviceHints), b.(*v1beta1.RootDeviceHints), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta1.RootDeviceHints)(nil), (*RootDeviceHints)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(a.(*v1beta1.RootDeviceHints), b.(*RootDeviceHints), scope)
 	}); err != nil {
 		return err
 	}
@@ -559,10 +559,26 @@ func autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *Bar
 	if err := Convert_v1alpha1_BMCDetails_To_v1beta1_BMCDetails(&in.BMC, &out.BMC, s); err != nil {
 		return err
 	}
-	out.RAID = (*v1beta1.RAIDConfig)(unsafe.Pointer(in.RAID))
+	if in.RAID != nil {
+		in, out := &in.RAID, &out.RAID
+		*out = new(v1beta1.RAIDConfig)
+		if err := Convert_v1alpha1_RAIDConfig_To_v1beta1_RAIDConfig(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RAID = nil
+	}
 	out.Firmware = (*v1beta1.FirmwareConfig)(unsafe.Pointer(in.Firmware))
 	out.HardwareProfile = in.HardwareProfile
-	out.RootDeviceHints = (*v1beta1.RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
+	if in.RootDeviceHints != nil {
+		in, out := &in.RootDeviceHints, &out.RootDeviceHints
+		*out = new(v1beta1.RootDeviceHints)
+		if err := Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RootDeviceHints = nil
+	}
 	out.BootMode = v1beta1.BootMode(in.BootMode)
 	out.BootMACAddress = in.BootMACAddress
 	out.Online = in.Online
@@ -601,10 +617,26 @@ func autoConvert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *v1b
 	if err := Convert_v1beta1_BMCDetails_To_v1alpha1_BMCDetails(&in.BMC, &out.BMC, s); err != nil {
 		return err
 	}
-	out.RAID = (*RAIDConfig)(unsafe.Pointer(in.RAID))
+	if in.RAID != nil {
+		in, out := &in.RAID, &out.RAID
+		*out = new(RAIDConfig)
+		if err := Convert_v1beta1_RAIDConfig_To_v1alpha1_RAIDConfig(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RAID = nil
+	}
 	out.Firmware = (*FirmwareConfig)(unsafe.Pointer(in.Firmware))
 	out.HardwareProfile = in.HardwareProfile
-	out.RootDeviceHints = (*RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
+	if in.RootDeviceHints != nil {
+		in, out := &in.RootDeviceHints, &out.RootDeviceHints
+		*out = new(RootDeviceHints)
+		if err := Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RootDeviceHints = nil
+	}
 	out.BootMode = BootMode(in.BootMode)
 	out.BootMACAddress = in.BootMACAddress
 	out.Online = in.Online
@@ -1117,9 +1149,25 @@ func autoConvert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(in *Provisi
 	if err := Convert_v1alpha1_Image_To_v1beta1_Image(&in.Image, &out.Image, s); err != nil {
 		return err
 	}
-	out.RootDeviceHints = (*v1beta1.RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
+	if in.RootDeviceHints != nil {
+		in, out := &in.RootDeviceHints, &out.RootDeviceHints
+		*out = new(v1beta1.RootDeviceHints)
+		if err := Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RootDeviceHints = nil
+	}
 	out.BootMode = v1beta1.BootMode(in.BootMode)
-	out.RAID = (*v1beta1.RAIDConfig)(unsafe.Pointer(in.RAID))
+	if in.RAID != nil {
+		in, out := &in.RAID, &out.RAID
+		*out = new(v1beta1.RAIDConfig)
+		if err := Convert_v1alpha1_RAIDConfig_To_v1beta1_RAIDConfig(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RAID = nil
+	}
 	out.Firmware = (*v1beta1.FirmwareConfig)(unsafe.Pointer(in.Firmware))
 	out.CustomDeploy = (*v1beta1.CustomDeploy)(unsafe.Pointer(in.CustomDeploy))
 	return nil
@@ -1136,9 +1184,25 @@ func autoConvert_v1beta1_ProvisionStatus_To_v1alpha1_ProvisionStatus(in *v1beta1
 	if err := Convert_v1beta1_Image_To_v1alpha1_Image(&in.Image, &out.Image, s); err != nil {
 		return err
 	}
-	out.RootDeviceHints = (*RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
+	if in.RootDeviceHints != nil {
+		in, out := &in.RootDeviceHints, &out.RootDeviceHints
+		*out = new(RootDeviceHints)
+		if err := Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RootDeviceHints = nil
+	}
 	out.BootMode = BootMode(in.BootMode)
-	out.RAID = (*RAIDConfig)(unsafe.Pointer(in.RAID))
+	if in.RAID != nil {
+		in, out := &in.RAID, &out.RAID
+		*out = new(RAIDConfig)
+		if err := Convert_v1beta1_RAIDConfig_To_v1alpha1_RAIDConfig(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RAID = nil
+	}
 	out.Firmware = (*FirmwareConfig)(unsafe.Pointer(in.Firmware))
 	out.CustomDeploy = (*CustomDeploy)(unsafe.Pointer(in.CustomDeploy))
 	return nil
@@ -1150,7 +1214,18 @@ func Convert_v1beta1_ProvisionStatus_To_v1alpha1_ProvisionStatus(in *v1beta1.Pro
 }
 
 func autoConvert_v1alpha1_RAIDConfig_To_v1beta1_RAIDConfig(in *RAIDConfig, out *v1beta1.RAIDConfig, s conversion.Scope) error {
-	*out = *(*v1beta1.RAIDConfig)(unsafe.Pointer(in))
+	out.HardwareRAIDVolumes = *(*[]v1beta1.HardwareRAIDVolume)(unsafe.Pointer(&in.HardwareRAIDVolumes))
+	if in.SoftwareRAIDVolumes != nil {
+		in, out := &in.SoftwareRAIDVolumes, &out.SoftwareRAIDVolumes
+		*out = make([]v1beta1.SoftwareRAIDVolume, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_SoftwareRAIDVolume_To_v1beta1_SoftwareRAIDVolume(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.SoftwareRAIDVolumes = nil
+	}
 	return nil
 }
 
@@ -1160,7 +1235,18 @@ func Convert_v1alpha1_RAIDConfig_To_v1beta1_RAIDConfig(in *RAIDConfig, out *v1be
 }
 
 func autoConvert_v1beta1_RAIDConfig_To_v1alpha1_RAIDConfig(in *v1beta1.RAIDConfig, out *RAIDConfig, s conversion.Scope) error {
-	*out = *(*RAIDConfig)(unsafe.Pointer(in))
+	out.HardwareRAIDVolumes = *(*[]HardwareRAIDVolume)(unsafe.Pointer(&in.HardwareRAIDVolumes))
+	if in.SoftwareRAIDVolumes != nil {
+		in, out := &in.SoftwareRAIDVolumes, &out.SoftwareRAIDVolumes
+		*out = make([]SoftwareRAIDVolume, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_SoftwareRAIDVolume_To_v1alpha1_SoftwareRAIDVolume(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.SoftwareRAIDVolumes = nil
+	}
 	return nil
 }
 
@@ -1190,27 +1276,48 @@ func Convert_v1beta1_RebootAnnotationArguments_To_v1alpha1_RebootAnnotationArgum
 }
 
 func autoConvert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(in *RootDeviceHints, out *v1beta1.RootDeviceHints, s conversion.Scope) error {
-	*out = *(*v1beta1.RootDeviceHints)(unsafe.Pointer(in))
+	// WARNING: in.DeviceName requires manual conversion: does not exist in peer-type
+	out.HCTL = in.HCTL
+	// WARNING: in.Model requires manual conversion: does not exist in peer-type
+	// WARNING: in.Vendor requires manual conversion: does not exist in peer-type
+	out.SerialNumber = in.SerialNumber
+	out.MinSizeGigabytes = in.MinSizeGigabytes
+	out.WWN = in.WWN
+	out.WWNWithExtension = in.WWNWithExtension
+	out.WWNVendorExtension = in.WWNVendorExtension
+	out.Rotational = (*bool)(unsafe.Pointer(in.Rotational))
 	return nil
-}
-
-// Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints is an autogenerated conversion function.
-func Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(in *RootDeviceHints, out *v1beta1.RootDeviceHints, s conversion.Scope) error {
-	return autoConvert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(in, out, s)
 }
 
 func autoConvert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *v1beta1.RootDeviceHints, out *RootDeviceHints, s conversion.Scope) error {
-	*out = *(*RootDeviceHints)(unsafe.Pointer(in))
+	// WARNING: in.DevicePath requires manual conversion: does not exist in peer-type
+	out.HCTL = in.HCTL
+	// WARNING: in.ModelContains requires manual conversion: does not exist in peer-type
+	// WARNING: in.VendorContains requires manual conversion: does not exist in peer-type
+	out.SerialNumber = in.SerialNumber
+	out.MinSizeGigabytes = in.MinSizeGigabytes
+	out.WWN = in.WWN
+	out.WWNWithExtension = in.WWNWithExtension
+	out.WWNVendorExtension = in.WWNVendorExtension
+	out.Rotational = (*bool)(unsafe.Pointer(in.Rotational))
 	return nil
 }
 
-// Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints is an autogenerated conversion function.
-func Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *v1beta1.RootDeviceHints, out *RootDeviceHints, s conversion.Scope) error {
-	return autoConvert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in, out, s)
-}
-
 func autoConvert_v1alpha1_SoftwareRAIDVolume_To_v1beta1_SoftwareRAIDVolume(in *SoftwareRAIDVolume, out *v1beta1.SoftwareRAIDVolume, s conversion.Scope) error {
-	*out = *(*v1beta1.SoftwareRAIDVolume)(unsafe.Pointer(in))
+	out.RootVolume = in.RootVolume
+	out.SizeGibibytes = (*int)(unsafe.Pointer(in.SizeGibibytes))
+	out.Level = in.Level
+	if in.PhysicalDisks != nil {
+		in, out := &in.PhysicalDisks, &out.PhysicalDisks
+		*out = make([]v1beta1.RootDeviceHints, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.PhysicalDisks = nil
+	}
 	return nil
 }
 
@@ -1220,7 +1327,20 @@ func Convert_v1alpha1_SoftwareRAIDVolume_To_v1beta1_SoftwareRAIDVolume(in *Softw
 }
 
 func autoConvert_v1beta1_SoftwareRAIDVolume_To_v1alpha1_SoftwareRAIDVolume(in *v1beta1.SoftwareRAIDVolume, out *SoftwareRAIDVolume, s conversion.Scope) error {
-	*out = *(*SoftwareRAIDVolume)(unsafe.Pointer(in))
+	out.RootVolume = in.RootVolume
+	out.SizeGibibytes = (*int)(unsafe.Pointer(in.SizeGibibytes))
+	out.Level = in.Level
+	if in.PhysicalDisks != nil {
+		in, out := &in.PhysicalDisks, &out.PhysicalDisks
+		*out = make([]RootDeviceHints, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.PhysicalDisks = nil
+	}
 	return nil
 }
 

@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"maps"
 	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -290,6 +291,28 @@ func TestSecretAccessErrorConversion(t *testing.T) {
 	restored := &BareMetalHost{}
 	g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
 	g.Expect(restored.Status.ErrorType).To(gomega.Equal(SecretAccessError))
+}
+
+// TestPoweredOnConversion checks that the v1alpha1 online field is converted
+// to the v1beta1 poweredOn field and back.
+func TestPoweredOnConversion(t *testing.T) {
+	for _, value := range []bool{true, false} {
+		t.Run(strconv.FormatBool(value), func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			spoke := &BareMetalHost{Spec: BareMetalHostSpec{Online: value}}
+			hub := &metal3apiv1beta1.BareMetalHost{}
+			g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+			g.Expect(hub.Spec.PoweredOn).To(gomega.Equal(value))
+
+			// Change the value through v1beta1 to check that ConvertFrom
+			// uses poweredOn rather than the stashed v1alpha1 object.
+			hub.Spec.PoweredOn = !value
+			restored := &BareMetalHost{}
+			g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+			g.Expect(restored.Spec.Online).To(gomega.Equal(!value))
+		})
+	}
 }
 
 // TestMD5ChecksumConversion checks that the "md5" checksum type, which does not

@@ -596,7 +596,7 @@ type BareMetalHostSpec struct {
 	// Should the host be powered on? If the host is currently in a stable
 	// state (e.g. provisioned), its power state will be forced to match
 	// this value.
-	Online bool `json:"online"`
+	PoweredOn bool `json:"poweredOn"`
 
 	// ConsumerRef can be used to store information about something
 	// that is using a host. When it is not empty, the host is
@@ -985,7 +985,7 @@ type ProvisionStatus struct {
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
 // +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller",priority=1
-// +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.online",description="Whether the host is online or not"
+// +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.poweredOn",description="Whether the host is online or not"
 // +kubebuilder:printcolumn:name="Error",type="string",JSONPath=".status.errorType",description="Type of the most recent error"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 // +kubebuilder:object:root=true
@@ -1104,7 +1104,7 @@ func (host *BareMetalHost) NeedsHardwareInspection() bool {
 // status and returns true when more work is needed or false
 // otherwise.
 func (host *BareMetalHost) NeedsProvisioning() bool {
-	if !host.Spec.Online {
+	if !host.Spec.PoweredOn {
 		// The host is not supposed to be powered on.
 		return false
 	}

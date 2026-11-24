@@ -1,0 +1,74 @@
+/*
+Copyright 2026 The Metal3 Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package webhooks
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+)
+
+// log is for logging in this package.
+var baremetalhostlog = logf.Log.WithName("webhooks").WithName("BareMetalHost").WithName("v1beta1")
+
+// SetupWebhookWithManager registers the BareMetalHost validation webhook with the manager.
+func (webhook *BareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, &metal3api.BareMetalHost{}).
+		WithValidator(webhook).
+		Complete()
+}
+
+//+kubebuilder:webhook:verbs=create;update,path=/validate-metal3-io-v1beta1-baremetalhost,mutating=false,failurePolicy=fail,matchPolicy=Exact,sideEffects=none,admissionReviewVersions=v1,groups=metal3.io,resources=baremetalhosts,versions=v1beta1,name=baremetalhost.v1beta1.metal3.io,patch=`{"matchConditions":[{"name":"spec-or-annotations-changed","expression":"request.operation == 'CREATE' || object.?spec.orValue({}) != oldObject.?spec.orValue({}) || object.metadata.?annotations.orValue({}) != oldObject.metadata.?annotations.orValue({})"}]}`
+
+// BareMetalHost implements a validation webhook for the v1beta1 BareMetalHost.
+type BareMetalHost struct{}
+
+var _ admission.Validator[*metal3api.BareMetalHost] = &BareMetalHost{}
+
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
+func (webhook *BareMetalHost) ValidateCreate(_ context.Context, bmh *metal3api.BareMetalHost) (admission.Warnings, error) {
+	if bmh == nil {
+		baremetalhostlog.Error(errors.New("object is nil"), "validate create error")
+		return nil, nil
+	}
+	baremetalhostlog.Info("validate create", "namespace", bmh.Namespace, "name", bmh.Name)
+	return nil, kerrors.NewAggregate(validateHost(bmh))
+}
+
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
+func (webhook *BareMetalHost) ValidateUpdate(_ context.Context, oldBmh, newBmh *metal3api.BareMetalHost) (admission.Warnings, error) {
+	if oldBmh == nil {
+		baremetalhostlog.Error(errors.New("old object is nil"), "validate update error")
+		return nil, nil
+	}
+
+	if newBmh == nil {
+		baremetalhostlog.Error(fmt.Errorf("new object is nil for %s/%s", oldBmh.Namespace, oldBmh.Name), "validate update error")
+		return nil, nil
+	}
+	baremetalhostlog.Info("validate update", "namespace", newBmh.Namespace, "name", newBmh.Name)
+	return nil, kerrors.NewAggregate(validateHost(newBmh))
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
+func (webhook *BareMetalHost) ValidateDelete(_ context.Context, _ *metal3api.BareMetalHost) (admission.Warnings, error) {
+	return nil, nil
+}

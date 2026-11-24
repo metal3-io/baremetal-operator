@@ -620,11 +620,12 @@ func TestInspectionDisabled(t *testing.T) {
 			Scenario: "default",
 		},
 		{
-			Scenario: "annotation",
+			// The annotation is not honoured in v1beta1: the webhook rejects
+			// this value and the conversion turns it into the field.
+			Scenario: "annotation is ignored",
 			Annotations: map[string]string{
 				InspectAnnotationPrefix: "disabled",
 			},
-			Expected: true,
 		},
 		{
 			Scenario: "empty annotation value",

@@ -54,6 +54,17 @@ func (src *BareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 	// Operate on a copy of the annotations so that we do not modify the input data.
 	dst.SetAnnotations(maps.Clone(src.GetAnnotations()))
 
+	// The "disabled" value of the inspect.metal3.io annotation does not exist
+	// in v1beta1: InspectionMode says the same thing. Translate it so that
+	// hosts using the annotation keep working when read through v1beta1. Other
+	// values of the annotation request a new inspection and are left alone.
+	if dst.Annotations[metal3apiv1beta1.InspectAnnotationPrefix] == metal3apiv1beta1.InspectAnnotationValueDisabled {
+		delete(dst.Annotations, metal3apiv1beta1.InspectAnnotationPrefix)
+		if dst.Spec.InspectionMode == "" {
+			dst.Spec.InspectionMode = metal3apiv1beta1.InspectionModeDisabled
+		}
+	}
+
 	// Placeholder for processing the conversion-data annotation which holds
 	// data that cannot be represented in v1alpha1, but was present in the
 	// v1beta1 object.
@@ -68,8 +79,9 @@ func (src *BareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 
 	// Stash the v1alpha1 object so that ConvertFrom can restore what v1beta1
 	// cannot represent, including Spec/Status.HardwareProfile and
-	// Status.HardwareDetails, which have no peer in v1beta1.
-	return MarshalData(src, dst)
+	// Status.HardwareDetails, which have no peer in v1beta1, and the
+	// inspect.metal3.io annotation, which was translated above.
+	return MarshalData(src, dst, InspectAnnotationPrefix)
 }
 
 // ConvertFrom converts the Hub version (v1beta1) to this BareMetalHost (v1alpha1).
@@ -117,6 +129,25 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 		src.Spec.NetworkDataName, restored.Spec.NetworkData, hasRestored, src.Namespace)
 	dst.Spec.MetaData = restoreSecretReference(
 		src.Spec.MetaDataName, restored.Spec.MetaData, hasRestored, src.Namespace)
+
+	// The annotation is gone from v1beta1, so put it back the way the
+	// v1alpha1 object had it, and with it the inspection mode: ConvertTo
+	// derived the mode from the annotation, it was not the owner's choice. A
+	// mode set through v1beta1 is left alone, as is a pending inspection
+	// request in the annotation.
+	if hasRestored && restored.Annotations[InspectAnnotationPrefix] == InspectAnnotationValueDisabled &&
+		dst.Spec.InspectionMode == InspectionModeDisabled {
+		dst.Spec.InspectionMode = restored.Spec.InspectionMode
+
+		if _, present := dst.Annotations[InspectAnnotationPrefix]; !present {
+			annotations := dst.GetAnnotations()
+			if annotations == nil {
+				annotations = map[string]string{}
+			}
+			annotations[InspectAnnotationPrefix] = InspectAnnotationValueDisabled
+			dst.SetAnnotations(annotations)
+		}
+	}
 
 	// Stash the v1beta1 object so that ConvertTo can restore what v1alpha1
 	// cannot represent.

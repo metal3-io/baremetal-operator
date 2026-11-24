@@ -5429,6 +5429,31 @@ webhooks:
     service:
       name: baremetal-operator-webhook-service
       namespace: baremetal-operator-system
+      path: /validate-metal3-io-v1beta1-baremetalhost
+  failurePolicy: Fail
+  matchConditions:
+  - expression: request.operation == 'CREATE' || object.?spec.orValue({}) != oldObject.?spec.orValue({})
+      || object.metadata.?annotations.orValue({}) != oldObject.metadata.?annotations.orValue({})
+    name: spec-or-annotations-changed
+  matchPolicy: Exact
+  name: baremetalhost.v1beta1.metal3.io
+  rules:
+  - apiGroups:
+    - metal3.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - baremetalhosts
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: baremetal-operator-webhook-service
+      namespace: baremetal-operator-system
       path: /validate-metal3-io-v1alpha1-baremetalswitch
   failurePolicy: Fail
   name: baremetalswitch.metal3.io

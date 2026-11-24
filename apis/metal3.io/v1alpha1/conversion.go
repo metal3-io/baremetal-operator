@@ -303,7 +303,7 @@ func Convert_v1alpha1_CPU_To_v1beta1_CPU(in *CPU, out *metal3apiv1beta1.CPU, s a
 	if err := autoConvert_v1alpha1_CPU_To_v1beta1_CPU(in, out, s); err != nil {
 		return err
 	}
-	out.ThreadCount = in.Count
+	out.ThreadCount = int32(in.Count)
 	return nil
 }
 
@@ -313,7 +313,7 @@ func Convert_v1beta1_CPU_To_v1alpha1_CPU(in *metal3apiv1beta1.CPU, out *CPU, s a
 	if err := autoConvert_v1beta1_CPU_To_v1alpha1_CPU(in, out, s); err != nil {
 		return err
 	}
-	out.Count = in.ThreadCount
+	out.Count = int(in.ThreadCount)
 	return nil
 }
 

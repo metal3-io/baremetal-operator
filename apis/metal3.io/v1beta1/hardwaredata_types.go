@@ -67,7 +67,7 @@ type CPU struct {
 	// flags is the list of CPU flags.
 	Flags []string `json:"flags,omitempty"`
 	// threadCount is the number of CPU threads.
-	ThreadCount int `json:"threadCount,omitempty"`
+	ThreadCount int32 `json:"threadCount,omitempty"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
@@ -166,7 +166,7 @@ type NIC struct {
 	IP string `json:"ip,omitempty"`
 
 	// speedGbps is the speed of the device in Gigabits per second
-	SpeedGbps int `json:"speedGbps,omitempty"`
+	SpeedGbps int32 `json:"speedGbps,omitempty"`
 
 	// vlans is the list of available VLANs.
 	VLANs []VLAN `json:"vlans,omitempty"`
@@ -249,7 +249,7 @@ type HardwareDetails struct {
 	// firmware holds system firmware information.
 	Firmware Firmware `json:"firmware,omitempty"`
 	// ramMebibytes is the host's amount of memory in Mebibytes.
-	RAMMebibytes int `json:"ramMebibytes,omitempty"`
+	RAMMebibytes int32 `json:"ramMebibytes,omitempty"`
 	// nics is the list of network interfaces for the host.
 	NIC []NIC `json:"nics,omitempty"`
 	// storage is the list of storage (disk, SSD, etc.) available to the host.

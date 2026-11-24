@@ -53,11 +53,12 @@ func TestFuzzyConversion(t *testing.T) {
 	t.Run("for BareMetalHost", fuzzTestFunc(fuzzTestFuncInput{
 		hub:         &metal3apiv1beta1.BareMetalHost{},
 		spoke:       &BareMetalHost{},
-		fuzzerFuncs: []fuzzer.FuzzerFuncs{checksumTypeFuzzerFuncs},
+		fuzzerFuncs: []fuzzer.FuzzerFuncs{checksumTypeFuzzerFuncs, int32RangeFuzzerFuncs},
 	}))
 	t.Run("for HardwareData", fuzzTestFunc(fuzzTestFuncInput{
-		hub:   &metal3apiv1beta1.HardwareData{},
-		spoke: &HardwareData{},
+		hub:         &metal3apiv1beta1.HardwareData{},
+		spoke:       &HardwareData{},
+		fuzzerFuncs: []fuzzer.FuzzerFuncs{int32RangeFuzzerFuncs},
 	}))
 }
 
@@ -68,6 +69,58 @@ func checksumTypeFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(in *ChecksumType, c randfill.Continue) {
 			types := []ChecksumType{"", MD5, SHA256, SHA512, AutoChecksum}
 			*in = types[c.Intn(len(types))]
+		},
+	}
+}
+
+// int32RangeFuzzerFuncs constrains the v1alpha1 int fields that v1beta1
+// narrowed to int32 to the int32 range.
+func int32RangeFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	// inRange wraps v into the int32 range, keeping the fuzzed distribution.
+	inRange := func(v int) int { return int(int32(v)) } //nolint:gosec // truncation is intended
+	inRangePtr := func(p *int) {
+		if p != nil {
+			*p = inRange(*p)
+		}
+	}
+	return []interface{}{
+		func(in *BareMetalHostStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.ErrorCount = inRange(in.ErrorCount)
+			in.ProvisioningFailCount = inRange(in.ProvisioningFailCount)
+		},
+		func(in *CPU, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.Count = inRange(in.Count)
+		},
+		func(in *HardwareDetails, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.RAMMebibytes = inRange(in.RAMMebibytes)
+		},
+		func(in *NIC, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.SpeedGbps = inRange(in.SpeedGbps)
+		},
+		func(in *RootDeviceHints, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.MinSizeGigabytes = inRange(in.MinSizeGigabytes)
+		},
+		func(in *HardwareRAIDVolume, c randfill.Continue) {
+			c.FillNoCustom(in)
+			inRangePtr(in.SizeGibibytes)
+			inRangePtr(in.NumberOfPhysicalDisks)
+		},
+		func(in *SoftwareRAIDVolume, c randfill.Continue) {
+			c.FillNoCustom(in)
+			inRangePtr(in.SizeGibibytes)
+		},
+		func(in *SwitchPortConfig, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.NativeVLAN = inRange(in.NativeVLAN)
+			for i := range in.AllowedVLANs {
+				in.AllowedVLANs[i] = inRange(in.AllowedVLANs[i])
+			}
+			inRangePtr(in.MTU)
 		},
 	}
 }

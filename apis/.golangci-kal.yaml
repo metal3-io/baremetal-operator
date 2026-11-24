@@ -29,6 +29,7 @@ linters:
             - defaults
 
             - duplicatemarkers
+            - integers
             - jsontags
             - nodurations
             - nomaps

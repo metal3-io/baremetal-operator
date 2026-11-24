@@ -120,7 +120,7 @@ type RootDeviceHints struct {
 
 	// minSizeGigabytes is the minimum size of the device in Gigabytes.
 	// +kubebuilder:validation:Minimum=0
-	MinSizeGigabytes int `json:"minSizeGigabytes,omitempty"`
+	MinSizeGigabytes int32 `json:"minSizeGigabytes,omitempty"`
 
 	// wwn is the unique storage identifier. The hint must match the actual value
 	// exactly.
@@ -390,7 +390,7 @@ type HardwareRAIDVolume struct {
 	// set be 0, the maximum capacity of disk will be used for logical
 	// disk.
 	// +kubebuilder:validation:Minimum=0
-	SizeGibibytes *int `json:"sizeGibibytes,omitempty"`
+	SizeGibibytes *int32 `json:"sizeGibibytes,omitempty"`
 
 	// level is the RAID level for the logical disk. The following levels are supported:
 	// 0, 1, 2, 5, 6, 1+0, 5+0, 6+0 (drivers may support only some of them).
@@ -410,7 +410,7 @@ type HardwareRAIDVolume struct {
 	// Defaults to minimum number of disks required for the particular RAID
 	// level.
 	// +kubebuilder:validation:Minimum=1
-	NumberOfPhysicalDisks *int `json:"numberOfPhysicalDisks,omitempty"`
+	NumberOfPhysicalDisks *int32 `json:"numberOfPhysicalDisks,omitempty"`
 
 	// controller is the name of the RAID controller to use.
 	Controller string `json:"controller,omitempty"`
@@ -431,7 +431,7 @@ type SoftwareRAIDVolume struct {
 	// sizeGibibytes is the size of the logical disk to be created in GiB.
 	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
 	// +kubebuilder:validation:Minimum=0
-	SizeGibibytes *int `json:"sizeGibibytes,omitempty"`
+	SizeGibibytes *int32 `json:"sizeGibibytes,omitempty"`
 
 	// level is the RAID level for the logical disk. The following levels are supported:
 	// 0, 1 and 1+0.
@@ -485,13 +485,13 @@ type SwitchPortConfig struct {
 	// mode is the switch port mode (access or trunk)
 	Mode SwitchPortMode `json:"mode"`
 	// nativeVLAN is the native/untagged VLAN ID
-	NativeVLAN int `json:"nativeVLAN"`
+	NativeVLAN int32 `json:"nativeVLAN"`
 	// allowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
 	// +optional
-	AllowedVLANs []int `json:"allowedVLANs,omitempty"`
+	AllowedVLANs []int32 `json:"allowedVLANs,omitempty"`
 	// mtu is the maximum transmission unit size
 	// +optional
-	MTU *int `json:"mtu,omitempty"`
+	MTU *int32 `json:"mtu,omitempty"`
 }
 
 // NetworkInterface defines the network configuration for a specific interface.
@@ -892,7 +892,7 @@ type BareMetalHostStatus struct {
 	// errorCount records how many times the host has encoutered an error since the last successful operation
 	// +optional
 	// +default=0
-	ErrorCount int `json:"errorCount,omitempty"`
+	ErrorCount int32 `json:"errorCount,omitempty"`
 
 	// provisioningFailCount records how many times provisioning has failed
 	// consecutively for the current image. Unlike ErrorCount, it is not reset
@@ -900,7 +900,7 @@ type BareMetalHostStatus struct {
 	// a new image is specified.
 	// +optional
 	// +default=0
-	ProvisioningFailCount int `json:"provisioningFailCount,omitempty"`
+	ProvisioningFailCount int32 `json:"provisioningFailCount,omitempty"`
 
 	// lastAttemptedImage stores the full image spec of the last provisioning
 	// attempt, used to detect user-initiated image changes (URL, checksum,

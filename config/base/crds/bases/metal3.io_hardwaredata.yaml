@@ -348,6 +348,7 @@ spec:
                         type: string
                       threadCount:
                         description: threadCount is the number of CPU threads.
+                        format: int32
                         type: integer
                     type: object
                   firmware:
@@ -423,6 +424,7 @@ spec:
                         speedGbps:
                           description: speedGbps is the speed of the device in Gigabits
                             per second
+                          format: int32
                           type: integer
                         vlanId:
                           description: vlanId is the untagged VLAN ID
@@ -450,6 +452,7 @@ spec:
                     type: array
                   ramMebibytes:
                     description: ramMebibytes is the host's amount of memory in Mebibytes.
+                    format: int32
                     type: integer
                   storage:
                     description: storage is the list of storage (disk, SSD, etc.)

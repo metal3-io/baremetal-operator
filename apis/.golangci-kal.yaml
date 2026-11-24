@@ -1,0 +1,49 @@
+# Kube API Linter (KAL) configuration for the v1beta1 API.
+#
+# Run with `make kube-api-lint`. This uses a custom golangci-lint binary that
+# includes the KAL plugin (see hack/tools/.custom-gcl.yml).
+
+version: "2"
+
+run:
+  go: "1.24"
+  allow-parallel-runners: true
+
+linters:
+  default: none
+  enable:
+  - kubeapilinter
+  settings:
+    custom:
+      kubeapilinter:
+        type: module
+        description: Kube API Linter lints Kubernetes-like APIs based on API conventions and best practices.
+        settings:
+          linters:
+            disable:
+            - "*"
+            enable:
+            - conditions
+            - defaultorrequired
+            - duplicatemarkers
+            - nodurations
+            - nomaps
+            - nophase
+            - notimestamp
+            - statussubresource
+            - uniquemarkers
+          lintersConfig:
+            conditions:
+              # Field order does not affect the serialized API. Moving the
+              # field would change the Go struct layout and the generated
+              # v1alpha1 <-> v1beta1 conversion code.
+              isFirstField: Ignore
+              # BMO types are CRDs, not in-tree types: protobuf tags and
+              # patchStrategy/patchMergeKey are not used for CRDs.
+              useProtobuf: Ignore
+              usePatchStrategy: Ignore
+
+issues:
+  uniq-by-line: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

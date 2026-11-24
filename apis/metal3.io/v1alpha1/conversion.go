@@ -88,6 +88,7 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 	// Restore MD5 checksums.
 	if hasRestored {
 		restoreMD5Checksums(restored, dst)
+		restoreDiskFormats(restored, dst)
 	}
 
 	// Stash the v1beta1 object so that ConvertTo can restore what v1alpha1
@@ -98,6 +99,11 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 // Convert_v1alpha1_Image_To_v1beta1_Image converts an Image to v1beta1. The
 // "md5" checksum type does not exist in v1beta1 and is unset, which lets
 // Ironic detect the algorithm from the checksum (same as "auto").
+//
+// The same applies to the "vdi" and "vmdk" disk formats, which v1beta1 does not
+// accept: Ironic rejects them anyway, so unsetting the format lets it detect
+// the format itself. DiskFormat is also called Format in v1beta1, matching its
+// json tag, which is why the field is copied by hand.
 func Convert_v1alpha1_Image_To_v1beta1_Image(in *Image, out *metal3apiv1beta1.Image, s apiconversion.Scope) error {
 	if err := autoConvert_v1alpha1_Image_To_v1beta1_Image(in, out, s); err != nil {
 		return err
@@ -105,7 +111,34 @@ func Convert_v1alpha1_Image_To_v1beta1_Image(in *Image, out *metal3apiv1beta1.Im
 	if in.ChecksumType == MD5 {
 		out.ChecksumType = ""
 	}
+
+	out.Format = in.DiskFormat
+	if isForbiddenDiskFormat(in.DiskFormat) {
+		out.Format = nil
+	}
+
 	return nil
+}
+
+// Convert_v1beta1_Image_To_v1alpha1_Image converts an Image from v1beta1,
+// mapping the renamed Format field back to DiskFormat.
+func Convert_v1beta1_Image_To_v1alpha1_Image(in *metal3apiv1beta1.Image, out *Image, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_Image_To_v1alpha1_Image(in, out, s); err != nil {
+		return err
+	}
+
+	out.DiskFormat = in.Format
+
+	return nil
+}
+
+// isForbiddenDiskFormat reports whether format is one of the formats that
+// v1beta1 does not accept.
+func isForbiddenDiskFormat(format *string) bool {
+	if format == nil {
+		return false
+	}
+	return *format == "vdi" || *format == "vmdk"
 }
 
 // restoreMD5Checksums restores the "md5" checksum type recorded in stash on the
@@ -118,6 +151,24 @@ func restoreMD5Checksums(stash *BareMetalHost, dst *BareMetalHost) {
 		}
 		if image.ChecksumType == "" && image.URL == stashed.URL && image.Checksum == stashed.Checksum {
 			image.ChecksumType = MD5
+		}
+	}
+	restore(stash.Spec.Image, dst.Spec.Image)
+	restore(stash.Status.LastAttemptedImage, dst.Status.LastAttemptedImage)
+	restore(&stash.Status.Provisioning.Image, &dst.Status.Provisioning.Image)
+}
+
+// restoreDiskFormats restores the "vdi" and "vmdk" disk formats recorded in
+// stash on the images of dst, as long as the image is unchanged and its format
+// is still unset. A format set through v1beta1 wins, and a new image does not
+// inherit the old one's format.
+func restoreDiskFormats(stash *BareMetalHost, dst *BareMetalHost) {
+	restore := func(stashed, image *Image) {
+		if stashed == nil || !isForbiddenDiskFormat(stashed.DiskFormat) || image == nil {
+			return
+		}
+		if image.DiskFormat == nil && image.URL == stashed.URL && image.Checksum == stashed.Checksum {
+			image.DiskFormat = stashed.DiskFormat
 		}
 	}
 	restore(stash.Spec.Image, dst.Spec.Image)

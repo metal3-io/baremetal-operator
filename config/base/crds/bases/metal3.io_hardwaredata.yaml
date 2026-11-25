@@ -381,6 +381,7 @@ spec:
                           description: |-
                             infinibandClientID is the InfiniBand client ID of the interface, as discovered by Ironic.
                             Only set for InfiniBand interfaces.
+                          minLength: 1
                           type: string
                         ip:
                           description: |-
@@ -393,14 +394,17 @@ spec:
                           properties:
                             portID:
                               description: portID is the switch port ID from LLDP
+                              minLength: 1
                               type: string
                             switchID:
                               description: switchID is the switch chassis ID from
                                 LLDP
+                              minLength: 1
                               type: string
                             switchSystemName:
                               description: switchSystemName is the switch system name
                                 from LLDP
+                              minLength: 1
                               type: string
                           type: object
                         mac:
@@ -417,6 +421,7 @@ spec:
                           type: string
                         pciAddress:
                           description: pciAddress is the NIC PCI address
+                          minLength: 1
                           type: string
                         pxe:
                           description: pxe indicates whether the NIC is PXE bootable.

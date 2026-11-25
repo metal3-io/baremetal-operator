@@ -1694,6 +1694,7 @@ spec:
                 description: |-
                   architecture is the CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
                   eventually populated by inspection.
+                minLength: 1
                 type: string
               automatedCleaningMode:
                 default: metadata
@@ -1930,6 +1931,7 @@ spec:
                           description: namespace of the HostNetworkAttachment (defaults
                             to BMH namespace)
                           maxLength: 63
+                          minLength: 1
                           type: string
                       required:
                       - name
@@ -1939,6 +1941,7 @@ spec:
                         macAddress is the MAC address of the network interface. This must match the MAC address
                         of a NIC discovered during inspection (see HardwareData resource).
                         Mutually exclusive with Name.
+                      minLength: 17
                       pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                       type: string
                     name:
@@ -1947,6 +1950,7 @@ spec:
                         This must match the name of a NIC discovered during inspection
                         (see HardwareData resource).
                         Mutually exclusive with MACAddress.
+                      minLength: 1
                       pattern: ^[a-zA-Z0-9._-]+$
                       type: string
                     switchPort:
@@ -3790,6 +3794,7 @@ spec:
                           description: |-
                             infinibandClientID is the InfiniBand client ID of the interface, as discovered by Ironic.
                             Only set for InfiniBand interfaces.
+                          minLength: 1
                           type: string
                         ip:
                           description: |-
@@ -3802,14 +3807,17 @@ spec:
                           properties:
                             portID:
                               description: portID is the switch port ID from LLDP
+                              minLength: 1
                               type: string
                             switchID:
                               description: switchID is the switch chassis ID from
                                 LLDP
+                              minLength: 1
                               type: string
                             switchSystemName:
                               description: switchSystemName is the switch system name
                                 from LLDP
+                              minLength: 1
                               type: string
                           type: object
                         mac:
@@ -3826,6 +3834,7 @@ spec:
                           type: string
                         pciAddress:
                           description: pciAddress is the NIC PCI address
+                          minLength: 1
                           type: string
                         pxe:
                           description: pxe indicates whether the NIC is PXE bootable.

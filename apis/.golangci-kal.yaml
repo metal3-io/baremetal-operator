@@ -35,10 +35,14 @@ linters:
             - nomaps
             - nophase
             - notimestamp
+            - optionalfields
             - requiredfields
             - statussubresource
             - uniquemarkers
           lintersConfig:
+            optionalfields:
+              pointers:
+                preference: WhenRequired
             conditions:
               isFirstField: Warn # Require conditions to be the first field in the status struct.
               usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.

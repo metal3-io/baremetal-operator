@@ -1684,6 +1684,7 @@ spec:
                 description: |-
                   architecture is the CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
                   eventually populated by inspection.
+                minLength: 1
                 type: string
               automatedCleaningMode:
                 default: metadata
@@ -1920,6 +1921,7 @@ spec:
                           description: namespace of the HostNetworkAttachment (defaults
                             to BMH namespace)
                           maxLength: 63
+                          minLength: 1
                           type: string
                       required:
                       - name
@@ -1929,6 +1931,7 @@ spec:
                         macAddress is the MAC address of the network interface. This must match the MAC address
                         of a NIC discovered during inspection (see HardwareData resource).
                         Mutually exclusive with Name.
+                      minLength: 17
                       pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                       type: string
                     name:
@@ -1937,6 +1940,7 @@ spec:
                         This must match the name of a NIC discovered during inspection
                         (see HardwareData resource).
                         Mutually exclusive with MACAddress.
+                      minLength: 1
                       pattern: ^[a-zA-Z0-9._-]+$
                       type: string
                     switchPort:

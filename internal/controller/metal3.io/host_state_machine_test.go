@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"testing"
 	"time"
 
@@ -173,6 +174,354 @@ func TestProvisioningCapacity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestActionPreparingUpdatesProvisioningSteps(t *testing.T) {
+	testHost := host(metal3api.StatePreparing).build()
+	reconciler := newTestReconciler(t, testHost)
+	info := makeDefaultReconcileInfo(testHost)
+	info.request = newRequest(testHost)
+
+	prov := newMockProvisioner()
+	prov.nextResults["Prepare"] = provisioner.Result{
+		Dirty:           true,
+		CurrentActivity: "deploy.erase_devices",
+		AllSteps: []metal3api.ProvisioningStep{
+			{
+				Name:  "deploy.erase_devices",
+				State: metal3api.StepStateInProgress,
+			},
+		},
+	}
+
+	result := reconciler.actionPreparing(t.Context(), prov, info)
+
+	require.True(t, result.Dirty())
+	assert.Equal(t, "deploy.erase_devices", testHost.Status.Provisioning.CurrentActivity)
+	assert.Equal(t, prov.nextResults["Prepare"].AllSteps, testHost.Status.Provisioning.Steps)
+}
+
+func TestPowerOffBeforeDeletingUpdatesCleaningProgress(t *testing.T) {
+	tests := []struct {
+		name       string
+		result     provisioner.Result
+		wantSteps  []metal3api.ProvisioningStep
+		wantError  string
+		wantAction actionResult
+	}{
+		{
+			name:       "cleaning completed",
+			wantAction: actionComplete{},
+		},
+		{
+			name:   "cleaning failed and power off completed",
+			result: provisioner.Result{StepsUnknown: true},
+			wantSteps: []metal3api.ProvisioningStep{
+				{Name: "deploy.erase_devices", State: metal3api.StepStateCompleted},
+				{Name: "bios.apply_configuration", State: metal3api.StepStateUnknown},
+			},
+			wantAction: actionComplete{},
+		},
+		{
+			name:   "power off failed",
+			result: provisioner.Result{ErrorMessage: "power off failed"},
+			wantSteps: []metal3api.ProvisioningStep{
+				{Name: "deploy.erase_devices", State: metal3api.StepStateCompleted},
+				{Name: "bios.apply_configuration", State: metal3api.StepStateUnknown},
+			},
+			wantError:  "power off failed",
+			wantAction: actionFailed{},
+		},
+		{
+			name:   "retry without progress",
+			result: provisioner.Result{Dirty: true, StepsUnknown: true},
+			wantSteps: []metal3api.ProvisioningStep{
+				{Name: "deploy.erase_devices", State: metal3api.StepStateCompleted},
+				{Name: "bios.apply_configuration", State: metal3api.StepStateUnknown},
+			},
+			wantAction: actionUpdate{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost := host(metal3api.StatePoweringOffBeforeDelete).build()
+			testHost.Status.Provisioning.CurrentActivity = "bios.apply_configuration"
+			testHost.Status.Provisioning.Steps = []metal3api.ProvisioningStep{
+				{Name: "deploy.erase_devices", State: metal3api.StepStateCompleted},
+				{Name: "bios.apply_configuration", State: metal3api.StepStateInProgress},
+			}
+			reconciler := newTestReconciler(t, testHost)
+			info := makeDefaultReconcileInfo(testHost)
+			info.request = newRequest(testHost)
+			prov := newMockProvisioner()
+			prov.nextResults["PowerOff"] = tt.result
+
+			result := reconciler.actionPowerOffBeforeDeleting(t.Context(), prov, info)
+
+			require.True(t, result.Dirty())
+			assert.IsType(t, tt.wantAction, result)
+			assert.Empty(t, testHost.Status.Provisioning.CurrentActivity)
+			assert.Equal(t, tt.wantSteps, testHost.Status.Provisioning.Steps)
+			assert.Equal(t, tt.wantError, testHost.Status.ErrorMessage)
+		})
+	}
+}
+
+func TestUpdateBMHSteps(t *testing.T) {
+	tests := []struct {
+		name        string
+		provision   metal3api.ProvisionStatus
+		result      provisioner.Result
+		wantChanged bool
+		wantStatus  metal3api.ProvisionStatus
+	}{
+		{
+			name: "description changed",
+			provision: metal3api.ProvisionStatus{
+				Steps: []metal3api.ProvisioningStep{{
+					Name:        "deploy.write_image",
+					State:       metal3api.StepStateInProgress,
+					Description: "Old description",
+				}},
+			},
+			result: provisioner.Result{
+				AllSteps: []metal3api.ProvisioningStep{{
+					Name:        "deploy.write_image",
+					State:       metal3api.StepStateInProgress,
+					Description: "Updated description",
+				}},
+			},
+			wantChanged: true,
+			wantStatus: metal3api.ProvisionStatus{
+				Steps: []metal3api.ProvisioningStep{{
+					Name:        "deploy.write_image",
+					State:       metal3api.StepStateInProgress,
+					Description: "Updated description",
+				}},
+			},
+		},
+		{
+			name: "clear completed operation",
+			provision: metal3api.ProvisionStatus{
+				CurrentActivity: "deploy.write_image",
+				Steps: []metal3api.ProvisioningStep{{
+					Name:  "deploy.write_image",
+					State: metal3api.StepStateCompleted,
+				}},
+			},
+			wantChanged: true,
+			wantStatus:  metal3api.ProvisionStatus{},
+		},
+		{
+			name: "unavailable progress leaves already unknown states unchanged",
+			provision: metal3api.ProvisionStatus{
+				Steps: []metal3api.ProvisioningStep{
+					{Name: "deploy.deploy", State: metal3api.StepStateCompleted},
+					{Name: "deploy.write_image", State: metal3api.StepStateUnknown},
+				},
+			},
+			result: provisioner.Result{StepsUnknown: true},
+			wantStatus: metal3api.ProvisionStatus{
+				Steps: []metal3api.ProvisioningStep{
+					{Name: "deploy.deploy", State: metal3api.StepStateCompleted},
+					{Name: "deploy.write_image", State: metal3api.StepStateUnknown},
+				},
+			},
+		},
+		{
+			name: "accepted operation clears previous failure steps",
+			provision: metal3api.ProvisionStatus{
+				Steps: []metal3api.ProvisioningStep{
+					{Name: "deploy.deploy", State: metal3api.StepStateCompleted},
+					{Name: "deploy.write_image", State: metal3api.StepStateUnknown},
+				},
+			},
+			result:      provisioner.Result{Dirty: true},
+			wantChanged: true,
+			wantStatus:  metal3api.ProvisionStatus{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost := &metal3api.BareMetalHost{
+				Status: metal3api.BareMetalHostStatus{Provisioning: tt.provision},
+			}
+
+			changed := updateBMHSteps(testHost, tt.result, logf.Log)
+
+			assert.Equal(t, tt.wantChanged, changed)
+			assert.Equal(t, tt.wantStatus, testHost.Status.Provisioning)
+		})
+	}
+}
+
+func TestDoServiceIfNeededUpdatesProvisioningSteps(t *testing.T) {
+	testHost := host(metal3api.StateProvisioned).build()
+	testHost.Status.OperationalStatus = metal3api.OperationalStatusServicing
+	reconciler := newTestReconciler(t, testHost)
+	info := makeDefaultReconcileInfo(testHost)
+	info.request = newRequest(testHost)
+
+	prov := newMockProvisioner()
+	prov.nextResults["Service"] = provisioner.Result{
+		Dirty:           true,
+		CurrentActivity: "firmware.update",
+		AllSteps: []metal3api.ProvisioningStep{{
+			Name:        "firmware.update",
+			State:       metal3api.StepStateInProgress,
+			Description: "Updating firmware",
+		}},
+	}
+
+	result := reconciler.doServiceIfNeeded(t.Context(), prov, info, nil, nil)
+
+	require.NotNil(t, result)
+	require.True(t, result.Dirty())
+	assert.Equal(t, "firmware.update", testHost.Status.Provisioning.CurrentActivity)
+	require.Len(t, testHost.Status.Provisioning.Steps, 1)
+	assert.Equal(t, metal3api.StepStateInProgress, testHost.Status.Provisioning.Steps[0].State)
+
+	prov.nextResults["Service"] = provisioner.Result{}
+	result = reconciler.doServiceIfNeeded(t.Context(), prov, info, nil, nil)
+
+	require.NotNil(t, result)
+	require.True(t, result.Dirty())
+	assert.Equal(t, metal3api.OperationalStatusOK, testHost.Status.OperationalStatus)
+	assert.Empty(t, testHost.Status.Provisioning.CurrentActivity)
+	assert.Empty(t, testHost.Status.Provisioning.Steps)
+}
+
+func TestFailedOperationMarksUnconfirmedStepsUnknown(t *testing.T) {
+	runningSteps := []metal3api.ProvisioningStep{
+		{Name: "deploy.deploy", State: metal3api.StepStateCompleted},
+		{Name: "deploy.write_image", State: metal3api.StepStateInProgress},
+		{Name: "deploy.boot_instance", State: metal3api.StepStateNotStarted},
+	}
+	expectedSteps := []metal3api.ProvisioningStep{
+		{Name: "deploy.deploy", State: metal3api.StepStateCompleted},
+		{Name: "deploy.write_image", State: metal3api.StepStateUnknown},
+		{Name: "deploy.boot_instance", State: metal3api.StepStateUnknown},
+	}
+
+	tests := []struct {
+		name      string
+		state     metal3api.ProvisioningState
+		servicing bool
+		method    string
+		errorType metal3api.ErrorType
+		run       func(*BareMetalHostReconciler, provisioner.Provisioner, *reconcileInfo) actionResult
+	}{
+		{
+			name:      "preparing",
+			state:     metal3api.StatePreparing,
+			method:    "Prepare",
+			errorType: metal3api.PreparationError,
+			run: func(r *BareMetalHostReconciler, p provisioner.Provisioner, i *reconcileInfo) actionResult {
+				return r.actionPreparing(t.Context(), p, i)
+			},
+		},
+		{
+			name:      "provisioning",
+			state:     metal3api.StateProvisioning,
+			method:    "Provision",
+			errorType: metal3api.ProvisioningError,
+			run: func(r *BareMetalHostReconciler, p provisioner.Provisioner, i *reconcileInfo) actionResult {
+				return r.actionProvisioning(t.Context(), p, i)
+			},
+		},
+		{
+			name:      "deprovisioning",
+			state:     metal3api.StateDeprovisioning,
+			method:    "Deprovision",
+			errorType: metal3api.ProvisioningError,
+			run: func(r *BareMetalHostReconciler, p provisioner.Provisioner, i *reconcileInfo) actionResult {
+				return r.actionDeprovisioning(t.Context(), p, i)
+			},
+		},
+		{
+			name:      "servicing",
+			state:     metal3api.StateProvisioned,
+			servicing: true,
+			method:    "Service",
+			errorType: metal3api.ServicingError,
+			run: func(r *BareMetalHostReconciler, p provisioner.Provisioner, i *reconcileInfo) actionResult {
+				return r.doServiceIfNeeded(t.Context(), p, i, nil, nil)
+			},
+		},
+		{
+			name:      "registration during provisioning",
+			state:     metal3api.StateProvisioning,
+			method:    "ValidateManagementAccess",
+			errorType: metal3api.RegistrationError,
+			run: func(r *BareMetalHostReconciler, p provisioner.Provisioner, i *reconcileInfo) actionResult {
+				return r.registerHost(t.Context(), p, i)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost := host(tt.state).build()
+			testHost.Status.HardwareProfile = "libvirt"
+			if tt.servicing {
+				testHost.Status.OperationalStatus = metal3api.OperationalStatusServicing
+			}
+			testHost.Status.Provisioning.CurrentActivity = "deploy.write_image"
+			testHost.Status.Provisioning.Steps = slices.Clone(runningSteps)
+			reconciler := newTestReconciler(t, testHost)
+			info := makeDefaultReconcileInfo(testHost)
+			info.request = newRequest(testHost)
+
+			// The failure result does not contain structured step information.
+			prov := newMockProvisioner()
+			prov.nextResults[tt.method] = provisioner.Result{ErrorMessage: "operation failed"}
+
+			result := tt.run(reconciler, prov, info)
+
+			require.True(t, result.Dirty())
+			assert.Equal(t, tt.errorType, testHost.Status.ErrorType)
+			assert.Equal(t, "operation failed", testHost.Status.ErrorMessage)
+			assert.Empty(t, testHost.Status.Provisioning.CurrentActivity)
+			assert.Equal(t, expectedSteps, testHost.Status.Provisioning.Steps)
+		})
+	}
+}
+
+func TestActionProvisioningKeepsStepsUntilFailureIsRecorded(t *testing.T) {
+	testHost := host(metal3api.StateProvisioning).build()
+	testHost.Status.HardwareProfile = "libvirt"
+	testHost.Status.Provisioning.CurrentActivity = "deploy.write_image"
+	testHost.Status.Provisioning.Steps = []metal3api.ProvisioningStep{
+		{Name: "deploy.deploy", State: metal3api.StepStateCompleted},
+		{Name: "deploy.write_image", State: metal3api.StepStateInProgress},
+	}
+	reconciler := newTestReconciler(t, testHost)
+	info := makeDefaultReconcileInfo(testHost)
+	info.request = newRequest(testHost)
+
+	// Ironic reports the failure before recording its error message.
+	prov := newMockProvisioner()
+	prov.nextResults["Provision"] = provisioner.Result{Dirty: true, StepsUnknown: true}
+
+	result := reconciler.actionProvisioning(t.Context(), prov, info)
+
+	require.True(t, result.Dirty())
+	assert.Empty(t, testHost.Status.Provisioning.CurrentActivity)
+	assert.Equal(t, metal3api.StepStateCompleted, testHost.Status.Provisioning.Steps[0].State)
+	assert.Equal(t, metal3api.StepStateUnknown, testHost.Status.Provisioning.Steps[1].State)
+
+	prov.nextResults["Provision"] = provisioner.Result{ErrorMessage: "image deployment failed"}
+
+	result = reconciler.actionProvisioning(t.Context(), prov, info)
+
+	require.True(t, result.Dirty())
+	assert.Equal(t, "image deployment failed", testHost.Status.ErrorMessage)
+	assert.Equal(t, []metal3api.ProvisioningStep{
+		{Name: "deploy.deploy", State: metal3api.StepStateCompleted},
+		{Name: "deploy.write_image", State: metal3api.StepStateUnknown},
+	}, testHost.Status.Provisioning.Steps)
 }
 
 func TestNetworkInterfacesProvisioningGate(t *testing.T) {

@@ -553,12 +553,14 @@ func clearError(host *metal3api.BareMetalHost) (dirty bool) {
 }
 
 // setErrorMessage updates the ErrorMessage in the host Status struct
-// and increases the ErrorCount.
+// and increases the ErrorCount. Step progress can no longer be confirmed
+// once an error is recorded, so unconfirmed steps are marked unknown.
 func setErrorMessage(host *metal3api.BareMetalHost, errType metal3api.ErrorType, message string) {
 	host.Status.OperationalStatus = metal3api.OperationalStatusError
 	host.Status.ErrorType = errType
 	host.Status.ErrorMessage = message
 	host.Status.ErrorCount++
+	markUnconfirmedStepsUnknown(host)
 }
 
 func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(ctx context.Context, prov provisioner.Provisioner, info *reconcileInfo) actionResult {
@@ -583,9 +585,10 @@ func (r *BareMetalHostReconciler) actionPowerOffBeforeDeleting(ctx context.Conte
 		return recordActionFailure(info, metal3api.PowerManagementError, provResult.ErrorMessage)
 	}
 
+	changed := updateBMHSteps(info.host, provResult, info.log)
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		if clearError(info.host) || changed {
 			return actionUpdate{result}
 		}
 		return result
@@ -1454,11 +1457,15 @@ func (r *BareMetalHostReconciler) actionPreparing(ctx context.Context, prov prov
 	}
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if bmhDirty {
+		changed := updateBMHSteps(info.host, provResult, info.log)
+		if bmhDirty || changed {
 			return actionUpdate{result}
 		}
 		return result
 	}
+
+	// Sync once more on completion to clear any stale step/activity fields.
+	updateBMHSteps(info.host, provResult, info.log)
 
 	return actionComplete{}
 }
@@ -1536,7 +1543,8 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		// to return false, indicating that it has no more work to
 		// do.
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) || secretAccessCleared {
+		changed := updateBMHSteps(info.host, provResult, info.log)
+		if clearError(info.host) || secretAccessCleared || changed {
 			return actionUpdate{result}
 		}
 		return result
@@ -1552,6 +1560,9 @@ func (r *BareMetalHostReconciler) actionProvisioning(ctx context.Context, prov p
 		info.log.V(VerbosityLevelDebug).Info("updating custom deploy in status")
 		info.host.Status.Provisioning.CustomDeploy = info.host.Spec.CustomDeploy.DeepCopy()
 	}
+
+	// Sync one more time on completion to clear any stale step/activity fields.
+	updateBMHSteps(info.host, provResult, info.log)
 
 	// After provisioning we always requeue to ensure we enter the
 	// "provisioned" state and start monitoring power status.
@@ -1587,7 +1598,8 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 		}
 		if provResult.Dirty {
 			result := actionContinue{provResult.RequeueAfter}
-			if clearError(info.host) {
+			changed := updateBMHSteps(info.host, provResult, info.log)
+			if clearError(info.host) || changed {
 				return actionUpdate{result}
 			}
 			return result
@@ -1610,7 +1622,8 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		changed := updateBMHSteps(info.host, provResult, info.log)
+		if clearError(info.host) || changed {
 			return actionUpdate{result}
 		}
 		return result
@@ -1622,6 +1635,9 @@ func (r *BareMetalHostReconciler) actionDeprovisioning(ctx context.Context, prov
 		}
 		return actionContinue{}
 	}
+
+	// Sync one more time on completion to clear any stale step/activity fields.
+	updateBMHSteps(info.host, provResult, info.log)
 
 	// After the provisioner is done, clear the provisioning settings
 	// so we transition to the next state.
@@ -1711,6 +1727,8 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 				return actionContinue{provResult.RequeueAfter}
 			}
 			info.log.Info("successfully recovered from servicing error")
+			// The aborted operation's steps no longer apply.
+			updateBMHSteps(info.host, provisioner.Result{}, info.log)
 			if clearErrorWithStatus(info.host, metal3api.OperationalStatusOK) {
 				return actionUpdate{}
 			}
@@ -1789,6 +1807,7 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 		return result
 	}
 
+	changed := updateBMHSteps(info.host, provResult, info.log)
 	dirty := clearErrorWithStatus(info.host, metal3api.OperationalStatusServicing)
 
 	if hfcDirty && started {
@@ -1805,7 +1824,9 @@ func (r *BareMetalHostReconciler) doServiceIfNeeded(ctx context.Context, prov pr
 	}
 
 	resultAction := actionContinue{delay: provResult.RequeueAfter}
-	if dirty {
+	// Step changes only force an early save while servicing is still running;
+	// on completion they are saved together with the operational status below.
+	if dirty || (provResult.Dirty && changed) {
 		return actionUpdate{resultAction}
 	} else if provResult.Dirty {
 		return resultAction
@@ -2201,7 +2222,8 @@ func (r *BareMetalHostReconciler) actionManageSteadyState(ctx context.Context, p
 	}
 	if provResult.Dirty {
 		result := actionContinue{provResult.RequeueAfter}
-		if clearError(info.host) {
+		changed := updateBMHSteps(info.host, provResult, info.log)
+		if clearError(info.host) || changed {
 			return actionUpdate{result}
 		}
 		return result
@@ -2984,4 +3006,55 @@ func (r *BareMetalHostReconciler) reconcileHostData(ctx context.Context, host *m
 		return true, hardwareData, nil
 	}
 	return false, hardwareData, nil
+}
+
+func updateBMHSteps(host *metal3api.BareMetalHost, provResult provisioner.Result, log logr.Logger) bool {
+	if provResult.StepsUnknown {
+		return markUnconfirmedStepsUnknown(host)
+	}
+
+	changed := false
+
+	// Capture previous values before mutating so the log below reflects the
+	// actual prior step/activity data rather than the freshly assigned values.
+	previousCurrentActivity := host.Status.Provisioning.CurrentActivity
+
+	if host.Status.Provisioning.CurrentActivity != provResult.CurrentActivity {
+		host.Status.Provisioning.CurrentActivity = provResult.CurrentActivity
+		changed = true
+	}
+
+	if len(provResult.AllSteps) == 0 {
+		// When ironic reports no steps, clear step status,
+		// log before clearing to preserve previous step information for debugging.
+		if len(host.Status.Provisioning.Steps) > 0 {
+			log.V(VerbosityLevelDebug).Info("Clearing provisioning steps",
+				"previousCurrentActivity", previousCurrentActivity,
+				"previousSteps", host.Status.Provisioning.Steps,
+			)
+			host.Status.Provisioning.Steps = nil
+			changed = true
+		}
+		return changed
+	}
+
+	if !slices.Equal(host.Status.Provisioning.Steps, provResult.AllSteps) {
+		host.Status.Provisioning.Steps = provResult.AllSteps
+		changed = true
+	}
+
+	return changed
+}
+
+func markUnconfirmedStepsUnknown(host *metal3api.BareMetalHost) bool {
+	changed := host.Status.Provisioning.CurrentActivity != ""
+	host.Status.Provisioning.CurrentActivity = ""
+	for i := range host.Status.Provisioning.Steps {
+		step := &host.Status.Provisioning.Steps[i]
+		if step.State != metal3api.StepStateCompleted && step.State != metal3api.StepStateUnknown {
+			step.State = metal3api.StepStateUnknown
+			changed = true
+		}
+	}
+	return changed
 }

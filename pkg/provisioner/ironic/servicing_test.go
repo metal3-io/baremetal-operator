@@ -50,6 +50,11 @@ func TestService(t *testing.T) {
 		expectedStarted          bool
 		expectedDirty            bool
 		expectedError            bool
+		expectedErrorMessage     string
+		expectedCurrentActivity  string
+		expectedSteps            []metal3api.ProvisioningStep
+		expectedStepsUnknown     bool
+		provisionStateBusy       bool
 		expectedRequestAfter     int
 		expectedMaintenanceUnset bool
 	}{
@@ -81,10 +86,19 @@ func TestService(t *testing.T) {
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.ServiceFail),
 				UUID:           nodeUUID,
+				LastError:      "firmware update failed",
+				// Ironic clears the current step and index on failure
+				ServiceStep: map[string]any{},
+				DriverInternalInfo: map[string]any{
+					"service_steps": []any{
+						map[string]any{"interface": "firmware", "step": "update"},
+					},
+				},
 			}),
 			expectedStarted:      false,
 			expectedRequestAfter: 0,
 			expectedDirty:        false,
+			expectedErrorMessage: "firmware update failed",
 		},
 		{
 			name: "serviceFail state(abort - no firmware spec)",
@@ -112,6 +126,7 @@ func TestService(t *testing.T) {
 			expectedStarted:          false,
 			expectedDirty:            true,
 			expectedMaintenanceUnset: true,
+			expectedStepsUnknown:     true,
 		},
 		{
 			name: "serviceFail state(retry)",
@@ -133,19 +148,43 @@ func TestService(t *testing.T) {
 			}).NodeMaintenance(nodes.Node{
 				UUID: nodeUUID,
 			}, false),
-			unprepared:      true,
-			expectedStarted: false,
-			expectedDirty:   true,
+			unprepared:           true,
+			expectedStarted:      false,
+			expectedDirty:        true,
+			expectedStepsUnknown: true,
+		},
+		{
+			name: "serviceFail state(retry is busy)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.ServiceFail),
+				UUID:           nodeUUID,
+			}),
+			unprepared:           true,
+			provisionStateBusy:   true,
+			expectedDirty:        true,
+			expectedRequestAfter: 3,
+			expectedStepsUnknown: true,
 		},
 		{
 			name: "servicing state",
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.Servicing),
 				UUID:           nodeUUID,
+				ServiceStep:    map[string]any{"interface": "firmware", "step": "update"},
+				DriverInternalInfo: map[string]any{
+					"service_step_index": float64(0),
+					"service_steps": []any{
+						map[string]any{"interface": "firmware", "step": "update"},
+					},
+				},
 			}),
-			expectedStarted:      false,
-			expectedRequestAfter: 10,
-			expectedDirty:        true,
+			expectedStarted:         false,
+			expectedRequestAfter:    10,
+			expectedDirty:           true,
+			expectedCurrentActivity: "firmware.update",
+			expectedSteps: []metal3api.ProvisioningStep{
+				{Name: "firmware.update", State: metal3api.StepStateInProgress, Description: "Updating firmware"},
+			},
 		},
 		{
 			name: "serviceWait state",
@@ -194,6 +233,9 @@ func TestService(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.ironic != nil {
+				if tc.provisionStateBusy {
+					tc.ironic.ResponseWithCode("/v1/nodes/"+nodeUUID+"/states/provision:PUT", "", http.StatusConflict)
+				}
 				tc.ironic.Start()
 				defer tc.ironic.Stop()
 			}
@@ -225,6 +267,12 @@ func TestService(t *testing.T) {
 			assert.Equal(t, tc.expectedStarted, started)
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
+			if tc.expectedErrorMessage != "" {
+				assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage)
+			}
+			assert.Equal(t, tc.expectedCurrentActivity, result.CurrentActivity)
+			assert.Equal(t, tc.expectedSteps, result.AllSteps)
+			assert.Equal(t, tc.expectedStepsUnknown, result.StepsUnknown)
 			if !tc.expectedError {
 				require.NoError(t, err)
 			} else {

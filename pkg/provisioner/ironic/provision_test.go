@@ -31,16 +31,19 @@ func TestProvision(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                   string
-		ironic                 *testserver.IronicMock
-		forceReboot            bool
-		image                  *metal3api.Image
-		customDeploy           *metal3api.CustomDeploy
-		expectedDirty          bool
-		expectedError          bool
-		expectedErrorMessage   string
-		expectedRequestAfter   int
-		expectedProvisionState nodes.TargetProvisionState
+		name                    string
+		ironic                  *testserver.IronicMock
+		forceReboot             bool
+		image                   *metal3api.Image
+		customDeploy            *metal3api.CustomDeploy
+		expectedDirty           bool
+		expectedError           bool
+		expectedErrorMessage    string
+		expectedCurrentActivity string
+		expectedSteps           []metal3api.ProvisioningStep
+		expectedStepsUnknown    bool
+		expectedRequestAfter    int
+		expectedProvisionState  nodes.TargetProvisionState
 	}{
 		{
 			name: "deployFail state",
@@ -63,10 +66,30 @@ func TestProvision(t *testing.T) {
 					"image_os_hash_value": testImage.Checksum,
 				},
 				LastError: "no work today",
+				// Ironic clears the current step, index and step list on failure
+				DeployStep:         map[string]any{},
+				DriverInternalInfo: map[string]any{},
 			}),
 			expectedRequestAfter: 0,
 			expectedDirty:        false,
 			expectedErrorMessage: "Image provisioning failed (url: http://test-image, checksum: abcd): no work today",
+		},
+		{
+			name: "deployFail state - same image, error not recorded yet",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.DeployFail),
+				UUID:           nodeUUID,
+				InstanceInfo: map[string]any{
+					"image_source":        testImage.URL,
+					"image_os_hash_algo":  string(testImage.ChecksumType),
+					"image_os_hash_value": testImage.Checksum,
+				},
+				DeployStep:         map[string]any{},
+				DriverInternalInfo: map[string]any{},
+			}),
+			expectedRequestAfter: 0,
+			expectedDirty:        true,
+			expectedStepsUnknown: true,
 		},
 		{
 			name: "deployFail state - same OCI image",
@@ -204,6 +227,7 @@ func TestProvision(t *testing.T) {
 			}),
 			expectedRequestAfter: 10,
 			expectedDirty:        true,
+			expectedStepsUnknown: true,
 		},
 		{
 			name: "maintenance mode",
@@ -216,6 +240,7 @@ func TestProvision(t *testing.T) {
 			}, false),
 			expectedRequestAfter: 0,
 			expectedDirty:        true,
+			expectedStepsUnknown: true,
 		},
 	}
 
@@ -249,6 +274,9 @@ func TestProvision(t *testing.T) {
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
 			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage)
+			assert.Equal(t, tc.expectedCurrentActivity, result.CurrentActivity)
+			assert.Equal(t, tc.expectedSteps, result.AllSteps)
+			assert.Equal(t, tc.expectedStepsUnknown, result.StepsUnknown)
 			if !tc.expectedError {
 				require.NoError(t, err)
 			} else {
@@ -264,12 +292,16 @@ func TestProvision(t *testing.T) {
 func TestDeprovision(t *testing.T) {
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
-		name                 string
-		ironic               *testserver.IronicMock
-		expectedDirty        bool
-		expectedError        bool
-		expectedErrorMessage bool
-		expectedRequestAfter int
+		name                    string
+		ironic                  *testserver.IronicMock
+		restartOnFailure        bool
+		expectedDirty           bool
+		expectedError           bool
+		expectedErrorMessage    bool
+		expectedCurrentActivity string
+		expectedSteps           []metal3api.ProvisioningStep
+		expectedStepsUnknown    bool
+		expectedRequestAfter    int
 	}{
 		{
 			name: "active state",
@@ -338,8 +370,27 @@ func TestDeprovision(t *testing.T) {
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanFail),
 				UUID:           nodeUUID,
+				LastError:      "cleaning failed",
+				// Ironic clears the current step and index on failure
+				CleanStep: map[string]any{},
+				DriverInternalInfo: map[string]any{
+					"clean_steps": []any{
+						map[string]any{"interface": "deploy", "step": "erase_devices"},
+					},
+				},
 			}),
 			expectedErrorMessage: true,
+		},
+		{
+			name: "clean fail state - clear maintenance before retry",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.CleanFail),
+				UUID:           nodeUUID,
+				Maintenance:    true,
+			}).NodeMaintenance(nodes.Node{UUID: nodeUUID}, false),
+			restartOnFailure:     true,
+			expectedDirty:        true,
+			expectedStepsUnknown: true,
 		},
 		{
 			name: "manageable state",
@@ -368,11 +419,14 @@ func TestDeprovision(t *testing.T) {
 				t.Fatalf("could not create provisioner: %s", err)
 			}
 
-			result, err := prov.Deprovision(t.Context(), false, metal3api.CleaningModeMetadata)
+			result, err := prov.Deprovision(t.Context(), tc.restartOnFailure, metal3api.CleaningModeMetadata)
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage != "")
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
+			assert.Equal(t, tc.expectedCurrentActivity, result.CurrentActivity)
+			assert.Equal(t, tc.expectedSteps, result.AllSteps)
+			assert.Equal(t, tc.expectedStepsUnknown, result.StepsUnknown)
 			if !tc.expectedError {
 				require.NoError(t, err)
 			} else {

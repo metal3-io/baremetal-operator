@@ -4,6 +4,7 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 )
 
@@ -31,6 +32,7 @@ func retryAfterDelay(delay time.Duration) (provisioner.Result, error) {
 	return provisioner.Result{
 		Dirty:        true,
 		RequeueAfter: jitter(delay),
+		StepsUnknown: true,
 	}, nil
 }
 
@@ -38,6 +40,16 @@ func operationContinuing(delay time.Duration) (provisioner.Result, error) {
 	return provisioner.Result{
 		Dirty:        true,
 		RequeueAfter: jitter(delay),
+	}, nil
+}
+
+func operationContinuingWithState(delay time.Duration, node *nodes.Node) (provisioner.Result, error) {
+	activity, allSteps := parseSubStates(node)
+	return provisioner.Result{
+		Dirty:           true,
+		RequeueAfter:    jitter(delay),
+		CurrentActivity: activity,
+		AllSteps:        allSteps,
 	}, nil
 }
 

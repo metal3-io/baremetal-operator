@@ -1654,7 +1654,7 @@ spec:
       priority: 1
       type: string
     - description: Whether the host is online or not
-      jsonPath: .spec.online
+      jsonPath: .spec.poweredOn
       name: Online
       type: string
     - description: Type of the most recent error
@@ -2038,7 +2038,7 @@ spec:
                   - hostNetworkAttachment
                   type: object
                 type: array
-              online:
+              poweredOn:
                 description: |-
                   Should the host be powered on? If the host is currently in a stable
                   state (e.g. provisioned), its power state will be forced to match
@@ -2330,7 +2330,7 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
             required:
-            - online
+            - poweredOn
             type: object
           status:
             description: BareMetalHostStatus defines the observed state of BareMetalHost.

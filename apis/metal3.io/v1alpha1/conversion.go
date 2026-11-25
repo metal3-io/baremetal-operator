@@ -95,6 +95,28 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 	return MarshalData(src, dst)
 }
 
+// Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec converts
+// the BareMetalHostSpec to v1beta1, where the online field is renamed to
+// poweredOn.
+func Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMetalHostSpec, out *metal3apiv1beta1.BareMetalHostSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in, out, s); err != nil {
+		return err
+	}
+	out.PoweredOn = in.Online
+	return nil
+}
+
+// Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec converts
+// the BareMetalHostSpec from v1beta1, where the online field is renamed to
+// poweredOn.
+func Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *metal3apiv1beta1.BareMetalHostSpec, out *BareMetalHostSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in, out, s); err != nil {
+		return err
+	}
+	out.Online = in.PoweredOn
+	return nil
+}
+
 // Convert_v1alpha1_Image_To_v1beta1_Image converts an Image to v1beta1. The
 // "md5" checksum type does not exist in v1beta1 and is unset, which lets
 // Ironic detect the algorithm from the checksum (same as "auto").

@@ -389,6 +389,27 @@ func Convert_v1beta1_CPU_To_v1alpha1_CPU(in *metal3apiv1beta1.CPU, out *CPU, s a
 	return nil
 }
 
+// Convert_v1alpha1_CredentialsStatus_To_v1beta1_CredentialsStatus converts the
+// credentials status to the hub version, where the Reference field is named
+// Ref. The JSON name is unchanged.
+func Convert_v1alpha1_CredentialsStatus_To_v1beta1_CredentialsStatus(in *CredentialsStatus, out *metal3apiv1beta1.CredentialsStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_CredentialsStatus_To_v1beta1_CredentialsStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Ref = in.Reference
+	return nil
+}
+
+// Convert_v1beta1_CredentialsStatus_To_v1alpha1_CredentialsStatus converts the
+// credentials status from the hub version, mapping Ref back to Reference.
+func Convert_v1beta1_CredentialsStatus_To_v1alpha1_CredentialsStatus(in *metal3apiv1beta1.CredentialsStatus, out *CredentialsStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_CredentialsStatus_To_v1alpha1_CredentialsStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Reference = in.Ref
+	return nil
+}
+
 // --- HardwareData ---
 
 // ConvertTo converts this HardwareData (v1alpha1) to the Hub version (v1beta1).

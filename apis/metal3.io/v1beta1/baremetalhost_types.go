@@ -770,7 +770,7 @@ type CustomDeploy struct {
 // set of BMC credentials the controller was able to validate.
 type CredentialsStatus struct {
 	// credentials is a reference to the secret containing the credentials.
-	Reference *corev1.SecretReference `json:"credentials,omitempty"`
+	Ref *corev1.SecretReference `json:"credentials,omitempty"`
 	// credentialsVersion is the resource version of the credentials secret.
 	Version string `json:"credentialsVersion,omitempty"`
 }
@@ -813,11 +813,11 @@ type DetachedAnnotationArguments struct {
 // content of a secret object.
 func (cs CredentialsStatus) Match(secret corev1.Secret) bool {
 	switch {
-	case cs.Reference == nil:
+	case cs.Ref == nil:
 		return false
-	case cs.Reference.Name != secret.ObjectMeta.Name:
+	case cs.Ref.Name != secret.ObjectMeta.Name:
 		return false
-	case cs.Reference.Namespace != secret.ObjectMeta.Namespace:
+	case cs.Ref.Namespace != secret.ObjectMeta.Namespace:
 		return false
 	case cs.Version != secret.ObjectMeta.ResourceVersion:
 		return false
@@ -1128,7 +1128,7 @@ func (host *BareMetalHost) WasProvisioned() bool {
 // credentials known to work.
 func (host *BareMetalHost) UpdateGoodCredentials(currentSecret corev1.Secret) {
 	host.Status.GoodCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
-	host.Status.GoodCredentials.Reference = &corev1.SecretReference{
+	host.Status.GoodCredentials.Ref = &corev1.SecretReference{
 		Name:      currentSecret.ObjectMeta.Name,
 		Namespace: currentSecret.ObjectMeta.Namespace,
 	}
@@ -1139,7 +1139,7 @@ func (host *BareMetalHost) UpdateGoodCredentials(currentSecret corev1.Secret) {
 // credentials known to work.
 func (host *BareMetalHost) UpdateTriedCredentials(currentSecret corev1.Secret) {
 	host.Status.TriedCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
-	host.Status.TriedCredentials.Reference = &corev1.SecretReference{
+	host.Status.TriedCredentials.Ref = &corev1.SecretReference{
 		Name:      currentSecret.ObjectMeta.Name,
 		Namespace: currentSecret.ObjectMeta.Namespace,
 	}

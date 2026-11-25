@@ -158,7 +158,7 @@ func TestCredentialStatusMatch(t *testing.T) {
 		{
 			Scenario: "new name",
 			CredStat: CredentialsStatus{
-				Reference: &corev1.SecretReference{
+				Ref: &corev1.SecretReference{
 					Name:      "old name",
 					Namespace: "namespace",
 				},
@@ -175,7 +175,7 @@ func TestCredentialStatusMatch(t *testing.T) {
 		{
 			Scenario: "match",
 			CredStat: CredentialsStatus{
-				Reference: &corev1.SecretReference{
+				Ref: &corev1.SecretReference{
 					Name:      "match",
 					Namespace: "namespace",
 				},
@@ -194,7 +194,7 @@ func TestCredentialStatusMatch(t *testing.T) {
 		{
 			Scenario: "wrong namespace",
 			CredStat: CredentialsStatus{
-				Reference: &corev1.SecretReference{
+				Ref: &corev1.SecretReference{
 					Name:      "match",
 					Namespace: "namespace",
 				},
@@ -213,7 +213,7 @@ func TestCredentialStatusMatch(t *testing.T) {
 		{
 			Scenario: "new version",
 			CredStat: CredentialsStatus{
-				Reference: &corev1.SecretReference{
+				Ref: &corev1.SecretReference{
 					Name:      "new version",
 					Namespace: "namespace",
 				},

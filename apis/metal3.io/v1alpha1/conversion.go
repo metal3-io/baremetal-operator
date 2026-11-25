@@ -85,9 +85,10 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 		return err
 	}
 
-	// Restore MD5 checksums.
+	// Restore MD5 checksums and the firmware configuration.
 	if hasRestored {
 		restoreMD5Checksums(restored, dst)
+		restoreFirmware(restored, dst)
 	}
 
 	// Stash the v1beta1 object so that ConvertTo can restore what v1alpha1
@@ -145,6 +146,26 @@ func restoreMD5Checksums(stash *BareMetalHost, dst *BareMetalHost) {
 	restore(stash.Spec.Image, dst.Spec.Image)
 	restore(stash.Status.LastAttemptedImage, dst.Status.LastAttemptedImage)
 	restore(&stash.Status.Provisioning.Image, &dst.Status.Provisioning.Image)
+}
+
+// --- Firmware ---
+
+// The deprecated firmware configuration (spec.firmware and
+// status.provisioning.firmware) is not implemented by any driver and was
+// removed from v1beta1. It is dropped when converting to v1beta1 and restored
+// from the stashed v1alpha1 object when converting back. Since v1beta1 cannot
+// change it, the stashed value is always restored as-is.
+
+// Convert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus converts the
+// ProvisionStatus to v1beta1, dropping the applied firmware configuration.
+func Convert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(in *ProvisionStatus, out *metal3apiv1beta1.ProvisionStatus, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_ProvisionStatus_To_v1beta1_ProvisionStatus(in, out, s)
+}
+
+// restoreFirmware restores the firmware configuration recorded in stash on dst.
+func restoreFirmware(stash *BareMetalHost, dst *BareMetalHost) {
+	dst.Spec.Firmware = stash.Spec.Firmware
+	dst.Status.Provisioning.Firmware = stash.Status.Provisioning.Firmware
 }
 
 // --- RootDeviceHints ---

@@ -461,3 +461,39 @@ func TestMD5ChecksumConversion(t *testing.T) {
 		g.Expect(restored.Status.LastAttemptedImage.ChecksumType).To(gomega.Equal(MD5))
 	})
 }
+
+// TestFirmwareConversion checks that the firmware configuration, which does not
+// exist in v1beta1, is dropped and restored from the stash on the way back,
+// even if other fields are changed through v1beta1.
+func TestFirmwareConversion(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	newFirmware := func() *FirmwareConfig {
+		return &FirmwareConfig{
+			VirtualizationEnabled:             ptr.To(true),
+			SimultaneousMultithreadingEnabled: ptr.To(false),
+		}
+	}
+	spoke := &BareMetalHost{
+		Spec: BareMetalHostSpec{Firmware: newFirmware()},
+		Status: BareMetalHostStatus{
+			Provisioning: ProvisionStatus{Firmware: newFirmware()},
+		},
+	}
+	hub := &metal3apiv1beta1.BareMetalHost{}
+	g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+	hub.Spec.Description = "changed in v1beta1"
+
+	restored := &BareMetalHost{}
+	g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+	g.Expect(restored.Spec.Firmware).To(gomega.Equal(newFirmware()))
+	g.Expect(restored.Status.Provisioning.Firmware).To(gomega.Equal(newFirmware()))
+	g.Expect(restored.Spec.Description).To(gomega.Equal("changed in v1beta1"))
+
+	// Without a stash, e.g. for an object created through v1beta1, there is
+	// no firmware configuration.
+	fromHub := &BareMetalHost{}
+	g.Expect(fromHub.ConvertFrom(&metal3apiv1beta1.BareMetalHost{})).To(gomega.Succeed())
+	g.Expect(fromHub.Spec.Firmware).To(gomega.BeNil())
+	g.Expect(fromHub.Status.Provisioning.Firmware).To(gomega.BeNil())
+}

@@ -464,23 +464,6 @@ type RAIDConfig struct {
 	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"`
 }
 
-// FirmwareConfig contains the configuration that you want to configure BIOS settings in Bare metal server.
-//
-// Deprecated: no longer supported by any driver.
-type FirmwareConfig struct {
-	// Supports the virtualization of platform hardware.
-	// +kubebuilder:validation:Enum=true;false
-	VirtualizationEnabled *bool `json:"virtualizationEnabled,omitempty"`
-
-	// Allows a single physical processor core to appear as several logical processors.
-	// +kubebuilder:validation:Enum=true;false
-	SimultaneousMultithreadingEnabled *bool `json:"simultaneousMultithreadingEnabled,omitempty"`
-
-	// SR-IOV support enables a hypervisor to create virtual instances of a PCI-express device, potentially increasing performance.
-	// +kubebuilder:validation:Enum=true;false
-	SriovEnabled *bool `json:"sriovEnabled,omitempty"`
-}
-
 // SwitchPortIdentifier defines the attributes required to identify a switch port.
 type SwitchPortIdentifier struct {
 	// SwitchID is expected to be the management MAC address of the switch
@@ -560,13 +543,6 @@ type BareMetalHostSpec struct {
 	// hardwareRAIDVolumes and softwareRAIDVolumes can be set at the same
 	// time.
 	RAID *RAIDConfig `json:"raid,omitempty"`
-
-	// Firmware (BIOS) configuration for bare metal server.
-	//
-	// Deprecated: no longer implemented. An alternative is to
-	// use HostFirmwareSettings resources that allow changing arbitrary
-	// values and support the generic Redfish-based drivers.
-	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
 	// What is the name of the hardware profile for this host?
 	// Hardware profiles are deprecated and should not be used.
@@ -965,11 +941,6 @@ type ProvisionStatus struct {
 
 	// The RAID configuration that has been applied.
 	RAID *RAIDConfig `json:"raid,omitempty"`
-
-	// The firmware settings that have been applied.
-	//
-	// Deprecated: no longer implemented and is always empty.
-	Firmware *FirmwareConfig `json:"firmware,omitempty"`
 
 	// Custom deploy procedure applied to the host.
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`

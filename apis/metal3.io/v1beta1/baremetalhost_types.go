@@ -844,6 +844,13 @@ type BareMetalHostStatus struct {
 	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
 
+	// Conditions defines current service state of the BareMetalHost.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
 	// OperationalStatus holds the status of the host
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached;servicing
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
@@ -903,13 +910,6 @@ type BareMetalHostStatus struct {
 	// format, etc.) that should reset the provisioning retry limit counter.
 	// +optional
 	LastAttemptedImage *Image `json:"lastAttemptedImage,omitempty"`
-
-	// Conditions defines current service state of the BareMetalHost.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	// +kubebuilder:validation:MaxItems=32
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// AppliedNetworkAttachmentConfigs stores the resolved port configurations that were
 	// last successfully applied to Ironic ports. This records the actual

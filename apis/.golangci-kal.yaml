@@ -34,14 +34,9 @@ linters:
             - uniquemarkers
           lintersConfig:
             conditions:
-              # Field order does not affect the serialized API. Moving the
-              # field would change the Go struct layout and the generated
-              # v1alpha1 <-> v1beta1 conversion code.
-              isFirstField: Ignore
-              # BMO types are CRDs, not in-tree types: protobuf tags and
-              # patchStrategy/patchMergeKey are not used for CRDs.
-              useProtobuf: Ignore
-              usePatchStrategy: Ignore
+              isFirstField: Warn # Require conditions to be the first field in the status struct.
+              usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.
+              useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
 
 issues:
   uniq-by-line: false

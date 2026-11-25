@@ -926,8 +926,7 @@ type ProvisionStatus struct {
 
 	// The hosts's ID from the underlying provisioning tool (e.g. the
 	// Ironic node UUID).
-	//nolint:tagliatelle
-	ID string `json:"ID"`
+	ID string `json:"id"`
 
 	// Image holds the details of the last image successfully
 	// provisioned to the host.

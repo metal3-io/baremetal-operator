@@ -2842,11 +2842,6 @@ spec:
               provisioning:
                 description: Information tracked by the provisioner.
                 properties:
-                  ID:
-                    description: |-
-                      The hosts's ID from the underlying provisioning tool (e.g. the
-                      Ironic node UUID).
-                    type: string
                   bootMode:
                     description: BootMode indicates the boot mode used to provision
                       the host.
@@ -2867,6 +2862,11 @@ spec:
                     required:
                     - method
                     type: object
+                  id:
+                    description: |-
+                      The hosts's ID from the underlying provisioning tool (e.g. the
+                      Ironic node UUID).
+                    type: string
                   image:
                     description: |-
                       Image holds the details of the last image successfully
@@ -3139,7 +3139,7 @@ spec:
                       the host.
                     type: string
                 required:
-                - ID
+                - id
                 - state
                 type: object
               provisioningFailCount:

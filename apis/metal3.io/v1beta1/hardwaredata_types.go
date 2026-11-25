@@ -188,6 +188,7 @@ type NIC struct {
 // Firmware describes the firmware on the host.
 type Firmware struct {
 	// The BIOS for this firmware
+	// +optional
 	BIOS BIOS `json:"bios,omitempty"`
 }
 
@@ -235,8 +236,10 @@ type HardwareDetails struct {
 	// List of accelerators discovered on the host.
 	Accelerators []Accelerator `json:"accelerators,omitempty"`
 	// System vendor information.
+	// +optional
 	SystemVendor HardwareSystemVendor `json:"systemVendor,omitempty"`
 	// System firmware information.
+	// +optional
 	Firmware Firmware `json:"firmware,omitempty"`
 	// The host's amount of memory in Mebibytes.
 	RAMMebibytes int `json:"ramMebibytes,omitempty"`
@@ -245,6 +248,7 @@ type HardwareDetails struct {
 	// List of storage (disk, SSD, etc.) available to the host.
 	Storage []Storage `json:"storage,omitempty"`
 	// Details of the CPU(s) in the system.
+	// +optional
 	CPU CPU `json:"cpu,omitempty"`
 	// Name of the host at the inspection time.
 	Hostname string `json:"hostname,omitempty"`
@@ -265,6 +269,7 @@ type HardwareData struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// +optional
 	Spec HardwareDataSpec `json:"spec,omitempty"`
 }
 

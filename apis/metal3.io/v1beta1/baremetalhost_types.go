@@ -482,8 +482,10 @@ type SwitchPortIdentifier struct {
 // node ports.
 type SwitchPortConfig struct {
 	// Mode is the switch port mode (access or trunk)
+	// +required
 	Mode SwitchPortMode `json:"mode"`
 	// NativeVLAN is the native/untagged VLAN ID
+	// +required
 	NativeVLAN int `json:"nativeVLAN"`
 	// AllowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
 	// +optional
@@ -511,6 +513,7 @@ type NetworkInterface struct {
 	MACAddress string `json:"macAddress,omitempty"`
 
 	// HostNetworkAttachment references the HostNetworkAttachment for this interface
+	// +required
 	HostNetworkAttachment HostNetworkAttachmentRef `json:"hostNetworkAttachment"`
 
 	// SwitchPort defines the switch port on which this interface is attached.
@@ -535,6 +538,7 @@ type BareMetalHostSpec struct {
 
 	// How do we connect to the BMC (Baseboard Management Controller) on
 	// the host?
+	// +optional
 	BMC BMCDetails `json:"bmc,omitempty"`
 
 	// RAID configuration for bare metal server. If set, the RAID settings
@@ -815,9 +819,13 @@ func (om OperationMetric) Duration() time.Duration {
 // OperationHistory holds information about operations performed on a
 // host.
 type OperationHistory struct {
-	Register    OperationMetric `json:"register,omitempty"`
-	Inspect     OperationMetric `json:"inspect,omitempty"`
-	Provision   OperationMetric `json:"provision,omitempty"`
+	// +optional
+	Register OperationMetric `json:"register,omitempty"`
+	// +optional
+	Inspect OperationMetric `json:"inspect,omitempty"`
+	// +optional
+	Provision OperationMetric `json:"provision,omitempty"`
+	// +optional
 	Deprovision OperationMetric `json:"deprovision,omitempty"`
 }
 
@@ -832,6 +840,7 @@ type AppliedNetworkAttachmentConfig struct {
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
 	MACAddress string `json:"macAddress"`
 	// SwitchPortConfig is the switch port configuration that was applied
+	// +required
 	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
 	// SwitchPort is the identifier of the switch port that was
 	// configured.  If not provided then LLDP information will be used.
@@ -867,12 +876,15 @@ type BareMetalHostStatus struct {
 	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
 
 	// Information tracked by the provisioner.
+	// +required
 	Provisioning ProvisionStatus `json:"provisioning"`
 
 	// The last credentials we were able to validate as working.
+	// +optional
 	GoodCredentials CredentialsStatus `json:"goodCredentials,omitempty"`
 
 	// The last credentials we sent to the provisioning backend.
+	// +optional
 	TriedCredentials CredentialsStatus `json:"triedCredentials,omitempty"`
 
 	// The last error message reported by the provisioning subsystem.
@@ -885,6 +897,7 @@ type BareMetalHostStatus struct {
 
 	// OperationHistory holds information about operations performed
 	// on this host.
+	// +optional
 	OperationHistory OperationHistory `json:"operationHistory,omitempty"`
 
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation
@@ -922,15 +935,18 @@ type BareMetalHostStatus struct {
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
 	// An indicator for what the provisioner is doing with the host.
+	// +required
 	State ProvisioningState `json:"state"`
 
 	// The hosts's ID from the underlying provisioning tool (e.g. the
 	// Ironic node UUID).
 	//nolint:tagliatelle
+	// +required
 	ID string `json:"ID"`
 
 	// Image holds the details of the last image successfully
 	// provisioned to the host.
+	// +optional
 	Image Image `json:"image,omitempty"`
 
 	// The root device hints used to provision the host.
@@ -964,7 +980,10 @@ type BareMetalHost struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BareMetalHostSpec   `json:"spec,omitempty"`
+	// +optional
+	Spec BareMetalHostSpec `json:"spec,omitempty"`
+	// +optional
+	//nolint:kubeapilinter // status is set by the controller, objects are created without it
 	Status BareMetalHostStatus `json:"status,omitempty"`
 }
 

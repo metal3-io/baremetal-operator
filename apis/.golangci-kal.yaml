@@ -28,6 +28,7 @@ linters:
             - duplicatemarkers
             - nodurations
             - nomaps
+            - nonpointerstructs
             - nophase
             - notimestamp
             - statussubresource

@@ -752,3 +752,32 @@ func TestBareMetalHostConversionDataAnnotation(t *testing.T) {
 	g.Expect(stashedHub.Spec).To(gomega.Equal(hub.Spec))
 	g.Expect(restored.Spec).To(gomega.Equal(spoke.Spec))
 }
+
+func TestProvisioningStepsConversion(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	spoke := &BareMetalHost{
+		Status: BareMetalHostStatus{
+			Provisioning: ProvisionStatus{
+				CurrentActivity: "deploy.write_image",
+				Steps: []ProvisioningStep{
+					{
+						Name:        "deploy.write_image",
+						State:       StepStateInProgress,
+						Description: "Writing image to disk",
+					},
+				},
+			},
+		},
+	}
+	hub := &metal3apiv1beta1.BareMetalHost{}
+	g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+	hub.Status.Provisioning.CurrentActivity = "firmware.update"
+	hub.Status.Provisioning.Steps[0].State = metal3apiv1beta1.StepStateCompleted
+
+	restored := &BareMetalHost{}
+	g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+	g.Expect(restored.Status.Provisioning.CurrentActivity).To(gomega.Equal(hub.Status.Provisioning.CurrentActivity))
+	g.Expect(restored.Status.Provisioning.Steps[0].State).To(gomega.Equal(StepStateCompleted))
+	g.Expect(restored.Status.Provisioning.Steps[0].Description).To(gomega.Equal(spoke.Status.Provisioning.Steps[0].Description))
+}

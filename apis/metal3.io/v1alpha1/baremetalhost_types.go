@@ -950,6 +950,35 @@ type BareMetalHostStatus struct {
 	AppliedNetworkAttachmentConfigs []AppliedNetworkAttachmentConfig `json:"appliedNetworkAttachmentConfigs,omitempty"`
 }
 
+// StepState defines the current state of a provisioning step.
+// +kubebuilder:validation:Enum=unknown;not-started;in-progress;completed
+type StepState string
+
+const (
+	// StepStateUnknown indicates the step's state cannot be determined.
+	StepStateUnknown StepState = "unknown"
+	// StepStateNotStarted indicates the step has not started yet.
+	StepStateNotStarted StepState = "not-started"
+	// StepStateInProgress indicates the step is currently executing.
+	StepStateInProgress StepState = "in-progress"
+	// StepStateCompleted indicates the step has finished executing.
+	StepStateCompleted StepState = "completed"
+)
+
+// ProvisioningStep represents a single step in a provisioning, cleaning, or servicing operation.
+type ProvisioningStep struct {
+	// The name of the step in "<interface>.<step>" form (e.g. deploy.write_image).
+	Name string `json:"name"`
+
+	// The state of the step. Unknown when its progress cannot be determined.
+	// +optional
+	State StepState `json:"state,omitempty"`
+
+	// A short human-readable description of what the step does.
+	// +optional
+	Description string `json:"description,omitempty"`
+}
+
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
 	// An indicator for what the provisioner is doing with the host.
@@ -980,6 +1009,14 @@ type ProvisionStatus struct {
 
 	// Custom deploy procedure applied to the host.
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
+
+	// An indicator of what action is being executed by the provisioner.
+	// +optional
+	CurrentActivity string `json:"currentActivity,omitempty"`
+
+	// The ordered steps for the current operation. Cleared when the operation ends.
+	// +optional
+	Steps []ProvisioningStep `json:"steps,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -990,6 +1027,7 @@ type ProvisionStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status",priority=1
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
+// +kubebuilder:printcolumn:name="Activity",type="string",JSONPath=".status.provisioning.currentActivity",description="Current provisioning activity",priority=1
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
 // +kubebuilder:printcolumn:name="BMC",type="string",JSONPath=".spec.bmc.address",description="Address of management controller",priority=1
 // +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.online",description="Whether the host is online or not"

@@ -65,6 +65,11 @@ const (
 	// during registration of BMH is enabled or disabled.
 	InspectAnnotationPrefix = "inspect.metal3.io"
 
+	// EmptyHardwareProfile is the name of the hardware profile that does not
+	// configure anything. Hardware profiles are deprecated and do not exist in
+	// v1beta1, which behaves as if this one was always used.
+	EmptyHardwareProfile = "empty"
+
 	// HardwareDetailsAnnotation provides the hardware details for the host
 	// in case its not already part of the host status and when introspection
 	// is disabled.

@@ -66,7 +66,8 @@ func (src *BareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 	// }
 
 	// Stash the v1alpha1 object so that ConvertFrom can restore what v1beta1
-	// cannot represent.
+	// cannot represent, including Spec/Status.HardwareProfile, which has no
+	// peer in v1beta1.
 	return MarshalData(src, dst)
 }
 
@@ -89,6 +90,18 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 	if hasRestored {
 		restoreMD5Checksums(restored, dst)
 		restoreFirmware(restored, dst)
+
+		// Hardware profiles do not exist in v1beta1, so the names cannot be
+		// reconstructed from the hub object.
+		dst.Spec.HardwareProfile = restored.Spec.HardwareProfile
+		dst.Status.HardwareProfile = restored.Status.HardwareProfile
+	} else {
+		// Without stashed data the object did not come from a v1alpha1 one,
+		// so it was created through v1beta1, where hardware profiles do not
+		// exist. Use the empty profile: otherwise the controller picks
+		// "unknown" (or "libvirt") and applies its root device hints to a
+		// host whose owner never asked for them.
+		dst.Spec.HardwareProfile = EmptyHardwareProfile
 	}
 
 	// Stash the v1beta1 object so that ConvertTo can restore what v1alpha1
@@ -98,7 +111,8 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 
 // Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec converts
 // the BareMetalHostSpec to v1beta1, where the online field is renamed to
-// poweredOn.
+// poweredOn. Spec.HardwareProfile has no peer at all, so ConvertTo preserves
+// it in the conversion-data annotation instead.
 func Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMetalHostSpec, out *metal3apiv1beta1.BareMetalHostSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in, out, s); err != nil {
 		return err
@@ -203,6 +217,14 @@ func Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *metal3apiv1
 	out.Vendor = in.VendorContains
 
 	return nil
+}
+
+// Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus converts
+// the spoke status to the hub status. It is written by hand because
+// Status.HardwareProfile has no peer in v1beta1; the value is preserved in the
+// conversion-data annotation by ConvertTo instead.
+func Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in *BareMetalHostStatus, out *metal3apiv1beta1.BareMetalHostStatus, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in, out, s)
 }
 
 // --- HardwareData ---

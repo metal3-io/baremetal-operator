@@ -12,7 +12,7 @@ const (
 	DefaultProfileName string = "unknown"
 
 	// EmptyProfileName is the hardware profile without configuration.
-	EmptyProfileName string = "empty"
+	EmptyProfileName = metal3api.EmptyHardwareProfile
 )
 
 // Profile holds the settings for a class of hardware.

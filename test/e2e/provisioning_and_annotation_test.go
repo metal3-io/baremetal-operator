@@ -109,12 +109,39 @@ var _ = Describe("Provisioning and Detachment", Label("required", "provision", "
 				State:  metal3api.StateProvisioning,
 			}, e2eConfig.GetIntervals(specName, "wait-provisioning")...)
 
+			if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+				By("Waiting for an in-progress deploy step in the BMH status")
+				Eventually(func(g Gomega) {
+					current := &metal3api.BareMetalHost{}
+					g.Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(&bmh), current)).To(Succeed())
+					if current.Status.Provisioning.State == metal3api.StateProvisioned {
+						StopTrying("provisioning completed before an in-progress step was observed").Now()
+					}
+					activity := current.Status.Provisioning.CurrentActivity
+					g.Expect(activity).NotTo(BeEmpty())
+					g.Expect(current.Status.Provisioning.Steps).To(ContainElement(SatisfyAll(
+						HaveField("Name", activity),
+						HaveField("State", metal3api.StepStateInProgress),
+					)))
+				}, e2eConfig.GetIntervals(specName, "wait-provisioned")...).Should(Succeed())
+			}
+
 			By("Waiting for the BMH to become provisioned")
 			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
 				Client: clusterProxy.GetClient(),
 				Bmh:    bmh,
 				State:  metal3api.StateProvisioned,
 			}, e2eConfig.GetIntervals(specName, "wait-provisioned")...)
+
+			if e2eConfig.GetBoolVariable("DEPLOY_IRONIC") {
+				By("Checking that deploy progress is cleared")
+				Eventually(func(g Gomega) {
+					current := &metal3api.BareMetalHost{}
+					g.Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(&bmh), current)).To(Succeed())
+					g.Expect(current.Status.Provisioning.CurrentActivity).To(BeEmpty())
+					g.Expect(current.Status.Provisioning.Steps).To(BeEmpty())
+				}, e2eConfig.GetIntervals(specName, "wait-provisioned")...).Should(Succeed())
+			}
 
 			// The ssh check is not possible in all situations (e.g. fixture) so it can be skipped
 			if e2eConfig.GetVariable("SSH_CHECK_PROVISIONED") == "true" {

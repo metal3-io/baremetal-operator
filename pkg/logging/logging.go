@@ -207,4 +207,24 @@ const (
 
 	// LogFieldDifference is a difference between some values.
 	LogFieldDifference = "difference"
+
+	// LogFieldHostClaim is the qualified name of the HostClaim resource.
+	LogFieldHostClaim = "hostclaim"
+
+	// LogFieldFailureDomain is the failure domain of the HostClaim resource.
+	LogFieldFailureDomain = "failureDomain"
+
+	// LogFieldHostName is the name of the BareMetalHost resource (used in the context of
+	// hostclaims where there are several namespaces).
+	LogFieldHostName = "hostName"
+
+	// LogFieldHostNamespace is the namespace of the BareMetalHost resource (used in the context of
+	// hostclaims where there are several namespaces).
+	LogFieldHostNamespace = "hostNamespace"
+
+	// LogFieldHostDeployPolicy is the name of the HostDeployPolicy resource.
+	LogFieldHostDeployPolicy = "hostdeploypolicy"
+
+	// LogFieldHostDeployPolicyNamespace is the namespace of the HostDeployPolicy resource.
+	LogFieldHostDeployPolicyNamespace = "hostdeploypolicyNamespace"
 )

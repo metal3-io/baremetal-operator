@@ -424,7 +424,8 @@ type HardwareRAIDVolume struct {
 type SoftwareRAIDVolume struct {
 	// Setting this to true, causes installer to consider this volume as root device for installation.
 	// This can only be set for one of the volumes.
-	// +kubebuilder:default:=false
+	// +optional
+	// +default=false
 	RootVolume bool `json:"rootVolume,omitempty"`
 
 	// Size of the logical disk to be created in GiB.
@@ -620,7 +621,7 @@ type BareMetalHostSpec struct {
 	// When set to disabled, automated cleaning will be skipped
 	// during provisioning and deprovisioning.
 	// +optional
-	// +kubebuilder:default:=metadata
+	// +default="metadata"
 	// +kubebuilder:validation:Optional
 	AutomatedCleaningMode AutomatedCleaningMode `json:"automatedCleaningMode,omitempty"`
 
@@ -884,15 +885,17 @@ type BareMetalHostStatus struct {
 	OperationHistory OperationHistory `json:"operationHistory,omitempty"`
 
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation
-	// +kubebuilder:default:=0
-	ErrorCount int `json:"errorCount"`
+	// +optional
+	// +default=0
+	ErrorCount int `json:"errorCount,omitempty"`
 
 	// ProvisioningFailCount records how many times provisioning has failed
 	// consecutively for the current image. Unlike ErrorCount, it is not reset
 	// on deprovisioning and is only cleared on successful provisioning or when
 	// a new image is specified.
-	// +kubebuilder:default:=0
-	ProvisioningFailCount int `json:"provisioningFailCount"`
+	// +optional
+	// +default=0
+	ProvisioningFailCount int `json:"provisioningFailCount,omitempty"`
 
 	// LastAttemptedImage stores the full image spec of the last provisioning
 	// attempt, used to detect user-initiated image changes (URL, checksum,

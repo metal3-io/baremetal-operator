@@ -3149,12 +3149,10 @@ spec:
                     type: string
                 type: object
             required:
-            - errorCount
             - errorMessage
             - operationalStatus
             - poweredOn
             - provisioning
-            - provisioningFailCount
             type: object
         type: object
     served: true

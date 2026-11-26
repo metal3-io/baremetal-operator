@@ -66,8 +66,8 @@ func (src *BareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 	// }
 
 	// Stash the v1alpha1 object so that ConvertFrom can restore what v1beta1
-	// cannot represent, including Spec/Status.HardwareProfile, which has no
-	// peer in v1beta1.
+	// cannot represent, including Spec/Status.HardwareProfile and
+	// Status.HardwareDetails, which have no peer in v1beta1.
 	return MarshalData(src, dst)
 }
 
@@ -95,6 +95,11 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 		// reconstructed from the hub object.
 		dst.Spec.HardwareProfile = restored.Spec.HardwareProfile
 		dst.Status.HardwareProfile = restored.Status.HardwareProfile
+
+		// The hardware details are published through the HardwareData
+		// resource from v1beta1 on, but the v1alpha1 status still has its own
+		// copy and the controller still reads it, so put it back.
+		dst.Status.HardwareDetails = restored.Status.HardwareDetails
 	} else {
 		// Without stashed data the object did not come from a v1alpha1 one,
 		// so it was created through v1beta1, where hardware profiles do not
@@ -221,8 +226,8 @@ func Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *metal3apiv1
 
 // Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus converts
 // the spoke status to the hub status. It is written by hand because
-// Status.HardwareProfile has no peer in v1beta1; the value is preserved in the
-// conversion-data annotation by ConvertTo instead.
+// Status.HardwareProfile and Status.HardwareDetails have no peer in v1beta1;
+// both are preserved in the conversion-data annotation by ConvertTo instead.
 func Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in *BareMetalHostStatus, out *metal3apiv1beta1.BareMetalHostStatus, s apiconversion.Scope) error {
 	return autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in, out, s)
 }

@@ -858,11 +858,6 @@ type BareMetalHostStatus struct {
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
-	// The hardware discovered to exist on the host.
-	// This field will be removed in the next API version in favour of the
-	// separate HardwareData resource.
-	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
-
 	// Information tracked by the provisioner.
 	Provisioning ProvisionStatus `json:"provisioning"`
 
@@ -1020,27 +1015,6 @@ func (host *BareMetalHost) InspectionDisabled() bool {
 	// Fall back to the legacy annotation for backward compatibility
 	annotations := host.GetAnnotations()
 	return annotations[InspectAnnotationPrefix] == InspectAnnotationValueDisabled
-}
-
-// NeedsHardwareInspection looks at the state of the host to determine
-// if hardware inspection should be run.
-func (host *BareMetalHost) NeedsHardwareInspection() bool {
-	if host.Spec.ExternallyProvisioned {
-		// Never perform inspection if we already know something is
-		// using the host and we didn't provision it.
-		return false
-	}
-	if host.WasProvisioned() {
-		// Never perform inspection if we have already provisioned
-		// this host, because we don't want to reboot it.
-		return false
-	}
-	if host.InspectionDisabled() {
-		// Never perform inspection if it's explicitly disabled
-		return false
-	}
-	// FIXME(dtantsur): the HardwareDetails field is deprecated.
-	return host.Status.HardwareDetails == nil
 }
 
 // NeedsProvisioning compares the settings with the provisioning

@@ -27,6 +27,11 @@ spec:
       jsonPath: .status.provisioning.state
       name: State
       type: string
+    - description: Current provisioning activity
+      jsonPath: .status.provisioning.currentActivity
+      name: Activity
+      priority: 1
+      type: string
     - description: Consumer using this host
       jsonPath: .spec.consumerRef.name
       name: Consumer
@@ -1267,6 +1272,10 @@ spec:
                     - UEFISecureBoot
                     - legacy
                     type: string
+                  currentActivity:
+                    description: An indicator of what action is being executed by
+                      the provisioner.
+                    type: string
                   customDeploy:
                     description: Custom deploy procedure applied to the host.
                     properties:
@@ -1578,6 +1587,34 @@ spec:
                     description: An indicator for what the provisioner is doing with
                       the host.
                     type: string
+                  steps:
+                    description: The ordered steps for the current operation. Cleared
+                      when the operation ends.
+                    items:
+                      description: ProvisioningStep represents a single step in a
+                        provisioning, cleaning, or servicing operation.
+                      properties:
+                        description:
+                          description: A short human-readable description of what
+                            the step does.
+                          type: string
+                        name:
+                          description: The name of the step in "<interface>.<step>"
+                            form (e.g. deploy.write_image).
+                          type: string
+                        state:
+                          description: The state of the step. Unknown when its progress
+                            cannot be determined.
+                          enum:
+                          - unknown
+                          - not-started
+                          - in-progress
+                          - completed
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
                 required:
                 - ID
                 - state
@@ -1633,6 +1670,11 @@ spec:
     - description: Provisioning status
       jsonPath: .status.provisioning.state
       name: State
+      type: string
+    - description: Current provisioning activity
+      jsonPath: .status.provisioning.currentActivity
+      name: Activity
+      priority: 1
       type: string
     - description: Consumer using this host
       jsonPath: .spec.consumerRef.name
@@ -2581,6 +2623,10 @@ spec:
                     - UEFISecureBoot
                     - legacy
                     type: string
+                  currentActivity:
+                    description: An indicator of what action is being executed by
+                      the provisioner.
+                    type: string
                   customDeploy:
                     description: Custom deploy procedure applied to the host.
                     properties:
@@ -2869,6 +2915,34 @@ spec:
                     description: An indicator for what the provisioner is doing with
                       the host.
                     type: string
+                  steps:
+                    description: The ordered steps for the current operation. Cleared
+                      when the operation ends.
+                    items:
+                      description: ProvisioningStep represents a single step in a
+                        provisioning, cleaning, or servicing operation.
+                      properties:
+                        description:
+                          description: A short human-readable description of what
+                            the step does.
+                          type: string
+                        name:
+                          description: The name of the step in "<interface>.<step>"
+                            form (e.g. deploy.write_image).
+                          type: string
+                        state:
+                          description: The state of the step. Unknown when its progress
+                            cannot be determined.
+                          enum:
+                          - unknown
+                          - not-started
+                          - in-progress
+                          - completed
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
                 required:
                 - id
                 - state

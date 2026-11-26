@@ -144,12 +144,15 @@ func TestPowerOff(t *testing.T) {
 		force                 bool
 		automatedCleaningMode metal3api.AutomatedCleaningMode
 
-		expectedDirty        bool
-		expectedError        bool
-		expectedRequestAfter int
-		expectedErrorResult  bool
-		expectedReason       string
-		rebootMode           metal3api.RebootMode
+		expectedDirty           bool
+		expectedError           bool
+		expectedRequestAfter    int
+		expectedErrorResult     bool
+		expectedReason          string
+		rebootMode              metal3api.RebootMode
+		expectedCurrentActivity string
+		expectedSteps           []metal3api.ProvisioningStep
+		expectedStepsUnknown    bool
 	}{
 		{
 			name: "node-already-power-off",
@@ -157,6 +160,53 @@ func TestPowerOff(t *testing.T) {
 				PowerState: powerOff,
 				UUID:       nodeUUID,
 			}),
+		},
+		{
+			name: "cleaning failed and node already powered off",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				ProvisionState: string(nodes.CleanFail),
+				PowerState:     powerOff,
+				LastError:      "cleaning failed",
+				UUID:           nodeUUID,
+			}),
+			expectedStepsUnknown: true,
+		},
+		{
+			name: "cleaning failed while power off is pending",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				ProvisionState:   string(nodes.CleanFail),
+				PowerState:       powerOn,
+				TargetPowerState: powerOff,
+				UUID:             nodeUUID,
+			}),
+			expectedDirty:        true,
+			expectedRequestAfter: 3,
+			expectedStepsUnknown: true,
+		},
+		{
+			name: "cleaning failed with error and node powered on",
+			ironic: testserver.NewIronic(t).Node(nodes.Node{
+				ProvisionState: string(nodes.CleanFail),
+				PowerState:     powerOn,
+				LastError:      "hard power off failed",
+				UUID:           nodeUUID,
+			}),
+			expectedErrorResult:  true,
+			expectedStepsUnknown: true,
+		},
+		{
+			name: "cleaning failed and force power off requested",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.CleanFail),
+				PowerState:     powerOn,
+				LastError:      "cleaning failed",
+				UUID:           nodeUUID,
+			}),
+			force:                true,
+			rebootMode:           metal3api.RebootModeHard,
+			expectedDirty:        true,
+			expectedReason:       hardPowerOffReason,
+			expectedStepsUnknown: true,
 		},
 		{
 			name: "waiting-for-target-power-off",
@@ -209,6 +259,7 @@ func TestPowerOff(t *testing.T) {
 			}).WithNodeStatesPower(nodeUUID, http.StatusConflict).WithNodeStatesPowerUpdate(nodeUUID, http.StatusConflict),
 			expectedRequestAfter: 3,
 			expectedDirty:        true,
+			expectedStepsUnknown: true,
 		},
 		{
 			name: "power-off soft with force",
@@ -278,10 +329,21 @@ func TestPowerOff(t *testing.T) {
 				ProvisionState:       string(nodes.CleanWait),
 				TargetProvisionState: string(nodes.TargetClean),
 				UUID:                 nodeUUID,
+				CleanStep:            map[string]any{"interface": "deploy", "step": "erase_devices"},
+				DriverInternalInfo: map[string]any{
+					"clean_step_index": float64(0),
+					"clean_steps": []any{
+						map[string]any{"interface": "deploy", "step": "erase_devices"},
+					},
+				},
 			}).WithNodeStatesProvisionUpdate(nodeUUID),
-			rebootMode:           metal3api.RebootModeHard,
-			expectedDirty:        true,
-			expectedRequestAfter: 3,
+			rebootMode:              metal3api.RebootModeHard,
+			expectedDirty:           true,
+			expectedRequestAfter:    3,
+			expectedCurrentActivity: "deploy.erase_devices",
+			expectedSteps: []metal3api.ProvisioningStep{
+				{Name: "deploy.erase_devices", State: metal3api.StepStateInProgress, Description: "Securely erasing devices"},
+			},
 		},
 		{
 			name: "power-off while in CleanWait - automated cleaning disabled",
@@ -295,6 +357,7 @@ func TestPowerOff(t *testing.T) {
 			rebootMode:            metal3api.RebootModeHard,
 			expectedDirty:         true,
 			expectedRequestAfter:  3,
+			expectedStepsUnknown:  true,
 		},
 		{
 			name: "power-off while in CleanWait - automated cleaning enabled",
@@ -303,11 +366,24 @@ func TestPowerOff(t *testing.T) {
 				ProvisionState:       string(nodes.CleanWait),
 				TargetProvisionState: string(nodes.TargetManage),
 				UUID:                 nodeUUID,
+				CleanStep:            map[string]any{"interface": "deploy", "step": "erase_devices"},
+				DriverInternalInfo: map[string]any{
+					"clean_step_index": float64(0),
+					"clean_steps": []any{
+						map[string]any{"interface": "deploy", "step": "erase_devices"},
+						map[string]any{"interface": "deploy", "step": "erase_devices_metadata"},
+					},
+				},
 			}),
-			automatedCleaningMode: metal3api.CleaningModeMetadata,
-			rebootMode:            metal3api.RebootModeHard,
-			expectedDirty:         true,
-			expectedRequestAfter:  10,
+			automatedCleaningMode:   metal3api.CleaningModeMetadata,
+			rebootMode:              metal3api.RebootModeHard,
+			expectedDirty:           true,
+			expectedRequestAfter:    10,
+			expectedCurrentActivity: "deploy.erase_devices",
+			expectedSteps: []metal3api.ProvisioningStep{
+				{Name: "deploy.erase_devices", State: metal3api.StepStateInProgress, Description: "Securely erasing devices"},
+				{Name: "deploy.erase_devices_metadata", State: metal3api.StepStateNotStarted, Description: "Erasing device metadata"},
+			},
 		},
 		{
 			name: "power-off while in Cleaning - manual cleaning",
@@ -341,11 +417,24 @@ func TestPowerOff(t *testing.T) {
 				ProvisionState:       string(nodes.Cleaning),
 				TargetProvisionState: string(nodes.TargetManage),
 				UUID:                 nodeUUID,
+				CleanStep:            map[string]any{"interface": "deploy", "step": "erase_devices"},
+				DriverInternalInfo: map[string]any{
+					"clean_step_index": float64(0),
+					"clean_steps": []any{
+						map[string]any{"interface": "deploy", "step": "erase_devices"},
+						map[string]any{"interface": "deploy", "step": "erase_devices_metadata"},
+					},
+				},
 			}),
-			automatedCleaningMode: metal3api.CleaningModeMetadata,
-			rebootMode:            metal3api.RebootModeHard,
-			expectedDirty:         true,
-			expectedRequestAfter:  10,
+			automatedCleaningMode:   metal3api.CleaningModeMetadata,
+			rebootMode:              metal3api.RebootModeHard,
+			expectedDirty:           true,
+			expectedRequestAfter:    10,
+			expectedCurrentActivity: "deploy.erase_devices",
+			expectedSteps: []metal3api.ProvisioningStep{
+				{Name: "deploy.erase_devices", State: metal3api.StepStateInProgress, Description: "Securely erasing devices"},
+				{Name: "deploy.erase_devices_metadata", State: metal3api.StepStateNotStarted, Description: "Erasing device metadata"},
+			},
 		},
 		{
 			// After aborting inspection, node transitions to InspectFail but Ironic does not
@@ -403,6 +492,9 @@ func TestPowerOff(t *testing.T) {
 
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
+			assert.Equal(t, tc.expectedCurrentActivity, result.CurrentActivity)
+			assert.Equal(t, tc.expectedSteps, result.AllSteps)
+			assert.Equal(t, tc.expectedStepsUnknown, result.StepsUnknown)
 			if !tc.expectedError {
 				require.NoError(t, err)
 			} else {

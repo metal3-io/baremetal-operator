@@ -3868,6 +3868,12 @@ func TestServicingErrorAbortWithStaleHFSGeneration(t *testing.T) {
 			host.Status.OperationalStatus = metal3api.OperationalStatusError
 			host.Status.ErrorType = metal3api.ServicingError
 			host.Status.ErrorMessage = "servicing failed"
+			failedSteps := []metal3api.ProvisioningStep{{
+				Name:  "bios.apply_configuration",
+				State: metal3api.StepStateUnknown,
+			}}
+			host.Status.Provisioning.CurrentActivity = "bios.apply_configuration"
+			host.Status.Provisioning.Steps = failedSteps
 
 			hup := &metal3api.HostUpdatePolicy{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3900,12 +3906,15 @@ func TestServicingErrorAbortWithStaleHFSGeneration(t *testing.T) {
 				assert.Equal(t, metal3api.OperationalStatusOK, host.Status.OperationalStatus)
 				assert.Empty(t, host.Status.ErrorType)
 				assert.Empty(t, host.Status.ErrorMessage)
+				assert.Empty(t, host.Status.Provisioning.CurrentActivity)
+				assert.Empty(t, host.Status.Provisioning.Steps)
 				assert.True(t, result.Dirty())
 			} else {
 				actErr, ok := result.(actionError)
 				require.True(t, ok, "expected actionError, got %T", result)
 				assert.Contains(t, actErr.err.Error(), "hostFirmwareSettings not ready yet")
 				assert.Equal(t, metal3api.ServicingError, host.Status.ErrorType)
+				assert.Equal(t, failedSteps, host.Status.Provisioning.Steps)
 			}
 		})
 	}

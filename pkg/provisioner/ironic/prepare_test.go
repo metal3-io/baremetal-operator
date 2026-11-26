@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"net/http"
 	"net/url"
 	"testing"
 	"time"
@@ -41,14 +42,19 @@ func TestPrepare(t *testing.T) {
 
 	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
 	cases := []struct {
-		name                 string
-		ironic               *testserver.IronicMock
-		unprepared           bool
-		existRaidConfig      bool
-		expectedStarted      bool
-		expectedDirty        bool
-		expectedError        bool
-		expectedRequestAfter int
+		name                    string
+		ironic                  *testserver.IronicMock
+		unprepared              bool
+		existRaidConfig         bool
+		expectedStarted         bool
+		expectedDirty           bool
+		expectedError           bool
+		expectedErrorMessage    string
+		expectedCurrentActivity string
+		expectedSteps           []metal3api.ProvisioningStep
+		expectedStepsUnknown    bool
+		provisionStateBusy      bool
+		expectedRequestAfter    int
 	}{
 		{
 			name: "manageable state(haven't clean steps)",
@@ -101,10 +107,19 @@ func TestPrepare(t *testing.T) {
 			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
 				ProvisionState: string(nodes.CleanFail),
 				UUID:           nodeUUID,
+				LastError:      "cleaning failed",
+				// Ironic clears the current step and index on failure
+				CleanStep: map[string]any{},
+				DriverInternalInfo: map[string]any{
+					"clean_steps": []any{
+						map[string]any{"interface": "deploy", "step": "erase_devices"},
+					},
+				},
 			}),
 			expectedStarted:      false,
 			expectedRequestAfter: 0,
 			expectedDirty:        false,
+			expectedErrorMessage: "cleaning failed",
 		},
 		{
 			name: "cleanFail state(set ironic host to manageable)",
@@ -117,6 +132,29 @@ func TestPrepare(t *testing.T) {
 			expectedStarted:      false,
 			expectedRequestAfter: 3,
 			expectedDirty:        true,
+		},
+		{
+			name: "cleanFail state(clear maintenance before retry)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.CleanFail),
+				UUID:           nodeUUID,
+				Maintenance:    true,
+			}).NodeMaintenance(nodes.Node{UUID: nodeUUID}, false),
+			unprepared:           true,
+			expectedDirty:        true,
+			expectedStepsUnknown: true,
+		},
+		{
+			name: "cleanFail state(retry is busy)",
+			ironic: testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+				ProvisionState: string(nodes.CleanFail),
+				UUID:           nodeUUID,
+			}),
+			unprepared:           true,
+			provisionStateBusy:   true,
+			expectedRequestAfter: 3,
+			expectedDirty:        true,
+			expectedStepsUnknown: true,
 		},
 		{
 			name: "cleaning state",
@@ -167,6 +205,9 @@ func TestPrepare(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.ironic != nil {
+				if tc.provisionStateBusy {
+					tc.ironic.ResponseWithCode("/v1/nodes/"+nodeUUID+"/states/provision:PUT", "", http.StatusConflict)
+				}
 				tc.ironic.Start()
 				defer tc.ironic.Stop()
 			}
@@ -202,6 +243,10 @@ func TestPrepare(t *testing.T) {
 			assert.Equal(t, tc.expectedStarted, started)
 			assert.Equal(t, tc.expectedDirty, result.Dirty)
 			assert.Equal(t, time.Second*time.Duration(tc.expectedRequestAfter), result.RequeueAfter)
+			assert.Equal(t, tc.expectedErrorMessage, result.ErrorMessage)
+			assert.Equal(t, tc.expectedCurrentActivity, result.CurrentActivity)
+			assert.Equal(t, tc.expectedSteps, result.AllSteps)
+			assert.Equal(t, tc.expectedStepsUnknown, result.StepsUnknown)
 			if !tc.expectedError {
 				require.NoError(t, err)
 			} else {

@@ -346,6 +346,23 @@ var _ = Describe("Host Firmware Components", Label("required", "firmware-compone
 			},
 		}, e2eConfig.GetIntervals(specName, "wait-servicing")...)
 
+		By("Waiting for the firmware update step in the BMH status")
+		Eventually(func(g Gomega) {
+			current := &metal3api.BareMetalHost{}
+			g.Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(&bmh), current)).To(Succeed())
+			if current.Status.OperationalStatus == metal3api.OperationalStatusOK {
+				StopTrying("servicing completed before the firmware update step was observed").Now()
+			}
+			if current.Status.OperationalStatus == metal3api.OperationalStatusError {
+				StopTrying("BMH entered an error state during servicing").Now()
+			}
+			g.Expect(current.Status.Provisioning.CurrentActivity).To(Equal("firmware.update"))
+			g.Expect(current.Status.Provisioning.Steps).To(ContainElement(SatisfyAll(
+				HaveField("Name", "firmware.update"),
+				HaveField("State", metal3api.StepStateInProgress),
+			)))
+		}, e2eConfig.GetIntervals(specName, "wait-firmware-components")...).Should(Succeed())
+
 		By("Waiting for servicing to complete")
 		WaitForBmhInOperationalStatus(ctx, WaitForBmhInOperationalStatusInput{
 			Client: clusterProxy.GetClient(),
@@ -355,6 +372,14 @@ var _ = Describe("Host Firmware Components", Label("required", "firmware-compone
 				metal3api.OperationalStatusError,
 			},
 		}, e2eConfig.GetIntervals(specName, "wait-firmware-components")...)
+
+		By("Checking that servicing progress is cleared")
+		Eventually(func(g Gomega) {
+			current := &metal3api.BareMetalHost{}
+			g.Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(&bmh), current)).To(Succeed())
+			g.Expect(current.Status.Provisioning.CurrentActivity).To(BeEmpty())
+			g.Expect(current.Status.Provisioning.Steps).To(BeEmpty())
+		}, e2eConfig.GetIntervals(specName, "wait-firmware-components")...).Should(Succeed())
 
 		By("Verifying the HFC Status")
 		Expect(clusterProxy.GetClient().Get(ctx, types.NamespacedName{

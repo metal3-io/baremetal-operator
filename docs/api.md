@@ -24,6 +24,50 @@ Several conditions must be met in order to initiate provisioning.
 To initiate deprovisioning, clear the image URL and `customDeploy`
 from the host spec.
 
+## Operation Progress
+
+While the provisioner runs a deploy, clean or service operation, the host
+status reports its progress in `status.provisioning`:
+
+- `currentActivity` is the step that is currently running, in
+   `<interface>.<step>` form. It is omitted when no step is running.
+- `steps` lists the ordered steps of the current operation. Each step has
+   a `name`, an optional human-readable `description`, and a `state`:
+   `unknown`, `not-started`, `in-progress` or `completed`.
+   `unknown` means the step's state cannot be determined.
+
+Step states are best-effort snapshots: BMO polls Ironic periodically and
+derives states from its step list and index. Ironic can change the list during
+deployment, so states may be temporarily inaccurate or intermediate changes
+may be missed. If an operation fails before a later poll corrects an
+inaccurate completed state, that state may remain recorded.
+
+If the operation fails, or the host records another error while it is
+running, previously observed completed steps remain completed; other step
+states become `unknown` because their progress can no longer be confirmed
+(Ironic does not identify the failed step reliably). The current activity is
+cleared and the error is reported in
+`status.errorMessage`. Both fields are cleared when the next operation starts,
+or when an operation completes successfully. Run `kubectl get bmh -o wide` to
+see the current activity of each host.
+
+```yaml
+status:
+  provisioning:
+    state: provisioning
+    currentActivity: deploy.write_image
+    steps:
+    - name: deploy.deploy
+      state: completed
+      description: Initiating deployment
+    - name: deploy.write_image
+      state: in-progress
+      description: Writing image to disk
+    - name: deploy.boot_instance
+      state: not-started
+      description: Booting instance
+```
+
 ## Unmanaged Hosts
 
 Hosts created without BMC details will be left in the `unmanaged`

@@ -282,6 +282,14 @@ type Result struct {
 	RequeueAfter time.Duration
 	// Any error message produced by the provisioner.
 	ErrorMessage string
+	// CurrentActivity indicates what the provisioner is currently doing.
+	CurrentActivity string
+	// AllSteps contains the ordered steps of the current operation.
+	AllSteps []metal3api.ProvisioningStep
+	// StepsUnknown indicates that the provisioner could not report current
+	// progress. Previously recorded steps are retained with unconfirmed states
+	// marked unknown.
+	StepsUnknown bool
 }
 
 // HardwareState holds the response from an UpdateHardwareState call.

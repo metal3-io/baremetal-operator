@@ -1253,8 +1253,7 @@ func (p *ironicProvisioner) Prepare(ctx context.Context, data provisioner.Prepar
 		p.log.Info("waiting for host to become manageable",
 			"state", ironicNode.ProvisionState,
 			"deploy step", ironicNode.DeployStep)
-		result, err = operationContinuing(longRetryDelay)
-
+		result, err = operationContinuingWithState(longRetryDelay, ironicNode)
 	default:
 		result, err = transientError(fmt.Errorf("have unexpected ironic node state %s", ironicNode.ProvisionState))
 	}
@@ -1449,7 +1448,7 @@ func (p *ironicProvisioner) Provision(ctx context.Context, data provisioner.Prov
 		p.log.Info("waiting for host to become active or available",
 			"state", ironicNode.ProvisionState,
 			"deploy step", ironicNode.DeployStep, "clean step", ironicNode.CleanStep)
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 	}
 }
 
@@ -1465,6 +1464,7 @@ func (p *ironicProvisioner) setMaintenanceFlag(ctx context.Context, ironicNode *
 		// FIXME(dtantsur): this should be operationComplete because changing the maintenance flag is synchronous.
 		// However, a lot of callers rely on it returning a Dirty result.
 		result, err = operationContinuing(0)
+		result.StepsUnknown = true
 		p.cachedNode = nil
 	} else if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
 		p.log.Info("could not update maintenance in ironic, busy")
@@ -1572,21 +1572,21 @@ func (p *ironicProvisioner) Deprovision(ctx context.Context, restartOnFailure bo
 	case nodes.Deleting:
 		p.log.Info("deleting")
 		// Transitions to Cleaning upon completion
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 
 	case nodes.Cleaning:
 		p.log.Info("cleaning")
 		// Transitions to Available upon completion
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 
 	case nodes.CleanWait:
 		p.log.Info("cleaning")
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 
 	case nodes.Deploying:
 		p.log.Info("previous deploy running")
 		// Deploying cannot be stopped, wait for DeployWait or Active
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 
 	case nodes.Active, nodes.DeployFail, nodes.DeployWait:
 		// Before starting deprovisioning, ensure Ironic's automated_clean matches the BMH spec.
@@ -1884,13 +1884,21 @@ func (p *ironicProvisioner) abortInspectionOrCleaning(ctx context.Context, ironi
 			} else {
 				p.log.Info("aborting automated cleaning (disabled) to allow power off during deletion")
 			}
-			return p.changeNodeProvisionState(ctx, ironicNode,
+			var started bool
+			started, result, err = p.tryChangeNodeProvisionState(ctx, ironicNode,
 				nodes.ProvisionStateOpts{Target: nodes.TargetAbort},
 			)
+			if started {
+				result.CurrentActivity, result.AllSteps = parseSubStates(ironicNode)
+				if len(result.AllSteps) == 0 {
+					result.StepsUnknown = true
+				}
+			}
+			return result, err
 		}
 		// Automated cleaning is enabled - let it finish
 		p.log.Info("automated cleaning in progress, waiting for it to complete")
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 	case nodes.Cleaning:
 		// Check if it's manual cleaning or automated cleaning that's been disabled
 		if ironicNode.TargetProvisionState == string(nodes.TargetClean) ||
@@ -1899,7 +1907,7 @@ func (p *ironicProvisioner) abortInspectionOrCleaning(ctx context.Context, ironi
 		} else {
 			p.log.Info("automated cleaning in progress, waiting for it to complete")
 		}
-		return operationContinuing(longRetryDelay)
+		return operationContinuingWithState(longRetryDelay, ironicNode)
 	default:
 		// Node is not in a state that needs aborting
 		return operationComplete()
@@ -1914,6 +1922,11 @@ func (p *ironicProvisioner) PowerOff(ctx context.Context, rebootMode metal3api.R
 	ironicNode, err := p.getNode(ctx)
 	if err != nil {
 		return transientError(err)
+	}
+
+	if nodes.ProvisionState(ironicNode.ProvisionState) == nodes.CleanFail {
+		// Power-off completion does not mean the failed cleaning succeeded.
+		defer func() { result.StepsUnknown = true }()
 	}
 
 	// If the node is in inspection or cleaning, we need to handle it before we can power off.

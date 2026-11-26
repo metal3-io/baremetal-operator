@@ -202,10 +202,8 @@ func run() int {
 			}
 			pr, _, err := client.PullRequests.Get(context.Background(), repoOwner, repoName, number)
 			if err != nil {
-				log.Printf("Failed to get PR #%d: %v", number, err)
-				return 1
-			}
-			if isDependencyPR(pr) {
+				log.Printf("Warning: PR #%d not found, skipping dependency check: %v", number, err)
+			} else if isDependencyPR(pr) {
 				continue
 			}
 			prNumber = fmt.Sprintf("#%d", number)

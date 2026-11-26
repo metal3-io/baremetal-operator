@@ -28,6 +28,7 @@ linters:
             - defaults
 
             - duplicatemarkers
+            - jsontags
             - nodurations
             - nomaps
             - nophase

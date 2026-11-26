@@ -291,6 +291,32 @@ func restoreSecretReference(name string, restored *corev1.SecretReference, hasRe
 	return secretReferenceFromName(name, hostNamespace)
 }
 
+// --- CPU ---
+
+// The CPU count was renamed to ThreadCount in v1beta1, because it is the number
+// of hardware threads (logical CPUs) rather than the number of physical CPUs or
+// cores.
+
+// Convert_v1alpha1_CPU_To_v1beta1_CPU converts the CPU details to the hub
+// version, mapping Count to ThreadCount.
+func Convert_v1alpha1_CPU_To_v1beta1_CPU(in *CPU, out *metal3apiv1beta1.CPU, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_CPU_To_v1beta1_CPU(in, out, s); err != nil {
+		return err
+	}
+	out.ThreadCount = in.Count
+	return nil
+}
+
+// Convert_v1beta1_CPU_To_v1alpha1_CPU converts the CPU details from the hub
+// version, mapping ThreadCount back to Count.
+func Convert_v1beta1_CPU_To_v1alpha1_CPU(in *metal3apiv1beta1.CPU, out *CPU, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_CPU_To_v1alpha1_CPU(in, out, s); err != nil {
+		return err
+	}
+	out.Count = in.ThreadCount
+	return nil
+}
+
 // --- HardwareData ---
 
 // ConvertTo converts this HardwareData (v1alpha1) to the Hub version (v1beta1).

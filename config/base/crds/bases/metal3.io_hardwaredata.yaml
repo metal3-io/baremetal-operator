@@ -330,14 +330,14 @@ spec:
                         description: ClockSpeed is a clock speed in MHz
                         format: double
                         type: number
-                      count:
-                        type: integer
                       flags:
                         items:
                           type: string
                         type: array
                       model:
                         type: string
+                      threadCount:
+                        type: integer
                     type: object
                   firmware:
                     description: System firmware information.

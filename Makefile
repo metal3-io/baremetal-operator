@@ -535,7 +535,6 @@ release:
 	PULL_POLICY=IfNotPresent $(MAKE) set-manifest-pull-policy
 	$(MAKE) release-manifests
 	$(MAKE) release-vbmctl BUILD_VERSION=${RELEASE_TAG}
-	$(MAKE) release-notes
 
 go-version: ## Print the go version we use to compile our binaries and images
 	@echo $(GO_VERSION)

@@ -525,6 +525,38 @@ type NetworkInterface struct {
 	SwitchPort *SwitchPortIdentifier `json:"switchPort,omitempty"`
 }
 
+// +structType=atomic
+
+// ConsumerReference identifies the object that is using a BareMetalHost.
+// It carries the API group of the consumer rather than its API version, so
+// that it keeps matching when the consumer's API version changes.
+type ConsumerReference struct {
+	// name of the consumer.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name,omitempty"`
+
+	// namespace of the consumer. It may differ from the namespace of the
+	// host.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Namespace string `json:"namespace,omitempty"`
+
+	// apiGroup of the consumer, e.g. infrastructure.cluster.x-k8s.io.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	APIGroup string `json:"apiGroup,omitempty"`
+
+	// kind of the consumer, e.g. Metal3Machine.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Kind string `json:"kind,omitempty"`
+}
+
 // BareMetalHostSpec defines the desired state of BareMetalHost.
 type BareMetalHostSpec struct {
 	// Taints is the full, authoritative list of taints to apply to
@@ -572,7 +604,8 @@ type BareMetalHostSpec struct {
 	// that is using a host. When it is not empty, the host is
 	// considered "in use". The common use case is a link to a Machine
 	// resource when the host is used by Cluster API.
-	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
+	// +optional
+	ConsumerRef *ConsumerReference `json:"consumerRef,omitempty"`
 
 	// Image holds the details of the image to be provisioned. Populating
 	// the image will cause the host to start provisioning.
@@ -1125,8 +1158,26 @@ func (host *BareMetalHost) NewEvent(reason, message string) corev1.Event {
 		Count:               1,
 		Type:                corev1.EventTypeNormal,
 		ReportingController: "metal3.io/baremetal-controller",
-		Related:             host.Spec.ConsumerRef,
+		Related:             relatedObject(host.Spec.ConsumerRef),
 	}
+}
+
+// relatedObject returns the consumer as the object reference used for the
+// related object of an event. The consumer has no API version, so only the
+// group is filled in.
+func relatedObject(consumer *ConsumerReference) *corev1.ObjectReference {
+	if consumer == nil {
+		return nil
+	}
+	ref := &corev1.ObjectReference{
+		Kind:      consumer.Kind,
+		Namespace: consumer.Namespace,
+		Name:      consumer.Name,
+	}
+	if consumer.APIGroup != "" {
+		ref.APIVersion = consumer.APIGroup + "/"
+	}
+	return ref
 }
 
 // OperationMetricForState returns a pointer to the metric for the given

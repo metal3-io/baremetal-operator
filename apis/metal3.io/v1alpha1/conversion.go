@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"maps"
+	"strings"
 
 	metal3apiv1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -101,6 +102,13 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 		// resource from v1beta1 on, but the v1alpha1 status still has its own
 		// copy and the controller still reads it, so put it back.
 		dst.Status.HardwareDetails = restored.Status.HardwareDetails
+
+		// Only the stashed consumer reference has the API version of the
+		// consumer, so restore it unless the consumer was changed through
+		// v1beta1.
+		if sameConsumer(restored.Spec.ConsumerRef, src.Spec.ConsumerRef) {
+			dst.Spec.ConsumerRef = restored.Spec.ConsumerRef
+		}
 	} else {
 		// Without stashed data the object did not come from a v1alpha1 one,
 		// so it was created through v1beta1, where hardware profiles do not
@@ -191,6 +199,70 @@ func restoreMD5Checksums(stash *BareMetalHost, dst *BareMetalHost) {
 	restore(stash.Spec.Image, dst.Spec.Image)
 	restore(stash.Status.LastAttemptedImage, dst.Status.LastAttemptedImage)
 	restore(&stash.Status.Provisioning.Image, &dst.Status.Provisioning.Image)
+}
+
+// --- ConsumerRef ---
+
+// The consumer reference is a corev1.ObjectReference in v1alpha1 and a
+// ConsumerReference in v1beta1. The latter has the API group of the consumer
+// instead of its API version, and no uid, resourceVersion and fieldPath.
+//
+// v1beta1 does not know the API version of the consumer, so a reference set
+// through v1beta1 is converted to the API version "<group>/", from which the
+// readers of the v1alpha1 reference still get the right group.
+// BareMetalHost.ConvertFrom restores the original reference from the
+// conversion-data annotation as long as it points to the same consumer.
+
+// Convert_v1_ObjectReference_To_v1beta1_ConsumerReference converts the
+// consumer reference to the hub version.
+func Convert_v1_ObjectReference_To_v1beta1_ConsumerReference(in *corev1.ObjectReference, out *metal3apiv1beta1.ConsumerReference, _ apiconversion.Scope) error {
+	*out = metal3apiv1beta1.ConsumerReference{
+		Name:      in.Name,
+		Namespace: in.Namespace,
+		APIGroup:  consumerAPIGroup(in.APIVersion),
+		Kind:      in.Kind,
+	}
+	return nil
+}
+
+// Convert_v1beta1_ConsumerReference_To_v1_ObjectReference converts the
+// consumer reference from the hub version.
+func Convert_v1beta1_ConsumerReference_To_v1_ObjectReference(in *metal3apiv1beta1.ConsumerReference, out *corev1.ObjectReference, _ apiconversion.Scope) error {
+	*out = corev1.ObjectReference{
+		Kind:      in.Kind,
+		Namespace: in.Namespace,
+		Name:      in.Name,
+	}
+	if in.APIGroup != "" {
+		out.APIVersion = in.APIGroup + "/"
+	}
+	return nil
+}
+
+// consumerAPIGroup returns the API group of an API version, which is empty
+// for the core group and for an empty API version.
+//
+// The group is everything up to the last slash. This is the same as
+// schema.ParseGroupVersion for a well-formed API version, but never fails,
+// since v1alpha1 does not validate the API version.
+func consumerAPIGroup(apiVersion string) string {
+	i := strings.LastIndex(apiVersion, "/")
+	if i < 0 {
+		return ""
+	}
+	return apiVersion[:i]
+}
+
+// sameConsumer reports whether the v1alpha1 reference points to the same
+// consumer as the v1beta1 one.
+func sameConsumer(ref *corev1.ObjectReference, consumer *metal3apiv1beta1.ConsumerReference) bool {
+	if ref == nil || consumer == nil {
+		return false
+	}
+	return ref.Name == consumer.Name &&
+		ref.Namespace == consumer.Namespace &&
+		ref.Kind == consumer.Kind &&
+		consumerAPIGroup(ref.APIVersion) == consumer.APIGroup
 }
 
 // --- Firmware ---

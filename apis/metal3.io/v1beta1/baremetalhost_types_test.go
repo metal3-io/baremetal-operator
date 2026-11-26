@@ -757,3 +757,34 @@ func TestIsLiveISO(t *testing.T) {
 		})
 	}
 }
+
+func TestNewEventRelated(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		Consumer *ConsumerReference
+		Expected *corev1.ObjectReference
+	}{
+		{
+			Scenario: "no consumer",
+			Consumer: nil,
+			Expected: nil,
+		},
+		{
+			Scenario: "consumer with group",
+			Consumer: &ConsumerReference{Name: "claim", Namespace: "ns", APIGroup: "metal3.io", Kind: "HostClaim"},
+			Expected: &corev1.ObjectReference{Kind: "HostClaim", Namespace: "ns", Name: "claim", APIVersion: "metal3.io/"},
+		},
+		{
+			Scenario: "consumer without group",
+			Consumer: &ConsumerReference{Name: "claim", Namespace: "ns", Kind: "HostClaim"},
+			Expected: &corev1.ObjectReference{Kind: "HostClaim", Namespace: "ns", Name: "claim"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			host := BareMetalHost{Spec: BareMetalHostSpec{ConsumerRef: tc.Consumer}}
+			assert.Equal(t, tc.Expected, host.NewEvent("reason", "message").Related)
+		})
+	}
+}

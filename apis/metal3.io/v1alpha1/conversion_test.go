@@ -752,3 +752,201 @@ func TestBareMetalHostConversionDataAnnotation(t *testing.T) {
 	g.Expect(stashedHub.Spec).To(gomega.Equal(hub.Spec))
 	g.Expect(restored.Spec).To(gomega.Equal(spoke.Spec))
 }
+
+// TestConsumerRefConversionToHub checks that the consumer reference is
+// converted to the v1beta1 one, which has the API group of the consumer
+// instead of its API version, and no uid, resourceVersion and fieldPath.
+func TestConsumerRefConversionToHub(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ref      *corev1.ObjectReference
+		expected *metal3apiv1beta1.ConsumerReference
+	}{
+		{
+			name:     "nil reference",
+			ref:      nil,
+			expected: nil,
+		},
+		{
+			name: "group and version",
+			ref: &corev1.ObjectReference{
+				Kind: "Metal3Machine", Namespace: "ns", Name: "machine",
+				APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+				UID:        "uid", ResourceVersion: "42", FieldPath: "spec",
+			},
+			expected: &metal3apiv1beta1.ConsumerReference{
+				Name: "machine", Namespace: "ns", APIGroup: "infrastructure.cluster.x-k8s.io", Kind: "Metal3Machine",
+			},
+		},
+		{
+			name:     "empty API version",
+			ref:      &corev1.ObjectReference{Kind: "Metal3Machine", Namespace: "ns", Name: "machine"},
+			expected: &metal3apiv1beta1.ConsumerReference{Name: "machine", Namespace: "ns", Kind: "Metal3Machine"},
+		},
+		{
+			name:     "core group",
+			ref:      &corev1.ObjectReference{Kind: "Pod", Namespace: "ns", Name: "pod", APIVersion: "v1"},
+			expected: &metal3apiv1beta1.ConsumerReference{Name: "pod", Namespace: "ns", Kind: "Pod"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			spoke := &BareMetalHost{Spec: BareMetalHostSpec{ConsumerRef: tc.ref}}
+			hub := &metal3apiv1beta1.BareMetalHost{}
+			g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+
+			g.Expect(hub.Spec.ConsumerRef).To(gomega.Equal(tc.expected))
+		})
+	}
+}
+
+// TestConsumerRefConversionFromHub checks that the v1beta1 consumer reference
+// is converted to an API version with the group only when there is no
+// conversion data to restore from, and that the group can be read back from
+// that API version.
+func TestConsumerRefConversionFromHub(t *testing.T) {
+	testCases := []struct {
+		name     string
+		consumer *metal3apiv1beta1.ConsumerReference
+		expected *corev1.ObjectReference
+	}{
+		{
+			name:     "nil reference",
+			consumer: nil,
+			expected: nil,
+		},
+		{
+			name: "group",
+			consumer: &metal3apiv1beta1.ConsumerReference{
+				Name: "claim", Namespace: "ns", APIGroup: "metal3.io", Kind: "HostClaim",
+			},
+			expected: &corev1.ObjectReference{Kind: "HostClaim", Namespace: "ns", Name: "claim", APIVersion: "metal3.io/"},
+		},
+		{
+			name:     "empty group",
+			consumer: &metal3apiv1beta1.ConsumerReference{Name: "claim", Namespace: "ns", Kind: "HostClaim"},
+			expected: &corev1.ObjectReference{Kind: "HostClaim", Namespace: "ns", Name: "claim"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			hub := &metal3apiv1beta1.BareMetalHost{Spec: metal3apiv1beta1.BareMetalHostSpec{ConsumerRef: tc.consumer}}
+			spoke := &BareMetalHost{}
+			g.Expect(spoke.ConvertFrom(hub)).To(gomega.Succeed())
+
+			g.Expect(spoke.Spec.ConsumerRef).To(gomega.Equal(tc.expected))
+			if tc.consumer != nil {
+				g.Expect(spoke.Spec.ConsumerRef.GroupVersionKind().Group).To(gomega.Equal(tc.consumer.APIGroup))
+			}
+		})
+	}
+}
+
+// TestConsumerRefConversionRestore checks that the consumer reference stashed
+// in the conversion-data annotation is restored only as long as the consumer
+// has not been changed through v1beta1.
+func TestConsumerRefConversionRestore(t *testing.T) {
+	machineRef := func() *corev1.ObjectReference {
+		return &corev1.ObjectReference{
+			Kind: "Metal3Machine", Namespace: "ns", Name: "machine",
+			APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+			UID:        "uid", ResourceVersion: "42", FieldPath: "spec",
+		}
+	}
+
+	testCases := []struct {
+		name     string
+		ref      *corev1.ObjectReference
+		modify   func(*metal3apiv1beta1.BareMetalHostSpec)
+		expected *corev1.ObjectReference
+	}{
+		{
+			name:     "version, uid, resourceVersion and fieldPath are preserved",
+			ref:      machineRef(),
+			expected: machineRef(),
+		},
+		{
+			name:     "empty API version is preserved",
+			ref:      &corev1.ObjectReference{Kind: "Metal3Machine", Namespace: "ns", Name: "machine", UID: "uid"},
+			expected: &corev1.ObjectReference{Kind: "Metal3Machine", Namespace: "ns", Name: "machine", UID: "uid"},
+		},
+		{
+			name:     "core group is preserved",
+			ref:      &corev1.ObjectReference{Kind: "Pod", Namespace: "ns", Name: "pod", APIVersion: "v1"},
+			expected: &corev1.ObjectReference{Kind: "Pod", Namespace: "ns", Name: "pod", APIVersion: "v1"},
+		},
+		{
+			name: "preserved when another field is changed in v1beta1",
+			ref:  machineRef(),
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.Description = "changed in v1beta1"
+			},
+			expected: machineRef(),
+		},
+		{
+			name: "name changed in v1beta1",
+			ref:  machineRef(),
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.ConsumerRef.Name = "other-machine"
+			},
+			expected: &corev1.ObjectReference{
+				Kind: "Metal3Machine", Namespace: "ns", Name: "other-machine",
+				APIVersion: "infrastructure.cluster.x-k8s.io/",
+			},
+		},
+		{
+			name: "group set in v1beta1",
+			ref:  &corev1.ObjectReference{Kind: "Metal3Machine", Namespace: "ns", Name: "machine", UID: "uid"},
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.ConsumerRef.APIGroup = "infrastructure.cluster.x-k8s.io"
+			},
+			expected: &corev1.ObjectReference{
+				Kind: "Metal3Machine", Namespace: "ns", Name: "machine",
+				APIVersion: "infrastructure.cluster.x-k8s.io/",
+			},
+		},
+		{
+			name: "consumer set in v1beta1",
+			ref:  nil,
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.ConsumerRef = &metal3apiv1beta1.ConsumerReference{
+					Name: "claim", Namespace: "ns", APIGroup: "metal3.io", Kind: "HostClaim",
+				}
+			},
+			expected: &corev1.ObjectReference{Kind: "HostClaim", Namespace: "ns", Name: "claim", APIVersion: "metal3.io/"},
+		},
+		{
+			name: "consumer removed in v1beta1",
+			ref:  machineRef(),
+			modify: func(spec *metal3apiv1beta1.BareMetalHostSpec) {
+				spec.ConsumerRef = nil
+			},
+			expected: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			spoke := &BareMetalHost{Spec: BareMetalHostSpec{ConsumerRef: tc.ref}}
+			hub := &metal3apiv1beta1.BareMetalHost{}
+			g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+
+			if tc.modify != nil {
+				tc.modify(&hub.Spec)
+			}
+
+			restored := &BareMetalHost{}
+			g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
+
+			g.Expect(restored.Spec.ConsumerRef).To(gomega.Equal(tc.expected))
+		})
+	}
+}

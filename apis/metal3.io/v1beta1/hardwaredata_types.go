@@ -62,7 +62,7 @@ type CPU struct {
 	Model          string     `json:"model,omitempty"`
 	ClockMegahertz ClockSpeed `json:"clockMegahertz,omitempty"`
 	Flags          []string   `json:"flags,omitempty"`
-	Count          int        `json:"count,omitempty"`
+	ThreadCount    int        `json:"threadCount,omitempty"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.

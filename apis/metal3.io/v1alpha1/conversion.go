@@ -20,6 +20,7 @@ import (
 	"maps"
 
 	metal3apiv1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -109,6 +110,14 @@ func (dst *BareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 		dst.Spec.HardwareProfile = EmptyHardwareProfile
 	}
 
+	// Restore the Secret references.
+	dst.Spec.UserData = restoreSecretReference(
+		src.Spec.UserDataName, restored.Spec.UserData, hasRestored, src.Namespace)
+	dst.Spec.NetworkData = restoreSecretReference(
+		src.Spec.NetworkDataName, restored.Spec.NetworkData, hasRestored, src.Namespace)
+	dst.Spec.MetaData = restoreSecretReference(
+		src.Spec.MetaDataName, restored.Spec.MetaData, hasRestored, src.Namespace)
+
 	// Stash the v1beta1 object so that ConvertTo can restore what v1alpha1
 	// cannot represent.
 	return MarshalData(src, dst)
@@ -122,18 +131,35 @@ func Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMet
 	if err := autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in, out, s); err != nil {
 		return err
 	}
+
 	out.PoweredOn = in.Online
+
+	// The userData, networkData and metaData Secret references are replaced by
+	// their names in v1beta1. The namespace is dropped since v1beta1 always uses
+	// the namespace of the BareMetalHost.
+	out.UserDataName = secretReferenceName(in.UserData)
+	out.NetworkDataName = secretReferenceName(in.NetworkData)
+	out.MetaDataName = secretReferenceName(in.MetaData)
+
 	return nil
 }
 
 // Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec converts
-// the BareMetalHostSpec from v1beta1, where the online field is renamed to
-// poweredOn.
+// the BareMetalHostSpec from v1beta1.
 func Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *metal3apiv1beta1.BareMetalHostSpec, out *BareMetalHostSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in, out, s); err != nil {
 		return err
 	}
+
 	out.Online = in.PoweredOn
+
+	// The userDataName, networkDataName and metaDataName fields are converted to
+	// Secret references with only the name set. The spec does not know the
+	// namespace of the BareMetalHost, so BareMetalHost.ConvertFrom fills it in.
+	out.UserData = secretReferenceFromName(in.UserDataName, "")
+	out.NetworkData = secretReferenceFromName(in.NetworkDataName, "")
+	out.MetaData = secretReferenceFromName(in.MetaDataName, "")
+
 	return nil
 }
 
@@ -230,6 +256,39 @@ func Convert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *metal3apiv1
 // both are preserved in the conversion-data annotation by ConvertTo instead.
 func Convert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in *BareMetalHostStatus, out *metal3apiv1beta1.BareMetalHostStatus, s apiconversion.Scope) error {
 	return autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in, out, s)
+}
+
+// secretReferenceName returns the name of the Secret reference, or an empty
+// string if the reference is not set.
+func secretReferenceName(ref *corev1.SecretReference) string {
+	if ref == nil {
+		return ""
+	}
+	return ref.Name
+}
+
+// secretReferenceFromName returns a Secret reference with the given name and
+// namespace, or nil if the name is empty.
+func secretReferenceFromName(name, namespace string) *corev1.SecretReference {
+	if name == "" {
+		return nil
+	}
+	return &corev1.SecretReference{Name: name, Namespace: namespace}
+}
+
+// restoreSecretReference builds the v1alpha1 Secret reference for a v1beta1
+// Secret name.
+//
+// If the v1alpha1 object was stashed in the conversion-data annotation and its
+// reference still points to the same Secret name, the stashed reference is
+// restored as-is (keeping e.g. an empty namespace, or a reference with an
+// empty name). Otherwise the name was set or changed through v1beta1, and a
+// reference to the Secret in the namespace of the BareMetalHost is returned.
+func restoreSecretReference(name string, restored *corev1.SecretReference, hasRestored bool, hostNamespace string) *corev1.SecretReference {
+	if hasRestored && secretReferenceName(restored) == name {
+		return restored.DeepCopy()
+	}
+	return secretReferenceFromName(name, hostNamespace)
 }
 
 // --- HardwareData ---

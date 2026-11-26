@@ -582,10 +582,10 @@ func autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *Bar
 	} else {
 		out.Image = nil
 	}
-	out.UserData = (*v1.SecretReference)(unsafe.Pointer(in.UserData))
+	// WARNING: in.UserData requires manual conversion: does not exist in peer-type
 	out.PreprovisioningNetworkDataName = in.PreprovisioningNetworkDataName
-	out.NetworkData = (*v1.SecretReference)(unsafe.Pointer(in.NetworkData))
-	out.MetaData = (*v1.SecretReference)(unsafe.Pointer(in.MetaData))
+	// WARNING: in.NetworkData requires manual conversion: does not exist in peer-type
+	// WARNING: in.MetaData requires manual conversion: does not exist in peer-type
 	out.Description = in.Description
 	out.ExternallyProvisioned = in.ExternallyProvisioned
 	out.AutomatedCleaningMode = v1beta1.AutomatedCleaningMode(in.AutomatedCleaningMode)
@@ -633,10 +633,10 @@ func autoConvert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *v1b
 	} else {
 		out.Image = nil
 	}
-	out.UserData = (*v1.SecretReference)(unsafe.Pointer(in.UserData))
+	// WARNING: in.UserDataName requires manual conversion: does not exist in peer-type
 	out.PreprovisioningNetworkDataName = in.PreprovisioningNetworkDataName
-	out.NetworkData = (*v1.SecretReference)(unsafe.Pointer(in.NetworkData))
-	out.MetaData = (*v1.SecretReference)(unsafe.Pointer(in.MetaData))
+	// WARNING: in.NetworkDataName requires manual conversion: does not exist in peer-type
+	// WARNING: in.MetaDataName requires manual conversion: does not exist in peer-type
 	out.Description = in.Description
 	out.ExternallyProvisioned = in.ExternallyProvisioned
 	out.AutomatedCleaningMode = AutomatedCleaningMode(in.AutomatedCleaningMode)

@@ -394,7 +394,7 @@ func clearRetryableSecretAccessStatus(host *metal3api.BareMetalHost) bool {
 	return clearError(host)
 }
 
-func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState) actionResult {
+func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState, limit int) actionResult {
 	var counter prometheus.Counter
 
 	if state == metal3api.StateDeprovisioning {
@@ -404,6 +404,14 @@ func recordActionDelayed(info *reconcileInfo, state metal3api.ProvisioningState)
 	}
 
 	info.postSaveCallbacks = append(info.postSaveCallbacks, counter.Inc)
+
+	// Only publish an event when the host starts waiting, not on every
+	// reconcile while it stays delayed.
+	if info.host.Status.OperationalStatus != metal3api.OperationalStatusDelayed {
+		info.publishEvent("Delayed", fmt.Sprintf(
+			"%s delayed: the limit of %d hosts being inspected, provisioned or deprovisioned at the same time (PROVISIONING_LIMIT) has been reached",
+			state, limit))
+	}
 
 	info.host.SetOperationalStatus(metal3api.OperationalStatusDelayed)
 	return actionDelayed{}

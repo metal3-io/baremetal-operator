@@ -236,6 +236,10 @@ type Provisioner interface {
 	// HasCapacity checks if the backend has a free (de)provisioning slot for the current host
 	HasCapacity(ctx context.Context) (result bool, err error)
 
+	// ProvisioningLimit returns the number of hosts the backend allows to
+	// be (de)provisioned at the same time, or 0 when there is no limit
+	ProvisioningLimit() int
+
 	// GetFirmwareSettings gets the BIOS settings and optional schema from the host and returns maps
 	GetFirmwareSettings(ctx context.Context, includeSchema bool) (settings metal3api.SettingsMap, schema map[string]metal3api.SettingSchema, err error)
 

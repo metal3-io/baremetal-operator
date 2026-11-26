@@ -21,7 +21,7 @@ type HostNetworkAttachmentRef struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 
 	// Namespace of the HostNetworkAttachment (defaults to BMH namespace)
 	// +optional

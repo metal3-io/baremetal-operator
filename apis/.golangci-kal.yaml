@@ -32,6 +32,7 @@ linters:
             - nomaps
             - nophase
             - notimestamp
+            - requiredfields
             - statussubresource
             - uniquemarkers
           lintersConfig:

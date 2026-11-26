@@ -3,7 +3,6 @@ package clients
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
@@ -72,48 +71,23 @@ func deref(v any) any {
 	return ptrVal.Elem().Interface()
 }
 
-func sanitisedValue(data any) any {
-	if data == nil {
-		return nil
-	}
-	dataType := reflect.TypeOf(data)
-	if dataType.Kind() != reflect.Map ||
-		dataType.Key().Kind() != reflect.String {
-		return data
-	}
-
-	value := reflect.ValueOf(data)
-	safeValue := reflect.MakeMap(dataType)
-
-	for _, k := range value.MapKeys() {
-		safeDatumValue := value.MapIndex(k)
-		if strings.Contains(k.String(), "password") || strings.Contains(k.String(), "secret") {
-			safeDatumValue = reflect.ValueOf("<redacted>")
-		}
-		safeValue.SetMapIndex(k, safeDatumValue)
-	}
-
-	return safeValue.Interface()
-}
-
-func isSensitiveOption(name string) bool {
-	return strings.Contains(name, "password") || strings.Contains(name, "secret")
-}
-
+// getUpdateOperation builds the update operation for one option. Values that
+// name a credential, and URLs that may carry one, are redacted in the log (see
+// redact.go); the operation itself keeps the real value.
 func getUpdateOperation(name string, currentData map[string]any, desiredValue any, path string, log logr.Logger) *nodes.UpdateOperation {
 	current, present := currentData[name]
 
 	desiredValue = deref(desiredValue)
 	if desiredValue != nil {
 		if !(present && optionValueEqual(deref(current), desiredValue)) {
-			logValue := sanitisedValue(desiredValue)
+			logValue := redactLogValue(sanitisedValue(desiredValue))
 			if isSensitiveOption(name) {
-				logValue = "<redacted>"
+				logValue = redactedValue
 			}
 			if present {
-				oldLogValue := sanitisedValue(current)
+				oldLogValue := redactLogValue(sanitisedValue(current))
 				if isSensitiveOption(name) {
-					oldLogValue = "<redacted>"
+					oldLogValue = redactedValue
 				}
 				log.Info("updating option data",
 					"value", logValue,

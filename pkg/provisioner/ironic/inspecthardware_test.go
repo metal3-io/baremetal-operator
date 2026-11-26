@@ -345,3 +345,43 @@ func TestInspectHardwareFastInspectionUnsupported(t *testing.T) {
 	assert.False(t, started)
 	assert.Contains(t, result.ErrorMessage, "does not support fast (out-of-band) inspection")
 }
+
+func TestInspectHardwareSwitchesFromNoInspect(t *testing.T) {
+	// A node enrolled with inspection disabled has the no-inspect
+	// interface. When inspection is requested later, the interface must
+	// be switched back before inspection starts.
+	nodeUUID := "33ce8659-7400-4c68-9535-d10766f07a58"
+
+	ironic := testserver.NewIronic(t).WithDefaultResponses().Node(nodes.Node{
+		UUID:             nodeUUID,
+		ProvisionState:   "manageable",
+		InspectInterface: "no-inspect",
+	}).NodeUpdate(nodes.Node{
+		UUID:           nodeUUID,
+		ProvisionState: "manageable",
+	}).WithNodeStatesProvisionUpdate(nodeUUID).WithInventoryFailed(nodeUUID, http.StatusNotFound)
+	ironic.Start()
+	defer ironic.Stop()
+
+	host := makeHost()
+	host.Status.Provisioning.ID = nodeUUID
+
+	auth := clients.AuthConfig{Type: clients.NoAuth}
+	prov, err := newProvisionerWithSettings(host, bmc.Credentials{}, nullEventPublisher, ironic.Endpoint(), auth)
+	require.NoError(t, err)
+
+	_, started, _, err := prov.InspectHardware(t.Context(),
+		provisioner.InspectData{BootMode: metal3api.DefaultBootMode},
+		false, false, false)
+	require.NoError(t, err)
+	assert.True(t, started)
+
+	var foundInspectInterface bool
+	for _, update := range ironic.GetLastNodeUpdateRequestFor(nodeUUID) {
+		if update.Path == "/inspect_interface" {
+			assert.Equal(t, "agent", update.Value)
+			foundInspectInterface = true
+		}
+	}
+	assert.True(t, foundInspectInterface, "expected inspect_interface to be switched from no-inspect to agent")
+}

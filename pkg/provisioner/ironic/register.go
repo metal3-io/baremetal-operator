@@ -22,6 +22,9 @@ import (
 
 const (
 	defaultInspectInterface = "agent"
+	// noInspectInterface makes Ironic refuse to inspect the node. It is
+	// used for hosts with inspection disabled.
+	noInspectInterface = "no-inspect"
 )
 
 func bmcAddressMatches(ironicNode *nodes.Node, driverInfo map[string]any) bool {
@@ -159,6 +162,20 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		// The updater only updates disable_power_off if it has changed
 		updater.SetTopLevelOpt("disable_power_off", data.DisablePowerOff, ironicNode.DisablePowerOff)
 
+		// Switch the inspect interface only in enroll, manageable and
+		// available. Ironic refuses to change interfaces in most other
+		// states (for example active), and in inspect wait the change
+		// would break the running inspection. Ironic checks the interface
+		// against the node's driver, which can differ from the BMC's after
+		// an address change.
+		if data.DisableInspection && p.inspectInterfaceEnabled(ironicNode.Driver, noInspectInterface) {
+			switch nodes.ProvisionState(ironicNode.ProvisionState) {
+			case nodes.Enroll, nodes.Manageable, nodes.Available:
+				updater.SetTopLevelOpt("inspect_interface", noInspectInterface, ironicNode.InspectInterface)
+			default:
+			}
+		}
+
 		if p.config.enableNetworking {
 			updater.SetTopLevelOpt("network_interface", p.config.networkInterface, ironicNode.NetworkInterface)
 		}
@@ -288,6 +305,29 @@ func inspectInterfaceForMode(mode metal3api.InspectionMode, bmcAccess bmc.Access
 	return defaultInspectInterface
 }
 
+// inspectInterfaceEnabled checks whether Ironic has the given inspect
+// interface enabled for the driver (hardware type). The enabled interfaces
+// come from the driver list that is cached with the client.
+func (p *ironicProvisioner) inspectInterfaceEnabled(driver, iface string) bool {
+	return slices.Contains(p.availableFeatures.InspectInterfaces[driver], iface)
+}
+
+// inspectInterfaceForEnroll returns the inspect interface for a new node.
+// Hosts with inspection disabled get no-inspect if Ironic has it enabled,
+// since older and custom Ironic deployments may not enable it.
+func (p *ironicProvisioner) inspectInterfaceForEnroll(data provisioner.ManagementAccessData, bmcAccess bmc.AccessDetails) string {
+	if !data.DisableInspection {
+		return inspectInterfaceForMode(data.InspectionMode, bmcAccess)
+	}
+
+	if !p.inspectInterfaceEnabled(bmcAccess.Driver(), noInspectInterface) {
+		p.log.Info("inspect interface not enabled in ironic, using the default",
+			"interface", noInspectInterface, "default", defaultInspectInterface, "driver", bmcAccess.Driver())
+		return defaultInspectInterface
+	}
+	return noInspectInterface
+}
+
 func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.ManagementAccessData, bmcAccess bmc.AccessDetails, driverInfo map[string]any) (ironicNode *nodes.Node, retry bool, err error) {
 	nodeCreateOpts := nodes.CreateOpts{
 		Driver:              bmcAccess.Driver(),
@@ -297,7 +337,7 @@ func (p *ironicProvisioner) enrollNode(ctx context.Context, data provisioner.Man
 		DriverInfo:          driverInfo,
 		FirmwareInterface:   bmcAccess.FirmwareInterface(),
 		DeployInterface:     p.deployInterface(data),
-		InspectInterface:    inspectInterfaceForMode(data.InspectionMode, bmcAccess),
+		InspectInterface:    p.inspectInterfaceForEnroll(data, bmcAccess),
 		ManagementInterface: bmcAccess.ManagementInterface(),
 		PowerInterface:      bmcAccess.PowerInterface(),
 		RAIDInterface:       bmcAccess.RAIDInterface(),

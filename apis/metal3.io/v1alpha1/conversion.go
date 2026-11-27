@@ -23,6 +23,7 @@ import (
 	metal3apiv1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -55,17 +56,18 @@ func (src *BareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 	// Operate on a copy of the annotations so that we do not modify the input data.
 	dst.SetAnnotations(maps.Clone(src.GetAnnotations()))
 
-	// Placeholder for processing the conversion-data annotation which holds
-	// data that cannot be represented in v1alpha1, but was present in the
-	// v1beta1 object.
-	// restored := &BareMetalHost{}
-	// hasRestored, err := UnmarshalData(dst, restored)
-	// if err != nil {
-	// 	return err
-	// }
-	// if hasRestored {
-	// 	// Process the restored data as needed.
-	// }
+	// Restore what v1alpha1 cannot represent from the stashed v1beta1 object.
+	restored := &metal3apiv1beta1.BareMetalHost{}
+	hasRestored, err := UnmarshalData(dst, restored)
+	if err != nil {
+		return err
+	}
+	if hasRestored {
+		// v1alpha1 cannot tell an unset poweredOn from false.
+		if restored.Spec.PoweredOn == nil && !src.Spec.Online {
+			dst.Spec.PoweredOn = nil
+		}
+	}
 
 	// Stash the v1alpha1 object so that ConvertFrom can restore what v1beta1
 	// cannot represent, including Spec/Status.HardwareProfile and
@@ -140,7 +142,7 @@ func Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *BareMet
 		return err
 	}
 
-	out.PoweredOn = in.Online
+	out.PoweredOn = ptr.To(in.Online)
 
 	// The userData, networkData and metaData Secret references are replaced by
 	// their names in v1beta1. The namespace is dropped since v1beta1 always uses
@@ -159,7 +161,7 @@ func Convert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *metal3a
 		return err
 	}
 
-	out.Online = in.PoweredOn
+	out.Online = ptr.Deref(in.PoweredOn, false)
 
 	// The userDataName, networkDataName and metaDataName fields are converted to
 	// Secret references with only the name set. The spec does not know the

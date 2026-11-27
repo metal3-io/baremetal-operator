@@ -357,16 +357,34 @@ func TestPoweredOnConversion(t *testing.T) {
 			spoke := &BareMetalHost{Spec: BareMetalHostSpec{Online: value}}
 			hub := &metal3apiv1beta1.BareMetalHost{}
 			g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
-			g.Expect(hub.Spec.PoweredOn).To(gomega.Equal(value))
+			g.Expect(hub.Spec.PoweredOn).To(gomega.Equal(ptr.To(value)))
 
 			// Change the value through v1beta1 to check that ConvertFrom
 			// uses poweredOn rather than the stashed v1alpha1 object.
-			hub.Spec.PoweredOn = !value
+			hub.Spec.PoweredOn = ptr.To(!value)
 			restored := &BareMetalHost{}
 			g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
 			g.Expect(restored.Spec.Online).To(gomega.Equal(!value))
 		})
 	}
+
+	t.Run("unset", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		spoke := &BareMetalHost{}
+		g.Expect(spoke.ConvertFrom(&metal3apiv1beta1.BareMetalHost{})).To(gomega.Succeed())
+		g.Expect(spoke.Spec.Online).To(gomega.BeFalse())
+
+		hub := &metal3apiv1beta1.BareMetalHost{}
+		g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+		g.Expect(hub.Spec.PoweredOn).To(gomega.BeNil())
+
+		// Powering on through v1alpha1 must not be lost to the stashed nil.
+		spoke.Spec.Online = true
+		hub = &metal3apiv1beta1.BareMetalHost{}
+		g.Expect(spoke.ConvertTo(hub)).To(gomega.Succeed())
+		g.Expect(hub.Spec.PoweredOn).To(gomega.Equal(ptr.To(true)))
+	})
 }
 
 // TestMD5ChecksumConversion checks that the "md5" checksum type, which does not

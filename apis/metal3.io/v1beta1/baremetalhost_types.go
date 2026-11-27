@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have
@@ -380,13 +381,13 @@ type BMCDetails struct {
 
 	// address holds the URL for accessing the controller on the network.
 	// The scheme part designates the driver to use with the host.
-	// +required
-	Address string `json:"address"`
+	// +optional
+	Address string `json:"address,omitempty"`
 
 	// credentialsName is the name of the secret containing the BMC credentials (requires
 	// keys "username" and "password").
-	// +required
-	CredentialsName string `json:"credentialsName"`
+	// +optional
+	CredentialsName string `json:"credentialsName,omitempty"`
 
 	// disableCertificateVerification disables verification of server
 	// certificates when using HTTPS to connect to the BMC. This is
@@ -410,7 +411,7 @@ type HardwareRAIDVolume struct {
 	// 0, 1, 2, 5, 6, 1+0, 5+0, 6+0 (drivers may support only some of them).
 	// +required
 	// +kubebuilder:validation:Enum="0";"1";"2";"5";"6";"1+0";"5+0";"6+0"
-	Level string `json:"level" required:"true"`
+	Level string `json:"level,omitempty"`
 
 	// name of the volume. Should be unique within the Node. If not
 	// specified, the name will be auto-generated.
@@ -458,7 +459,7 @@ type SoftwareRAIDVolume struct {
 	// 0, 1 and 1+0.
 	// +required
 	// +kubebuilder:validation:Enum="0";"1";"1+0"
-	Level string `json:"level" required:"true"`
+	Level string `json:"level,omitempty"`
 
 	// physicalDisks is a list of device hints, the number of items should be greater than or equal to 2.
 	// +optional
@@ -492,13 +493,16 @@ type RAIDConfig struct {
 type SwitchPortIdentifier struct {
 	// switchID is expected to be the management MAC address of the switch
 	// +required
+	// +kubebuilder:validation:MinLength=17
+	// +kubebuilder:validation:MaxLength=17
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
-	SwitchID string `json:"switchID"`
+	SwitchID string `json:"switchID,omitempty"`
 
 	// portID is expected to be the configuration name of the port in the
 	// switch management system.
 	// +required
-	PortID string `json:"portID"`
+	// +kubebuilder:validation:MinLength=1
+	PortID string `json:"portID,omitempty"`
 
 	// switchSystemName is expected to be the common name for the switch
 	// +optional
@@ -510,10 +514,12 @@ type SwitchPortIdentifier struct {
 type SwitchPortConfig struct {
 	// mode is the switch port mode (access or trunk)
 	// +required
-	Mode SwitchPortMode `json:"mode"`
+	Mode SwitchPortMode `json:"mode,omitempty"`
 	// nativeVLAN is the native/untagged VLAN ID
 	// +required
-	NativeVLAN int32 `json:"nativeVLAN"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	NativeVLAN int32 `json:"nativeVLAN,omitempty"`
 	// allowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
 	// +optional
 	AllowedVLANs []int32 `json:"allowedVLANs,omitempty"`
@@ -541,7 +547,7 @@ type NetworkInterface struct {
 
 	// hostNetworkAttachment references the HostNetworkAttachment for this interface
 	// +required
-	HostNetworkAttachment HostNetworkAttachmentRef `json:"hostNetworkAttachment"`
+	HostNetworkAttachment HostNetworkAttachmentRef `json:"hostNetworkAttachment,omitempty,omitzero"`
 
 	// switchPort defines the switch port on which this interface is attached.
 	// This is intended to be a replacement for LLDP information if
@@ -632,7 +638,7 @@ type BareMetalHostSpec struct {
 	// state (e.g. provisioned), its power state will be forced to match
 	// this value.
 	// +required
-	PoweredOn bool `json:"poweredOn"`
+	PoweredOn *bool `json:"poweredOn,omitempty"`
 
 	// consumerRef can be used to store information about something
 	// that is using a host. When it is not empty, the host is
@@ -762,7 +768,8 @@ const (
 type Image struct {
 	// url is a location of an image to deploy.
 	// +required
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// checksum is the checksum for the image. Required for all formats
 	// except for "live-iso" and OCI images (oci://).
@@ -809,7 +816,8 @@ type CustomDeploy struct {
 	// This name is specific to the deploy ramdisk used. If you don't have
 	// a custom deploy ramdisk, you shouldn't use CustomDeploy.
 	// +required
-	Method string `json:"method"`
+	// +kubebuilder:validation:MinLength=1
+	Method string `json:"method,omitempty"`
 }
 
 // CredentialsStatus contains the reference and version of the last
@@ -836,10 +844,8 @@ const (
 // RebootAnnotationArguments defines the arguments of the RebootAnnotation type.
 type RebootAnnotationArguments struct {
 	// mode selects how the host is rebooted, hard or soft.
-	// +required
 	Mode RebootMode `json:"mode"`
 	// force indicates whether the reboot is forced.
-	// +required
 	Force bool `json:"force"`
 }
 
@@ -852,11 +858,9 @@ const (
 
 type DetachedAnnotationArguments struct {
 	// deleteAction indicates the desired delete logic when the detached annotation is present
-	// +optional
 	DeleteAction DetachedDeleteAction `json:"deleteAction,omitempty"`
 
 	// force indicates if detaching should be forced regardless of the host's state
-	// +optional
 	Force bool `json:"force,omitempty"`
 }
 
@@ -920,16 +924,19 @@ type OperationHistory struct {
 type AppliedNetworkAttachmentConfig struct {
 	// name is the network interface name (e.g., "eno1np0")
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 	// macAddress is the resolved MAC address of the interface when the
 	// configuration was applied. It identifies the port during recovery even
 	// if later inspection reports a different interface name.
 	// +required
+	// +kubebuilder:validation:MinLength=17
+	// +kubebuilder:validation:MaxLength=17
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
-	MACAddress string `json:"macAddress"`
+	MACAddress string `json:"macAddress,omitempty"`
 	// switchPortConfig is the switch port configuration that was applied
 	// +required
-	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
+	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig,omitempty,omitzero"`
 	// switchPort is the identifier of the switch port that was
 	// configured.  If not provided then LLDP information will be used.
 	// +optional
@@ -949,9 +956,9 @@ type BareMetalHostStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// operationalStatus holds the status of the host
-	// +required
+	// +optional
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached;servicing
-	OperationalStatus OperationalStatus `json:"operationalStatus"`
+	OperationalStatus OperationalStatus `json:"operationalStatus,omitempty"`
 
 	// errorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
@@ -964,8 +971,8 @@ type BareMetalHostStatus struct {
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
 	// provisioning holds information tracked by the provisioner.
-	// +required
-	Provisioning ProvisionStatus `json:"provisioning"`
+	// +optional
+	Provisioning ProvisionStatus `json:"provisioning,omitempty,omitzero"`
 
 	// goodCredentials is the last credentials we were able to validate as working.
 	// +optional
@@ -976,14 +983,14 @@ type BareMetalHostStatus struct {
 	TriedCredentials CredentialsStatus `json:"triedCredentials,omitempty"`
 
 	// errorMessage is the last error message reported by the provisioning subsystem.
-	// +required
-	ErrorMessage string `json:"errorMessage"`
+	// +optional
+	ErrorMessage string `json:"errorMessage,omitempty"`
 
 	// poweredOn is the currently detected power state of the host. This field may get
 	// briefly out of sync with the actual state of the hardware while
 	// provisioning processes are running.
-	// +required
-	PoweredOn bool `json:"poweredOn"`
+	// +optional
+	PoweredOn bool `json:"poweredOn,omitempty"`
 
 	// operationHistory holds information about operations performed
 	// on this host.
@@ -1020,18 +1027,18 @@ type BareMetalHostStatus struct {
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
 	// state is an indicator for what the provisioner is doing with the host.
-	// +required
-	State ProvisioningState `json:"state"`
+	// +optional
+	State ProvisioningState `json:"state,omitempty"`
 
 	// id is the host's ID from the underlying provisioning tool (e.g. the
 	// Ironic node UUID).
-	// +required
-	ID string `json:"id"`
+	// +optional
+	ID string `json:"id,omitempty"`
 
 	// image holds the details of the last image successfully
 	// provisioned to the host.
 	// +optional
-	Image Image `json:"image,omitempty"`
+	Image Image `json:"image,omitempty,omitzero"`
 
 	// rootDeviceHints is the root device hints used to provision the host.
 	// +optional
@@ -1144,7 +1151,7 @@ func (host *BareMetalHost) InspectionDisabled() bool {
 // status and returns true when more work is needed or false
 // otherwise.
 func (host *BareMetalHost) NeedsProvisioning() bool {
-	if !host.Spec.PoweredOn {
+	if !ptr.Deref(host.Spec.PoweredOn, false) {
 		// The host is not supposed to be powered on.
 		return false
 	}

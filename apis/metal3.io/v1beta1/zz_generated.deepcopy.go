@@ -172,6 +172,11 @@ func (in *BareMetalHostSpec) DeepCopyInto(out *BareMetalHostSpec) {
 		*out = new(RootDeviceHints)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PoweredOn != nil {
+		in, out := &in.PoweredOn, &out.PoweredOn
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ConsumerRef != nil {
 		in, out := &in.ConsumerRef, &out.ConsumerRef
 		*out = new(ConsumerReference)

@@ -46,11 +46,11 @@ linters:
               useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
   exclusions:
     rules:
-    # TODO: Fix these fields to satisfy requiredfields (pointers, omitempty, complete validation).
+    # Annotation value payloads, not CRD fields.
     - path: metal3.io/v1beta1/baremetalhost_types.go
       linters:
       - kubeapilinter
-      text: "requiredfields: field (BMCDetails\\.(Address|CredentialsName)|(Hardware|Software)RAIDVolume\\.Level|SwitchPortIdentifier\\.(SwitchID|PortID)|SwitchPortConfig\\.(Mode|NativeVLAN)|NetworkInterface\\.HostNetworkAttachment|BareMetalHostSpec\\.PoweredOn|Image\\.URL|CustomDeploy\\.Method|RebootAnnotationArguments\\.(Mode|Force)|AppliedNetworkAttachmentConfig\\.(Name|MACAddress|SwitchPortConfig)|BareMetalHostStatus\\.(OperationalStatus|Provisioning|ErrorMessage|PoweredOn)|ProvisionStatus\\.(State|ID)) "
+      text: "field \\w+AnnotationArguments\\."
 
 issues:
   uniq-by-line: false

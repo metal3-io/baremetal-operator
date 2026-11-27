@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +15,7 @@ const (
 	ipxe     = "ipxe"
 	enabled  = "Enabled"
 	disabled = "Disabled"
+	ipmi     = "ipmi"
 )
 
 // AccessDetailsFactory describes a callable that returns a new
@@ -91,8 +93,8 @@ type AccessDetails interface {
 func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 	parsedURL, err = url.Parse(address)
 	if err != nil {
-		// We failed to parse the URL, but it may just be a host or
-		// host:port string (which the URL parser rejects because ":"
+		// We failed to parse the URL, but it may just be a schemeless IP or
+		// IP:port string (which the URL parser rejects because ":"
 		// is not allowed in the first segment of a
 		// path. Unfortunately there is no error class to represent
 		// that specific error, so we have to guess.
@@ -105,12 +107,20 @@ func GetParsedURL(address string) (parsedURL *url.URL, err error) {
 			}
 		}
 		parsedURL = &url.URL{
-			Scheme: "ipmi",
+			Scheme: ipmi,
 			Host:   address,
 		}
 	} else {
 		// Successfully parsed the URL
-		if parsedURL.Opaque != "" {
+		if _, portErr := strconv.ParseUint(parsedURL.Opaque, 10, 16); portErr == nil {
+			// A host name followed by a port, like "bmc.example.com:623",
+			// is parsed as the scheme "bmc.example.com" with the port as
+			// opaque data. Handle it as host:port, like the IP address case.
+			parsedURL = &url.URL{
+				Scheme: ipmi,
+				Host:   address,
+			}
+		} else if parsedURL.Opaque != "" {
 			parsedURL, err = url.Parse(strings.Replace(address, ":", "://", 1))
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse BMC address information: %w", err)

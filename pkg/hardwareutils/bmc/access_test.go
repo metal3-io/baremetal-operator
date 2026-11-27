@@ -92,6 +92,26 @@ func TestParse(t *testing.T) {
 		},
 
 		{
+			Scenario: "host and port, dns hostname",
+			Address:  "my.favoritebmc.com:6233",
+			Type:     "ipmi",
+			Port:     "6233",
+			Host:     "my.favoritebmc.com",
+			Hostname: "my.favoritebmc.com:6233",
+			Path:     "",
+		},
+
+		{
+			Scenario: "host and port, short hostname with hyphen",
+			Address:  "bmc-01:6233",
+			Type:     "ipmi",
+			Port:     "6233",
+			Host:     "bmc-01",
+			Hostname: "bmc-01:6233",
+			Path:     "",
+		},
+
+		{
 			Scenario: "host and port, ipv6",
 			Address:  "[fe80::fc33:62ff:fe83:8a76]:6233",
 			Type:     "ipmi",
@@ -487,6 +507,19 @@ func TestDriverInfo(t *testing.T) {
 				"ipmi_password":   "",
 				"ipmi_username":   "",
 				"ipmi_address":    "192.168.122.1",
+				"ipmi_verify_ca":  false,
+				"ipmi_priv_level": "ADMINISTRATOR",
+			},
+		},
+
+		{
+			Scenario: "ipmi hostname and port without scheme",
+			input:    "my.favoritebmc.com:6233",
+			expects: map[string]interface{}{
+				"ipmi_port":       "6233",
+				"ipmi_password":   "",
+				"ipmi_username":   "",
+				"ipmi_address":    "my.favoritebmc.com",
 				"ipmi_verify_ca":  false,
 				"ipmi_priv_level": "ADMINISTRATOR",
 			},

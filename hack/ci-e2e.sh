@@ -74,20 +74,20 @@ SUSHY_EMULATOR_PORT="${SUSHY_EMULATOR_PORT:-8000}"
 export GINKGO_LABEL_FILTER="${GINKGO_LABEL_FILTER:-required}"
 
 # Compatibility: the project-infra Jenkins job still selects the upgrade tests
-# via GINKGO_FOCUS. Map it to the optional label filter.
+# via GINKGO_FOCUS. Map it to the upgrade label filter.
 # TODO: Remove once the Jenkins job no longer passes GINKGO_FOCUS.
 GINKGO_FOCUS="${GINKGO_FOCUS:-}"
 case "${GINKGO_FOCUS,,}" in
   *upgrade*)
-    export GINKGO_LABEL_FILTER="optional"
+    export GINKGO_LABEL_FILTER="upgrade"
     unset GINKGO_FOCUS
     ;;
 esac
 
-# The optional tier (upgrade tests) creates its own clusters, so the default
-# management cluster must not deploy Ironic/BMO/cert-manager.
+# Upgrade-only runs create their own clusters, so the default management cluster
+# does not need Ironic/BMO/cert-manager. Other optional tests need these services.
 case "${GINKGO_LABEL_FILTER,,}" in
-  *optional*)
+  upgrade|bmo-upgrade|ironic-upgrade)
     export DEPLOY_IRONIC="false"
     export DEPLOY_BMO="false"
     export DEPLOY_CERT_MANAGER="false"

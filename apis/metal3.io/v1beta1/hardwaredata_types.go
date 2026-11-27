@@ -65,6 +65,7 @@ type CPU struct {
 	// clockMegahertz is the CPU clock speed in megahertz.
 	ClockMegahertz ClockSpeed `json:"clockMegahertz,omitempty"`
 	// flags is the list of CPU flags.
+	// +listType=atomic
 	Flags []string `json:"flags,omitempty"`
 	// threadCount is the number of CPU threads.
 	ThreadCount int32 `json:"threadCount,omitempty"`
@@ -80,6 +81,7 @@ type Storage struct {
 	// alternateNames is a list of alternate Linux device names of the disk, e.g. "/dev/sda".
 	// Note that this list is not exhaustive, and names may not be stable
 	// across reboots.
+	// +listType=atomic
 	AlternateNames []string `json:"alternateNames,omitempty"`
 
 	// rotational indicates whether this disk represents rotational storage.
@@ -169,6 +171,7 @@ type NIC struct {
 	SpeedGbps int32 `json:"speedGbps,omitempty"`
 
 	// vlans is the list of available VLANs.
+	// +listType=atomic
 	VLANs []VLAN `json:"vlans,omitempty"`
 
 	// vlanId is the untagged VLAN ID
@@ -243,6 +246,7 @@ type Accelerator struct {
 // discovered on the host.
 type HardwareDetails struct {
 	// accelerators is the list of accelerators discovered on the host.
+	// +listType=atomic
 	Accelerators []Accelerator `json:"accelerators,omitempty"`
 	// systemVendor holds system vendor information.
 	SystemVendor HardwareSystemVendor `json:"systemVendor,omitempty"`
@@ -251,8 +255,10 @@ type HardwareDetails struct {
 	// ramMebibytes is the host's amount of memory in Mebibytes.
 	RAMMebibytes int32 `json:"ramMebibytes,omitempty"`
 	// nics is the list of network interfaces for the host.
+	// +listType=atomic
 	NIC []NIC `json:"nics,omitempty"`
 	// storage is the list of storage (disk, SSD, etc.) available to the host.
+	// +listType=atomic
 	Storage []Storage `json:"storage,omitempty"`
 	// cpu holds details of the CPU(s) in the system.
 	CPU CPU `json:"cpu,omitempty"`

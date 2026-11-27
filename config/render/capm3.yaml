@@ -1981,6 +1981,7 @@ spec:
                   - hostNetworkAttachment
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               poweredOn:
                 description: |-
                   poweredOn indicates whether the host should be powered on. If the host is currently in a stable
@@ -2049,6 +2050,7 @@ spec:
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                         rotational:
                           description: |-
                             rotational selects disks with only rotational (if set to true) or solid-state
@@ -2067,6 +2069,7 @@ spec:
                       type: object
                     nullable: true
                     type: array
+                    x-kubernetes-list-type: atomic
                   softwareRAIDVolumes:
                     description: |-
                       softwareRAIDVolumes is the list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
@@ -2152,6 +2155,7 @@ spec:
                             type: object
                           minItems: 2
                           type: array
+                          x-kubernetes-list-type: atomic
                         rootVolume:
                           default: false
                           description: |-
@@ -2171,6 +2175,7 @@ spec:
                     maxItems: 2
                     nullable: true
                     type: array
+                    x-kubernetes-list-type: atomic
                 type: object
               rootDeviceHints:
                 description: |-
@@ -2263,6 +2268,10 @@ spec:
                   - key
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - key
+                - effect
+                x-kubernetes-list-type: map
               userDataName:
                 description: |-
                   userDataName is the name of the Secret containing the user data
@@ -2331,6 +2340,7 @@ spec:
                             format: int32
                             type: integer
                           type: array
+                          x-kubernetes-list-type: atomic
                         mode:
                           description: mode is the switch port mode (access or trunk)
                           enum:
@@ -2356,6 +2366,7 @@ spec:
                   - switchPortConfig
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               conditions:
                 description: conditions defines current service state of the BareMetalHost.
                 items:
@@ -2721,6 +2732,7 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                             rotational:
                               description: |-
                                 rotational selects disks with only rotational (if set to true) or solid-state
@@ -2739,6 +2751,7 @@ spec:
                           type: object
                         nullable: true
                         type: array
+                        x-kubernetes-list-type: atomic
                       softwareRAIDVolumes:
                         description: |-
                           softwareRAIDVolumes is the list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
@@ -2825,6 +2838,7 @@ spec:
                                 type: object
                               minItems: 2
                               type: array
+                              x-kubernetes-list-type: atomic
                             rootVolume:
                               default: false
                               description: |-
@@ -2844,6 +2858,7 @@ spec:
                         maxItems: 2
                         nullable: true
                         type: array
+                        x-kubernetes-list-type: atomic
                     type: object
                   rootDeviceHints:
                     description: rootDeviceHints is the root device hints used to
@@ -3737,6 +3752,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   cpu:
                     description: cpu holds details of the CPU(s) in the system.
                     properties:
@@ -3752,6 +3768,7 @@ spec:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       model:
                         description: model is the CPU model name.
                         type: string
@@ -3857,8 +3874,10 @@ spec:
                                 type: string
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   ramMebibytes:
                     description: ramMebibytes is the host's amount of memory in Mebibytes.
                     format: int32
@@ -3878,6 +3897,7 @@ spec:
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                         hctl:
                           description: hctl is the SCSI location of the device
                           type: string
@@ -3927,6 +3947,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   systemVendor:
                     description: systemVendor holds system vendor information.
                     properties:

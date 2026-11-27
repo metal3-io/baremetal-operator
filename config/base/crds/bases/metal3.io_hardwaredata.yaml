@@ -328,6 +328,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   cpu:
                     description: cpu holds details of the CPU(s) in the system.
                     properties:
@@ -343,6 +344,7 @@ spec:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       model:
                         description: model is the CPU model name.
                         type: string
@@ -448,8 +450,10 @@ spec:
                                 type: string
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   ramMebibytes:
                     description: ramMebibytes is the host's amount of memory in Mebibytes.
                     format: int32
@@ -469,6 +473,7 @@ spec:
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                         hctl:
                           description: hctl is the SCSI location of the device
                           type: string
@@ -518,6 +523,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   systemVendor:
                     description: systemVendor holds system vendor information.
                     properties:

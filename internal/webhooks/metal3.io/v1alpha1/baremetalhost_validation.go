@@ -389,14 +389,14 @@ func validateRebootAnnotation(rebootAnnotation string) error {
 
 // validateCrossNamespaceSecretReferences validates that a SecretReference does not refer to a Secret
 // in a different namespace than the host resource.
-func validateCrossNamespaceSecretReferences(hostNamespace, hostName, fieldName string, ref *corev1.SecretReference) error {
+func validateCrossNamespaceSecretReferences(resourceName, hostNamespace, hostName, fieldName string, ref *corev1.SecretReference) error {
 	if ref != nil &&
 		ref.Namespace != "" &&
 		ref.Namespace != hostNamespace {
 		return k8serrors.NewForbidden(
 			schema.GroupResource{
 				Group:    "metal3.io",
-				Resource: "baremetalhosts",
+				Resource: resourceName,
 			},
 			hostName,
 			fmt.Errorf("%s: cross-namespace Secret references are not allowed", fieldName),
@@ -416,7 +416,7 @@ func (webhook *BareMetalHost) validateCrossNamespaceSecretReferences(host *metal
 	}
 	errs := []error{}
 	for ref, fieldName := range secretRefs {
-		if err := validateCrossNamespaceSecretReferences(host.Namespace, host.Name, fieldName, ref); err != nil {
+		if err := validateCrossNamespaceSecretReferences("baremetalhosts", host.Namespace, host.Name, fieldName, ref); err != nil {
 			errs = append(errs, err)
 		}
 	}

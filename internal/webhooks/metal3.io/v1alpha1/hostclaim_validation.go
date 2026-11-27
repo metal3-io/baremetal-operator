@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -26,6 +27,7 @@ import (
 // validateHostClaim validates a HostClaim resource.
 func (webhook *HostClaimWebhook) validateHostClaim(hostclaim *metal3api.HostClaim) []error {
 	var errs []error
+	errs = append(errs, webhook.validateCrossNamespaceSecretReferences(hostclaim)...)
 	for lblKey, lblValue := range hostclaim.Spec.HostSelector.MatchLabels {
 		for _, err := range validation.IsQualifiedName(lblKey) {
 			errs = append(errs, fmt.Errorf("%s=%s: %s", lblKey, lblValue, err))
@@ -100,5 +102,26 @@ func validateHostclaimAnnotations(hostclaim *metal3api.HostClaim) []error {
 		}
 	}
 
+	return errs
+}
+
+// validateCrossNamespaceSecretReferences checks all Secret references in the HostClaim spec
+// to ensure they do not reference Secrets from other namespaces. This includes userData,
+// networkData, and metaData Secret references.
+func (webhook *HostClaimWebhook) validateCrossNamespaceSecretReferences(hostclaim *metal3api.HostClaim) []error {
+	refs := []struct {
+		secretRef *corev1.SecretReference
+		fieldName string
+	}{
+		{secretRef: hostclaim.Spec.UserData, fieldName: "userData"},
+		{secretRef: hostclaim.Spec.NetworkData, fieldName: "networkData"},
+		{secretRef: hostclaim.Spec.MetaData, fieldName: "metaData"},
+	}
+	errs := []error{}
+	for _, ref := range refs {
+		if err := validateCrossNamespaceSecretReferences("hostclaims", hostclaim.Namespace, hostclaim.Name, ref.fieldName, ref.secretRef); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	return errs
 }

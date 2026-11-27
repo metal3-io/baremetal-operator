@@ -153,8 +153,11 @@ type NIC struct {
 	// name is the name of the network interface, e.g. "en0"
 	Name string `json:"name,omitempty"`
 
-	// model is the vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
-	Model string `json:"model,omitempty"`
+	// vendor is the PCI vendor ID of the NIC, e.g. "0x8086"
+	Vendor string `json:"vendor,omitempty"`
+
+	// deviceID is the PCI device ID of the NIC, e.g. "0x1572"
+	DeviceID string `json:"deviceID,omitempty"`
 
 	// mac is the device MAC address.
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`

@@ -129,3 +129,33 @@ func TestHardwareDataKeepsItsHardwareDetails(t *testing.T) {
 	g.Expect(restored.ConvertFrom(hub)).To(gomega.Succeed())
 	g.Expect(restored.Spec.HardwareDetails).To(gomega.Equal(spoke.Spec.HardwareDetails))
 }
+
+func TestNICModelConversion(t *testing.T) {
+	testCases := []struct {
+		name     string
+		model    string
+		vendor   string
+		deviceID string
+	}{
+		{name: "vendor and device", model: "0x8086 0x1572", vendor: "0x8086", deviceID: "0x1572"},
+		{name: "device only", model: "0x1572", deviceID: "0x1572"},
+		{name: "vendor only", model: "0x8086 ", vendor: "0x8086"},
+		{name: "empty"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
+			// Start from a used destination so stale fields would show up.
+			hub := &metal3apiv1beta1.NIC{Vendor: "stale", DeviceID: "stale"}
+			g.Expect(Convert_v1alpha1_NIC_To_v1beta1_NIC(&NIC{Model: tc.model}, hub, nil)).To(gomega.Succeed())
+			g.Expect(hub.Vendor).To(gomega.Equal(tc.vendor))
+			g.Expect(hub.DeviceID).To(gomega.Equal(tc.deviceID))
+
+			spoke := &NIC{}
+			g.Expect(Convert_v1beta1_NIC_To_v1alpha1_NIC(hub, spoke, nil)).To(gomega.Succeed())
+			g.Expect(spoke.Model).To(gomega.Equal(tc.model))
+		})
+	}
+}

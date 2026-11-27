@@ -377,6 +377,10 @@ spec:
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
+                        deviceID:
+                          description: deviceID is the PCI device ID of the NIC, e.g.
+                            "0x1572"
+                          type: string
                         infinibandClientID:
                           description: |-
                             infinibandClientID is the InfiniBand client ID of the interface, as discovered by Ironic.
@@ -407,10 +411,6 @@ spec:
                           description: mac is the device MAC address.
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
-                        model:
-                          description: model is the vendor and product IDs of the
-                            NIC, e.g. "0x8086 0x1572"
-                          type: string
                         name:
                           description: name is the name of the network interface,
                             e.g. "en0"
@@ -426,6 +426,10 @@ spec:
                             per second
                           format: int32
                           type: integer
+                        vendor:
+                          description: vendor is the PCI vendor ID of the NIC, e.g.
+                            "0x8086"
+                          type: string
                         vlanId:
                           description: vlanId is the untagged VLAN ID
                           format: int32

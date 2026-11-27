@@ -389,6 +389,38 @@ func Convert_v1beta1_CPU_To_v1alpha1_CPU(in *metal3apiv1beta1.CPU, out *CPU, s a
 	return nil
 }
 
+// --- NIC ---
+
+// The NIC model was split into Vendor and DeviceID in v1beta1. In v1alpha1 the
+// model holds the PCI vendor and device IDs joined by a space, e.g.
+// "0x8086 0x1572", with the leading space trimmed when the vendor is unknown.
+
+// Convert_v1alpha1_NIC_To_v1beta1_NIC converts the NIC details to the hub
+// version, splitting Model into Vendor and DeviceID.
+func Convert_v1alpha1_NIC_To_v1beta1_NIC(in *NIC, out *metal3apiv1beta1.NIC, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_NIC_To_v1beta1_NIC(in, out, s); err != nil {
+		return err
+	}
+	if vendor, deviceID, found := strings.Cut(in.Model, " "); found {
+		out.Vendor = vendor
+		out.DeviceID = deviceID
+	} else {
+		out.Vendor = ""
+		out.DeviceID = in.Model
+	}
+	return nil
+}
+
+// Convert_v1beta1_NIC_To_v1alpha1_NIC converts the NIC details from the hub
+// version, joining Vendor and DeviceID into Model.
+func Convert_v1beta1_NIC_To_v1alpha1_NIC(in *metal3apiv1beta1.NIC, out *NIC, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_NIC_To_v1alpha1_NIC(in, out, s); err != nil {
+		return err
+	}
+	out.Model = strings.TrimLeft(in.Vendor+" "+in.DeviceID, " ")
+	return nil
+}
+
 // --- HardwareData ---
 
 // ConvertTo converts this HardwareData (v1alpha1) to the Hub version (v1beta1).

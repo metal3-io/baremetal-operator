@@ -94,7 +94,7 @@ func (hsm *hostStateMachine) ensureCapacity(ctx context.Context, info *reconcile
 	}
 
 	if !hasCapacity {
-		return recordActionDelayed(info, state)
+		return recordActionDelayed(info, state, hsm.Provisioner.ProvisioningLimit())
 	}
 
 	return nil

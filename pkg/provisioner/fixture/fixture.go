@@ -140,6 +140,10 @@ func (p *fixtureProvisioner) HasCapacity(_ context.Context) (result bool, err er
 	return true, nil
 }
 
+func (p *fixtureProvisioner) ProvisioningLimit() int {
+	return 0
+}
+
 // Register tests the connection information for the
 // host to verify that the location and credentials work.
 func (p *fixtureProvisioner) Register(_ context.Context, _ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {

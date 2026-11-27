@@ -45,7 +45,6 @@ func testNewReconciler(host *metal3api.BareMetalHost) *BareMetalHostReconciler {
 	return reconciler
 }
 
-//nolint:dupl
 func TestProvisioningCapacity(t *testing.T) {
 	testCases := []struct {
 		Scenario string
@@ -55,6 +54,8 @@ func TestProvisioningCapacity(t *testing.T) {
 
 		ExpectedProvisioningState metal3api.ProvisioningState
 		ExpectedDelayed           bool
+		// Delayed events published by this reconcile
+		ExpectedDelayEvents []string
 	}{
 		{
 			Scenario:                "transition-to-inspecting-delayed",
@@ -63,6 +64,7 @@ func TestProvisioningCapacity(t *testing.T) {
 
 			ExpectedProvisioningState: metal3api.StateRegistering,
 			ExpectedDelayed:           true,
+			ExpectedDelayEvents:       []string{"Delayed"},
 		},
 		{
 			Scenario:                "transition-to-provisioning-delayed",
@@ -71,6 +73,7 @@ func TestProvisioningCapacity(t *testing.T) {
 
 			ExpectedProvisioningState: metal3api.StateAvailable,
 			ExpectedDelayed:           true,
+			ExpectedDelayEvents:       []string{"Delayed"},
 		},
 		{
 			Scenario:                "transition-to-provisioning-delayed-deprecated-ready",
@@ -79,6 +82,7 @@ func TestProvisioningCapacity(t *testing.T) {
 
 			ExpectedProvisioningState: metal3api.StateReady,
 			ExpectedDelayed:           true,
+			ExpectedDelayEvents:       []string{"Delayed"},
 		},
 		{
 			Scenario:                "transition-to-inspecting-ok",
@@ -121,6 +125,7 @@ func TestProvisioningCapacity(t *testing.T) {
 
 			ExpectedProvisioningState: metal3api.StateInspecting,
 			ExpectedDelayed:           true,
+			ExpectedDelayEvents:       []string{"Delayed"},
 		},
 		{
 			Scenario:                "untracked-inspecting-ok",
@@ -137,6 +142,7 @@ func TestProvisioningCapacity(t *testing.T) {
 
 			ExpectedProvisioningState: metal3api.StateProvisioning,
 			ExpectedDelayed:           true,
+			ExpectedDelayEvents:       []string{"Delayed"},
 		},
 		{
 			Scenario:                "untracked-provisioning-ok",
@@ -162,6 +168,15 @@ func TestProvisioningCapacity(t *testing.T) {
 			assert.Equal(t, tc.ExpectedProvisioningState, tc.Host.Status.Provisioning.State)
 			assert.Equal(t, tc.ExpectedDelayed, metal3api.OperationalStatusDelayed == tc.Host.Status.OperationalStatus, "Expected OperationalStatusDelayed")
 			assert.Equal(t, tc.ExpectedDelayed, assert.ObjectsAreEqual(actionDelayed{}, result), "Expected actionDelayed")
+
+			var delayEvents []string
+			for _, event := range info.events {
+				if event.Reason == "Delayed" {
+					delayEvents = append(delayEvents, event.Reason)
+					assert.Contains(t, event.Message, "the limit of 20 hosts")
+				}
+			}
+			assert.Equal(t, tc.ExpectedDelayEvents, delayEvents, "Expected delay events")
 
 			if tc.ExpectedDelayed {
 				counter, _ := delayedProvisioningHostCounters.GetMetricWith(hostMetricLabels(info.request))
@@ -287,7 +302,6 @@ func TestNetworkInterfacesDoNotBlockProvisioningWhenIronicNetworkingDisabled(t *
 	assert.Equal(t, metal3api.StateProvisioning, hsm.NextState)
 }
 
-//nolint:dupl
 func TestDeprovisioningCapacity(t *testing.T) {
 	testCases := []struct {
 		Scenario string
@@ -2081,6 +2095,10 @@ func (m *mockProvisioner) setHasCapacity(hasCapacity bool) {
 
 func (m *mockProvisioner) HasCapacity(context.Context) (result bool, err error) {
 	return m.hasCapacity, nil
+}
+
+func (m *mockProvisioner) ProvisioningLimit() int {
+	return 20
 }
 
 func (m *mockProvisioner) setNextError(methodName, msg string) {

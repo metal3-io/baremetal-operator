@@ -1969,6 +1969,10 @@ func ironicNodeName(objMeta metav1.ObjectMeta) string {
 	return objMeta.Namespace + nameSeparator + objMeta.Name
 }
 
+func (p *ironicProvisioner) ProvisioningLimit() int {
+	return p.config.maxBusyHosts
+}
+
 func (p *ironicProvisioner) HasCapacity(ctx context.Context) (result bool, err error) {
 	bmcAccess, err := p.bmcAccess()
 	if err != nil {

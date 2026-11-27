@@ -81,6 +81,10 @@ func (p *demoProvisioner) HasCapacity(_ context.Context) (result bool, err error
 	return true, nil
 }
 
+func (p *demoProvisioner) ProvisioningLimit() int {
+	return 0
+}
+
 // Register tests the connection information for the
 // host to verify that the location and credentials work.
 func (p *demoProvisioner) Register(_ context.Context, _ provisioner.ManagementAccessData, _, _ bool) (result provisioner.Result, provID string, err error) {

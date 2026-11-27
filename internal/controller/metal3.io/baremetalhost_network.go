@@ -175,17 +175,18 @@ func (r *BareMetalHostReconciler) validateNetworkInterfaces(ctx context.Context,
 	return r.performNetworkInterfaceValidation(ctx, host, hwDetails.NIC)
 }
 
-// performNetworkInterfaceValidation validates network interfaces against discovered hardware
-// and checks that referenced HostNetworkAttachments exist.
+// performNetworkInterfaceValidation validates network interfaces and switch port
+// identifiers against discovered hardware and checks that referenced attachments exist.
 func (r *BareMetalHostReconciler) performNetworkInterfaceValidation(ctx context.Context, host *metal3api.BareMetalHost, nics []metal3api.NIC) (bool, error) {
 	// Build map of available NIC identifiers from hardware details
-	availableNICs := make(map[string]bool)
-	for _, nic := range nics {
+	availableNICs := make(map[string]*metal3api.NIC)
+	for i := range nics {
+		nic := &nics[i]
 		if nic.Name != "" {
-			availableNICs[nic.Name] = true
+			availableNICs[nic.Name] = nic
 		}
 		if nic.MAC != "" {
-			availableNICs[strings.ToLower(nic.MAC)] = true
+			availableNICs[strings.ToLower(nic.MAC)] = nic
 		}
 	}
 
@@ -193,11 +194,14 @@ func (r *BareMetalHostReconciler) performNetworkInterfaceValidation(ctx context.
 	var invalidInterfaces []string
 	var missingAttachments []string
 	var deniedNamespaces []string
+	var mismatchedInterfaces []string
 
 	for _, netIf := range host.Spec.NetworkInterfaces {
 		key := netIf.GetKey()
-		if !availableNICs[key] {
+		if nic := availableNICs[key]; nic == nil {
 			invalidInterfaces = append(invalidInterfaces, key)
+		} else if switchPortLLDPMismatch(netIf.SwitchPort, nic.LLDP) {
+			mismatchedInterfaces = append(mismatchedInterfaces, key)
 		}
 
 		// Check that referenced HostNetworkAttachment exists
@@ -260,9 +264,26 @@ func (r *BareMetalHostReconciler) performNetworkInterfaceValidation(ctx context.
 		return r.setNetworkInterfaceValidation(host, metav1.ConditionFalse, reason, message)
 	}
 
+	if len(mismatchedInterfaces) > 0 {
+		reason := "SwitchPortLLDPMismatch"
+		message := "Configured switch port differs from LLDP on " + strings.Join(mismatchedInterfaces, ", ")
+		return r.setNetworkInterfaceValidation(host, metav1.ConditionFalse, reason, message)
+	}
+
 	reason := "AllInterfacesValid"
 	message := "All network interfaces and attachments are valid"
 	return r.setNetworkInterfaceValidation(host, metav1.ConditionTrue, reason, message)
+}
+
+func switchPortLLDPMismatch(config *metal3api.SwitchPortIdentifier, lldp *metal3api.LLDP) bool {
+	if config == nil || lldp == nil {
+		return false
+	}
+
+	switchIDMismatch := config.SwitchID != "" && lldp.SwitchID != "" && !strings.EqualFold(config.SwitchID, lldp.SwitchID)
+	portIDMismatch := config.PortID != "" && lldp.PortID != "" && config.PortID != lldp.PortID
+	systemNameMismatch := config.SwitchSystemName != "" && lldp.SwitchSystemName != "" && config.SwitchSystemName != lldp.SwitchSystemName
+	return switchIDMismatch || portIDMismatch || systemNameMismatch
 }
 
 // buildAppliedNetworkAttachmentConfigs builds the applied status from the resolved
@@ -502,7 +523,6 @@ func (r *BareMetalHostReconciler) resolvePortConfigs(ctx context.Context, host *
 		}
 
 		// Populate manual switch port identity if provided.
-		// This overrides LLDP-discovered data in the provisioner.
 		r.resolveSwitchPortIdentifier(&netIf, config)
 
 		configs[macKey] = config

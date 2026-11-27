@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
@@ -270,6 +271,121 @@ func TestValidateNetworkInterfaces(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPreparePortConfigsSwitchPortLLDPValidation(t *testing.T) {
+	featuregatetesting.SetFeatureGateDuringTest(t, features.CurrentFeatureGate, features.FeatureIronicNetworking, true)
+
+	const mac = "00:11:22:33:44:aa"
+	switchPort := &metal3api.SwitchPortIdentifier{
+		SwitchID: "00:11:22:33:44:bb", PortID: "Ethernet1/1", SwitchSystemName: "switch-01",
+	}
+	attachment := &metal3api.HostNetworkAttachment{
+		ObjectMeta: metav1.ObjectMeta{Name: "attachment", Namespace: "test-ns"},
+		Spec:       metal3api.HostNetworkAttachmentSpec{Mode: metal3api.SwitchportModeAccess, NativeVLAN: 100},
+	}
+	scheme := runtime.NewScheme()
+	require.NoError(t, metal3api.AddToScheme(scheme))
+	r := &BareMetalHostReconciler{
+		Client: fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(attachment).Build(),
+	}
+
+	for _, tc := range []struct {
+		name          string
+		lldp          *metal3api.LLDP
+		wantInterface string
+		byMAC         bool
+		lldpOnly      bool
+	}{
+		{name: "no LLDP"},
+		{name: "no manual switch port", lldp: &metal3api.LLDP{PortID: "Ethernet1/2"}, lldpOnly: true},
+		{name: "matching LLDP", lldp: &metal3api.LLDP{SwitchID: "00:11:22:33:44:BB", PortID: "Ethernet1/1", SwitchSystemName: "switch-01"}},
+		{name: "matching partial LLDP", lldp: &metal3api.LLDP{PortID: "Ethernet1/1"}},
+		{
+			name:          "switch ID mismatch by name",
+			lldp:          &metal3api.LLDP{SwitchID: "00:11:22:33:44:cc", PortID: "Ethernet1/1"},
+			wantInterface: "eth0",
+		},
+		{
+			name:          "port ID mismatch by MAC with partial LLDP",
+			lldp:          &metal3api.LLDP{PortID: "Ethernet1/2"},
+			wantInterface: mac,
+			byMAC:         true,
+		},
+		{
+			name:          "system name mismatch",
+			lldp:          &metal3api.LLDP{SwitchSystemName: "switch-02"},
+			wantInterface: "eth0",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			netIf := metal3api.NetworkInterface{
+				Name:                  "eth0",
+				HostNetworkAttachment: metal3api.HostNetworkAttachmentRef{Name: attachment.Name},
+				SwitchPort:            switchPort,
+			}
+			if tc.byMAC {
+				netIf.Name = ""
+				netIf.MACAddress = "00:11:22:33:44:AA"
+			}
+			if tc.lldpOnly {
+				netIf.SwitchPort = nil
+			}
+			info := &reconcileInfo{
+				host: &metal3api.BareMetalHost{
+					ObjectMeta: metav1.ObjectMeta{Namespace: attachment.Namespace},
+					Spec:       metal3api.BareMetalHostSpec{NetworkInterfaces: []metal3api.NetworkInterface{netIf}},
+				},
+				hardwareData: &metal3api.HardwareData{
+					Spec: metal3api.HardwareDataSpec{
+						HardwareDetails: &metal3api.HardwareDetails{
+							NIC: []metal3api.NIC{{Name: "eth0", MAC: mac, LLDP: tc.lldp}},
+						},
+					},
+				},
+			}
+
+			dirty, err := r.preparePortConfigs(t.Context(), info)
+			require.NoError(t, err)
+			assert.True(t, dirty)
+			cond := meta.FindStatusCondition(info.host.Status.Conditions, metal3api.NetworkInterfacesValidCondition)
+			require.NotNil(t, cond)
+			if tc.wantInterface != "" {
+				assert.Equal(t, metav1.ConditionFalse, cond.Status)
+				assert.Equal(t, "SwitchPortLLDPMismatch", cond.Reason)
+				assert.Equal(t, "Configured switch port differs from LLDP on "+tc.wantInterface, cond.Message)
+				assert.Nil(t, info.portConfigs)
+				return
+			}
+			assert.Equal(t, metav1.ConditionTrue, cond.Status)
+			require.Contains(t, info.portConfigs, mac)
+			assert.Equal(t, netIf.SwitchPort, info.portConfigs[mac].SwitchPortIdentifier)
+		})
+	}
+}
+
+func TestSwitchPortLLDPMismatchReportsAllInterfaces(t *testing.T) {
+	switchPort := &metal3api.SwitchPortIdentifier{SwitchID: "00:11:22:33:44:55", PortID: strings.Repeat("x", 33_000)}
+	host := &metal3api.BareMetalHost{
+		Spec: metal3api.BareMetalHostSpec{NetworkInterfaces: []metal3api.NetworkInterface{
+			{Name: "eth1", SwitchPort: switchPort},
+			{Name: "eth0", SwitchPort: switchPort},
+		}},
+	}
+	details := &metal3api.HardwareDetails{NIC: []metal3api.NIC{
+		{Name: "eth0", LLDP: &metal3api.LLDP{PortID: "Ethernet1/1"}},
+		{Name: "eth1", LLDP: &metal3api.LLDP{PortID: "Ethernet1/2"}},
+	}}
+
+	r := &BareMetalHostReconciler{}
+	dirty, err := r.validateNetworkInterfaces(t.Context(), host, details)
+	require.NoError(t, err)
+	assert.True(t, dirty)
+	cond := meta.FindStatusCondition(host.Status.Conditions, metal3api.NetworkInterfacesValidCondition)
+	require.NotNil(t, cond)
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, "SwitchPortLLDPMismatch", cond.Reason)
+	assert.Equal(t, "Configured switch port differs from LLDP on eth1, eth0", cond.Message)
 }
 
 func TestPreparePortConfigs(t *testing.T) {

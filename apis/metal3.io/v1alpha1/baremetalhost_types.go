@@ -536,12 +536,11 @@ type NetworkInterface struct {
 	HostNetworkAttachment HostNetworkAttachmentRef `json:"hostNetworkAttachment"`
 
 	// SwitchPort defines the switch port on which this interface is attached.
-	// This is intended to be a replacement for LLDP information if
-	// LLDP is not enabled on the neighboring switches or if inspection is not
-	// used on the BMH.  If LLDP information is acquired during inspection and
-	// this field is provided then it will override the LLDP provided
-	// information; therefore, caution must be exercised when supplying this
-	// value.
+	// Supply it when LLDP data is unavailable, for example when LLDP is
+	// disabled on the switch or inspection does not collect it.
+	// When both sources supply a value, differing values cause network
+	// interface validation to fail. A numeric port ID from LLDP and a
+	// configured port name conflict even if they identify the same port.
 	// +optional
 	SwitchPort *SwitchPortIdentifier `json:"switchPort,omitempty"`
 }

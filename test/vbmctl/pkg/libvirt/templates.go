@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"os"
 	"strings"
 	"text/template"
 
@@ -24,6 +25,8 @@ var templateFiles embed.FS
 // TemplateRenderer provides methods for rendering libvirt XML templates.
 type TemplateRenderer struct {
 	templates *template.Template
+	// ovmfCandidates lists the (code, vars) firmware pairs to look for.
+	ovmfCandidates [][2]string
 }
 
 // NewTemplateRenderer creates a new template renderer with embedded templates.
@@ -34,7 +37,8 @@ func NewTemplateRenderer() (*TemplateRenderer, error) {
 	}
 
 	return &TemplateRenderer{
-		templates: tmpl,
+		templates:      tmpl,
+		ovmfCandidates: ovmfCandidates,
 	}, nil
 }
 
@@ -76,6 +80,10 @@ func (r *TemplateRenderer) RenderVM(cfg vbmctlapi.VMConfig, poolPath string) (st
 		PoolPath string
 		Networks []vbmctlapi.NetworkAttachment
 		Volumes  []VolumeAttachmentData
+		// OVMFCode and OVMFVars pin the UEFI firmware. If empty, libvirt
+		// auto-selects firmware.
+		OVMFCode string
+		OVMFVars string
 	}{
 		Name:     cfg.Name,
 		Memory:   memoryKiB,
@@ -84,6 +92,7 @@ func (r *TemplateRenderer) RenderVM(cfg vbmctlapi.VMConfig, poolPath string) (st
 		Networks: cfg.Networks,
 		Volumes:  volumes,
 	}
+	data.OVMFCode, data.OVMFVars = findOVMF(r.ovmfCandidates)
 	return r.render("VM.xml.tpl", data)
 }
 
@@ -165,4 +174,40 @@ func RenderTemplate(inputFile string, data interface{}) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+// ovmfCandidates lists known (code, vars) pairs of OVMF images across
+// distributions, in order of preference. Plain images come first. The
+// secboot-capable code images come last, since some distributions (e.g. CentOS)
+// may ship only those, and they boot fine without secure boot being enforced.
+// On Ubuntu the secboot images refuse to boot, so they must not be preferred.
+// The list is modeled after the one in Bifrost:
+// https://opendev.org/openstack/bifrost/src/branch/master/playbooks/roles/bifrost-create-vm-nodes/defaults/main.yml
+var ovmfCandidates = [][2]string{
+	{"/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"},           // Debian/Ubuntu
+	{"/usr/share/OVMF/OVMF_CODE.fd", "/usr/share/OVMF/OVMF_VARS.fd"},                 // Debian/Ubuntu (legacy)
+	{"/usr/share/edk2/ovmf/OVMF_CODE.fd", "/usr/share/edk2/ovmf/OVMF_VARS.fd"},       // Fedora/CentOS
+	{"/usr/share/edk2/x64/OVMF_CODE.4m.fd", "/usr/share/edk2/x64/OVMF_VARS.4m.fd"},   // Arch
+	{"/usr/share/qemu/ovmf-x86_64-code.bin", "/usr/share/qemu/ovmf-x86_64-vars.bin"}, // SUSE
+	// Secboot-capable code images, paired with the plain vars.
+	{"/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd", "/usr/share/edk2/ovmf/OVMF_VARS.fd"}, // Fedora/CentOS
+	{"/usr/share/OVMF/OVMF_CODE_4M.secboot.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"},     // Debian/Ubuntu
+	{"/usr/share/OVMF/OVMF_CODE.secboot.fd", "/usr/share/OVMF/OVMF_VARS.fd"},           // Debian/Ubuntu (legacy)
+}
+
+// findOVMF returns the first pair of candidates where both the code and vars
+// files exist. Pinning the loader avoids libvirt auto-selecting restricted
+// images (e.g. OVMF.amdsev.fd on Ubuntu 26.04) that AppArmor refuses to load.
+// It returns empty strings if no pair is found.
+func findOVMF(candidates [][2]string) (string, string) {
+	for _, c := range candidates {
+		if _, err := os.Stat(c[0]); err != nil {
+			continue
+		}
+		if _, err := os.Stat(c[1]); err != nil {
+			continue
+		}
+		return c[0], c[1]
+	}
+	return "", ""
 }

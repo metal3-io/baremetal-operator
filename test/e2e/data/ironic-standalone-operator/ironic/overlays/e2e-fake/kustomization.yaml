@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# The e2e Ironic for use with fake-IPA (BMC_PROTOCOL=fake in hack/ci-e2e.sh).
+# fake-IPA is a plain HTTP server, so Ironic must not require TLS when it talks
+# to the agent.
+resources:
+- ../e2e
+patches:
+- target:
+    group: ironic.metal3.io
+    version: v1alpha1
+    kind: Ironic
+    name: ironic
+  patch: |-
+    - op: add
+      path: /spec/extraConfig
+      value:
+      - group: agent
+        name: require_tls
+        value: "false"

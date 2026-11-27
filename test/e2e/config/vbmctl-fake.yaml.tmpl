@@ -1,0 +1,35 @@
+# vbmctl lab for the scalability tests with fake hardware (BMC_PROTOCOL=fake).
+# There are no VMs: sushy-tools serves fake Redfish systems and fake-IPA plays
+# the agent, see hack/ci-e2e.sh.
+apiVersion: vbmctl.metal3.io/v1alpha1
+kind: Config
+spec:
+  libvirt:
+    uri: qemu:///system
+  pool:
+    name: baremetal-e2e
+    path: /tmp/pool_oo
+  networks:
+  - name: baremetal-e2e
+    bridge: metal3
+    address: 192.168.222.1
+    netmask: 24
+  vethPairs:
+  - link1: metal3
+    link2: kind-bridge
+    veth1: metalend
+    veth2: kindend
+  dockerNetworks:
+  - name: "kind"
+    bridgeName: "kind-bridge"
+    subnet: "fc00:f853:ccd:e793::/64"
+    driverMtu: 1500
+    ipv6: true
+  bmcEmulator:
+    type: "sushy-tools"
+    image: "${BMO_E2E_IMAGE}"
+    configFile: "${SUSHY_FAKE_CONFIG}"
+  imageServer:
+    port: 80
+    dataDir: "${IMAGE_DIR}"
+    containerName: "vbmctl-image-server-e2e"

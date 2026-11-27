@@ -107,6 +107,14 @@ script runs it as `redfish`, but it can also be set to `redfish-virtualmedia`,
 `redfish`, or `ipmi`. Ipmi uses `vbmc` as the BMO e2e emulator, whereas the
 others use `sushy-tools`.
 
+## Scalability tests
+
+The specs labeled `scalability` create many BareMetalHosts at once and measure
+how long enrollment and provisioning take. They run with the fixture provisioner
+as part of the whole suite, or with Ironic and fake hardware using
+`BMC_PROTOCOL=fake ./hack/ci-e2e.sh`. See
+[docs/e2e-scalability.md](../../docs/e2e-scalability.md) for details.
+
 After the tests are run, please ensure proper cleanup before running them again.
 The due process for ensuring all is clean for the next run is (in the
 root directory):

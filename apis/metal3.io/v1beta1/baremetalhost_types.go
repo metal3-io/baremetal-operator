@@ -448,7 +448,6 @@ type RAIDConfig struct {
 	// hardwareRAIDVolumes is the list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// You can set the value of this field to `[]` to clear all the hardware RAID configurations.
 	// +optional
-	// +nullable
 	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"`
 
 	// softwareRAIDVolumes is the list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
@@ -461,7 +460,6 @@ type RAIDConfig struct {
 	// Software RAID will always be deleted.
 	// +kubebuilder:validation:MaxItems=2
 	// +optional
-	// +nullable
 	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"`
 }
 
@@ -796,10 +794,8 @@ func (cs CredentialsStatus) Match(secret corev1.Secret) bool {
 // provisioning, etc.) used for tracking metrics.
 type OperationMetric struct {
 	// start is the time the operation started.
-	// +nullable
 	Start metav1.Time `json:"start,omitempty"`
 	// end is the time the operation ended.
-	// +nullable
 	End metav1.Time `json:"end,omitempty"`
 }
 

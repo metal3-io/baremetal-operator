@@ -2063,7 +2063,6 @@ spec:
                       required:
                       - level
                       type: object
-                    nullable: true
                     type: array
                   softwareRAIDVolumes:
                     description: |-
@@ -2165,7 +2164,6 @@ spec:
                       - level
                       type: object
                     maxItems: 2
-                    nullable: true
                     type: array
                 type: object
               rootDeviceHints:
@@ -2519,12 +2517,10 @@ spec:
                       end:
                         description: end is the time the operation ended.
                         format: date-time
-                        nullable: true
                         type: string
                       start:
                         description: start is the time the operation started.
                         format: date-time
-                        nullable: true
                         type: string
                     type: object
                   inspect:
@@ -2533,12 +2529,10 @@ spec:
                       end:
                         description: end is the time the operation ended.
                         format: date-time
-                        nullable: true
                         type: string
                       start:
                         description: start is the time the operation started.
                         format: date-time
-                        nullable: true
                         type: string
                     type: object
                   provision:
@@ -2547,12 +2541,10 @@ spec:
                       end:
                         description: end is the time the operation ended.
                         format: date-time
-                        nullable: true
                         type: string
                       start:
                         description: start is the time the operation started.
                         format: date-time
-                        nullable: true
                         type: string
                     type: object
                   register:
@@ -2561,12 +2553,10 @@ spec:
                       end:
                         description: end is the time the operation ended.
                         format: date-time
-                        nullable: true
                         type: string
                       start:
                         description: start is the time the operation started.
                         format: date-time
-                        nullable: true
                         type: string
                     type: object
                 type: object
@@ -2726,7 +2716,6 @@ spec:
                           required:
                           - level
                           type: object
-                        nullable: true
                         type: array
                       softwareRAIDVolumes:
                         description: |-
@@ -2829,7 +2818,6 @@ spec:
                           - level
                           type: object
                         maxItems: 2
-                        nullable: true
                         type: array
                     type: object
                   rootDeviceHints:

@@ -429,6 +429,7 @@ func (hsm *hostStateMachine) handleInspecting(ctx context.Context, info *reconci
 	if _, complete := actResult.(actionComplete); complete {
 		hsm.NextState = metal3api.StatePreparing
 		hsm.Host.Status.ErrorCount = 0
+		hsm.Host.Status.InspectionFailCount = 0
 	}
 	return actResult
 }
@@ -477,6 +478,7 @@ func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcil
 	}
 
 	if inspectionRefreshRequested(hsm.Host) {
+		hsm.Host.Status.InspectionFailCount = 0
 		hsm.NextState = metal3api.StateInspecting
 		return actionComplete{}
 	}

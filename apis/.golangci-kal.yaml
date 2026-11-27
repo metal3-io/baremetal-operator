@@ -34,6 +34,7 @@ linters:
             - nodurations
             - nomaps
             - nophase
+            - noreferences
             - notimestamp
             - requiredfields
             - statussubresource

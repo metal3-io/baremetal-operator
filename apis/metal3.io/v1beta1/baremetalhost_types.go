@@ -417,6 +417,7 @@ type HardwareRAIDVolume struct {
 
 	// physicalDisks is an optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
 	// by the hardware RAID controller, and the format is hardware specific.
+	// +listType=atomic
 	PhysicalDisks []string `json:"physicalDisks,omitempty"`
 }
 
@@ -440,6 +441,7 @@ type SoftwareRAIDVolume struct {
 
 	// physicalDisks is a list of device hints, the number of items should be greater than or equal to 2.
 	// +kubebuilder:validation:MinItems=2
+	// +listType=atomic
 	PhysicalDisks []RootDeviceHints `json:"physicalDisks,omitempty"`
 }
 
@@ -449,6 +451,7 @@ type RAIDConfig struct {
 	// You can set the value of this field to `[]` to clear all the hardware RAID configurations.
 	// +optional
 	// +nullable
+	// +listType=atomic
 	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"`
 
 	// softwareRAIDVolumes is the list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
@@ -462,6 +465,7 @@ type RAIDConfig struct {
 	// +kubebuilder:validation:MaxItems=2
 	// +optional
 	// +nullable
+	// +listType=atomic
 	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"`
 }
 
@@ -488,6 +492,7 @@ type SwitchPortConfig struct {
 	NativeVLAN int32 `json:"nativeVLAN"`
 	// allowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
 	// +optional
+	// +listType=atomic
 	AllowedVLANs []int32 `json:"allowedVLANs,omitempty"`
 	// mtu is the maximum transmission unit size
 	// +optional
@@ -564,6 +569,9 @@ type BareMetalHostSpec struct {
 	//
 	// Deprecated: the Taints field was never actually implemented.
 	// +optional
+	// +listType=map
+	// +listMapKey=key
+	// +listMapKey=effect
 	Taints []corev1.Taint `json:"taints,omitempty"`
 
 	// bmc defines how to connect to the BMC (Baseboard Management Controller) on
@@ -689,6 +697,7 @@ type BareMetalHostSpec struct {
 	// (see HardwareData resource).  They are referenced by either the name
 	// or MAC address of the NIC.
 	// +optional
+	// +listType=atomic
 	NetworkInterfaces []NetworkInterface `json:"networkInterfaces,omitempty"`
 }
 
@@ -946,6 +955,7 @@ type BareMetalHostStatus struct {
 	// VLAN/MTU/mode values (not HNA references) so that drift detection
 	// can identify changes to HostNetworkAttachment specs or deletions.
 	// +optional
+	// +listType=atomic
 	AppliedNetworkAttachmentConfigs []AppliedNetworkAttachmentConfig `json:"appliedNetworkAttachmentConfigs,omitempty"`
 }
 

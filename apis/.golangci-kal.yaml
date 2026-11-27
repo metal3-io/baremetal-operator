@@ -27,7 +27,6 @@ linters:
             - conditions
             - defaultorrequired
             - defaults
-
             - duplicatemarkers
             - integers
             - jsontags
@@ -36,6 +35,7 @@ linters:
             - nophase
             - notimestamp
             - requiredfields
+            - ssatags
             - statussubresource
             - uniquemarkers
           lintersConfig:

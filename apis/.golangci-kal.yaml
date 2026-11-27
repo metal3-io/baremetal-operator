@@ -27,10 +27,10 @@ linters:
             - conditions
             - defaultorrequired
             - defaults
-
             - duplicatemarkers
             - integers
             - jsontags
+            - nobools
             - nodurations
             - nomaps
             - nophase
@@ -43,6 +43,70 @@ linters:
               isFirstField: Warn # Require conditions to be the first field in the status struct.
               usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.
               useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
+
+    # nobools is enabled to prevent usage of these patterns in new code,
+    # but there are some existing fields that use these patterns and we will ignore for now.
+  exclusions:
+    rules:
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field RootDeviceHints.Rotational"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field BMCDetails.DisableCertificateVerification"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field HardwareRAIDVolume.Rotational"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field SoftwareRAIDVolume.RootVolume"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field BareMetalHostSpec.PoweredOn"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field BareMetalHostSpec.ExternallyProvisioned"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field BareMetalHostSpec.DisablePowerOff"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field RebootAnnotationArguments.Force"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field DetachedAnnotationArguments.Force"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/baremetalhost_types.go"
+      text: "nobools: field BareMetalHostStatus.PoweredOn"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/hardwaredata_types.go"
+      text: "nobools: field Storage.Rotational"
+      linters:
+      - kubeapilinter
+
+    - path: "metal3.io/v1beta1/hardwaredata_types.go"
+      text: "nobools: field NIC.PXE"
+      linters:
+      - kubeapilinter
 
 issues:
   uniq-by-line: false

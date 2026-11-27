@@ -35,6 +35,7 @@ linters:
             - nomaps
             - nophase
             - notimestamp
+            - optionalorrequired # Every field should be marked as `+optional` or `+required`.
             - requiredfields
             - statussubresource
             - uniquemarkers
@@ -43,6 +44,13 @@ linters:
               isFirstField: Warn # Require conditions to be the first field in the status struct.
               usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.
               useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
+  exclusions:
+    rules:
+    # Annotation value payloads, not CRD fields.
+    - path: metal3.io/v1beta1/baremetalhost_types.go
+      linters:
+      - kubeapilinter
+      text: "field \\w+AnnotationArguments\\."
 
 issues:
   uniq-by-line: false

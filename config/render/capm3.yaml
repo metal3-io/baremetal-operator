@@ -1727,9 +1727,6 @@ spec:
                       insecure because it allows a man-in-the-middle to intercept the
                       connection.
                     type: boolean
-                required:
-                - address
-                - credentialsName
                 type: object
               bootMACAddress:
                 description: |-
@@ -1797,6 +1794,7 @@ spec:
                       method is the custom deploy method name.
                       This name is specific to the deploy ramdisk used. If you don't have
                       a custom deploy ramdisk, you shouldn't use CustomDeploy.
+                    minLength: 1
                     type: string
                 required:
                 - method
@@ -1868,6 +1866,7 @@ spec:
                     type: string
                   url:
                     description: url is a location of an image to deploy.
+                    minLength: 1
                     type: string
                 required:
                 - url
@@ -1952,10 +1951,13 @@ spec:
                           description: |-
                             portID is expected to be the configuration name of the port in the
                             switch management system.
+                          minLength: 1
                           type: string
                         switchID:
                           description: switchID is expected to be the management MAC
                             address of the switch
+                          maxLength: 17
+                          minLength: 17
                           pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                           type: string
                         switchSystemName:
@@ -2281,10 +2283,13 @@ spec:
                         macAddress is the resolved MAC address of the interface when the
                         configuration was applied. It identifies the port during recovery even
                         if later inspection reports a different interface name.
+                      maxLength: 17
+                      minLength: 17
                       pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                       type: string
                     name:
                       description: name is the network interface name (e.g., "eno1np0")
+                      minLength: 1
                       type: string
                     switchPort:
                       description: |-
@@ -2295,10 +2300,13 @@ spec:
                           description: |-
                             portID is expected to be the configuration name of the port in the
                             switch management system.
+                          minLength: 1
                           type: string
                         switchID:
                           description: switchID is expected to be the management MAC
                             address of the switch
+                          maxLength: 17
+                          minLength: 17
                           pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                           type: string
                         switchSystemName:
@@ -2334,6 +2342,8 @@ spec:
                         nativeVLAN:
                           description: nativeVLAN is the native/untagged VLAN ID
                           format: int32
+                          maximum: 4094
+                          minimum: 1
                           type: integer
                       required:
                       - mode
@@ -2497,6 +2507,7 @@ spec:
                     type: string
                   url:
                     description: url is a location of an image to deploy.
+                    minLength: 1
                     type: string
                 required:
                 - url
@@ -2605,6 +2616,7 @@ spec:
                           method is the custom deploy method name.
                           This name is specific to the deploy ramdisk used. If you don't have
                           a custom deploy ramdisk, you shouldn't use CustomDeploy.
+                        minLength: 1
                         type: string
                     required:
                     - method
@@ -2656,6 +2668,7 @@ spec:
                         type: string
                       url:
                         description: url is a location of an image to deploy.
+                        minLength: 1
                         type: string
                     required:
                     - url
@@ -2894,9 +2907,6 @@ spec:
                     description: state is an indicator for what the provisioner is
                       doing with the host.
                     type: string
-                required:
-                - id
-                - state
                 type: object
               provisioningFailCount:
                 default: 0
@@ -2930,11 +2940,6 @@ spec:
                       credentials secret.
                     type: string
                 type: object
-            required:
-            - errorMessage
-            - operationalStatus
-            - poweredOn
-            - provisioning
             type: object
         type: object
     served: true

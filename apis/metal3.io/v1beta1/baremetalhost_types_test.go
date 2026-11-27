@@ -24,7 +24,7 @@ func TestHostNeedsProvisioning(t *testing.T) {
 					Namespace: "myns",
 				},
 				Spec: BareMetalHostSpec{
-					PoweredOn: true,
+					PoweredOn: ptr.To(true),
 				},
 			},
 			Expected: false,
@@ -39,7 +39,7 @@ func TestHostNeedsProvisioning(t *testing.T) {
 				},
 				Spec: BareMetalHostSpec{
 					Image:     &Image{},
-					PoweredOn: true,
+					PoweredOn: ptr.To(true),
 				},
 			},
 			Expected: false,
@@ -56,7 +56,7 @@ func TestHostNeedsProvisioning(t *testing.T) {
 					Image: &Image{
 						URL: "not-empty",
 					},
-					PoweredOn: true,
+					PoweredOn: ptr.To(true),
 				},
 			},
 			Expected: true,
@@ -73,7 +73,7 @@ func TestHostNeedsProvisioning(t *testing.T) {
 					Image: &Image{
 						URL: "not-empty",
 					},
-					PoweredOn: false,
+					PoweredOn: ptr.To(false),
 				},
 			},
 			Expected: false,
@@ -90,7 +90,7 @@ func TestHostNeedsProvisioning(t *testing.T) {
 					Image: &Image{
 						URL: "not-empty",
 					},
-					PoweredOn: true,
+					PoweredOn: ptr.To(true),
 				},
 				Status: BareMetalHostStatus{
 					Provisioning: ProvisionStatus{
@@ -115,7 +115,7 @@ func TestHostNeedsProvisioning(t *testing.T) {
 					Image: &Image{
 						URL: "not-empty",
 					},
-					PoweredOn: true,
+					PoweredOn: ptr.To(true),
 				},
 				Status: BareMetalHostStatus{
 					Provisioning: ProvisionStatus{

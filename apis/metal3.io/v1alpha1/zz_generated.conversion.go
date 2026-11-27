@@ -342,6 +342,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.ObjectReference)(nil), (*v1beta1.ConsumerReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ObjectReference_To_v1beta1_ConsumerReference(a.(*v1.ObjectReference), b.(*v1beta1.ConsumerReference), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*BareMetalHostSpec)(nil), (*v1beta1.BareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(a.(*BareMetalHostSpec), b.(*v1beta1.BareMetalHostSpec), scope)
 	}); err != nil {
@@ -379,6 +384,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1beta1.CPU)(nil), (*CPU)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_CPU_To_v1alpha1_CPU(a.(*v1beta1.CPU), b.(*CPU), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta1.ConsumerReference)(nil), (*v1.ObjectReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ConsumerReference_To_v1_ObjectReference(a.(*v1beta1.ConsumerReference), b.(*v1.ObjectReference), scope)
 	}); err != nil {
 		return err
 	}
@@ -582,7 +592,15 @@ func autoConvert_v1alpha1_BareMetalHostSpec_To_v1beta1_BareMetalHostSpec(in *Bar
 	out.BootMode = v1beta1.BootMode(in.BootMode)
 	out.BootMACAddress = in.BootMACAddress
 	// WARNING: in.Online requires manual conversion: does not exist in peer-type
-	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
+	if in.ConsumerRef != nil {
+		in, out := &in.ConsumerRef, &out.ConsumerRef
+		*out = new(v1beta1.ConsumerReference)
+		if err := Convert_v1_ObjectReference_To_v1beta1_ConsumerReference(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ConsumerRef = nil
+	}
 	if in.Image != nil {
 		in, out := &in.Image, &out.Image
 		*out = new(v1beta1.Image)
@@ -633,7 +651,15 @@ func autoConvert_v1beta1_BareMetalHostSpec_To_v1alpha1_BareMetalHostSpec(in *v1b
 	out.BootMode = BootMode(in.BootMode)
 	out.BootMACAddress = in.BootMACAddress
 	// WARNING: in.PoweredOn requires manual conversion: does not exist in peer-type
-	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
+	if in.ConsumerRef != nil {
+		in, out := &in.ConsumerRef, &out.ConsumerRef
+		*out = new(v1.ObjectReference)
+		if err := Convert_v1beta1_ConsumerReference_To_v1_ObjectReference(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ConsumerRef = nil
+	}
 	if in.Image != nil {
 		in, out := &in.Image, &out.Image
 		*out = new(Image)

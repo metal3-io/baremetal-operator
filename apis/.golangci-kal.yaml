@@ -23,6 +23,7 @@ linters:
             disable:
             - "*"
             enable:
+            - commentstart
             - conditions
             - defaultorrequired
             - defaults

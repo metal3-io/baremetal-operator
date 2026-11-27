@@ -292,218 +292,240 @@ spec:
           metadata:
             type: object
           spec:
-            description: HardwareDataSpec defines the desired state of HardwareData.
+            description: spec holds the hardware data discovered on the host.
             properties:
               hardware:
-                description: The hardware discovered on the host during its inspection.
+                description: hardware is the hardware discovered on the host during
+                  its inspection.
                 properties:
                   accelerators:
-                    description: List of accelerators discovered on the host.
+                    description: accelerators is the list of accelerators discovered
+                      on the host.
                     items:
                       description: |-
                         Accelerator describes an accelerator device (e.g. a GPU) discovered on
                         the host via PCI device inspection.
                       properties:
                         deviceID:
-                          description: The PCI device ID of the device, e.g. "1234".
+                          description: deviceID is the PCI device ID of the device,
+                            e.g. "1234".
                           type: string
                         deviceInfo:
-                          description: A human readable description of the device.
+                          description: deviceInfo is a human readable description
+                            of the device.
                           type: string
                         pciAddress:
-                          description: The PCI address of the device, e.g. "0000:3b:00.0".
+                          description: pciAddress is the PCI address of the device,
+                            e.g. "0000:3b:00.0".
                           type: string
                         type:
-                          description: The type of the accelerator device, e.g. "GPU".
+                          description: type is the type of the accelerator device,
+                            e.g. "GPU".
                           type: string
                         vendorID:
-                          description: The PCI vendor ID of the device, e.g. "abcd".
+                          description: vendorID is the PCI vendor ID of the device,
+                            e.g. "abcd".
                           type: string
                       type: object
                     type: array
                   cpu:
-                    description: Details of the CPU(s) in the system.
+                    description: cpu holds details of the CPU(s) in the system.
                     properties:
                       arch:
+                        description: arch is the CPU architecture, e.g. "x86_64".
                         type: string
                       clockMegahertz:
-                        description: ClockSpeed is a clock speed in MHz
+                        description: clockMegahertz is the CPU clock speed in megahertz.
                         format: double
                         type: number
                       flags:
+                        description: flags is the list of CPU flags.
                         items:
                           type: string
                         type: array
                       model:
+                        description: model is the CPU model name.
                         type: string
                       threadCount:
+                        description: threadCount is the number of CPU threads.
                         type: integer
                     type: object
                   firmware:
-                    description: System firmware information.
+                    description: firmware holds system firmware information.
                     properties:
                       bios:
-                        description: The BIOS for this firmware
+                        description: bios is the BIOS for this firmware
                         properties:
                           date:
-                            description: The release/build date for this BIOS
+                            description: date is the release/build date for this BIOS
                             type: string
                           vendor:
-                            description: The vendor name for this BIOS
+                            description: vendor is the vendor name for this BIOS
                             type: string
                           version:
-                            description: The version of the BIOS
+                            description: version is the version of the BIOS
                             type: string
                         type: object
                     type: object
                   hostname:
-                    description: Name of the host at the inspection time.
+                    description: hostname is the name of the host at the inspection
+                      time.
                     type: string
                   nics:
-                    description: List of network interfaces for the host.
+                    description: nics is the list of network interfaces for the host.
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
                         infinibandClientID:
                           description: |-
-                            The InfiniBand client ID of the interface, as discovered by Ironic.
+                            infinibandClientID is the InfiniBand client ID of the interface, as discovered by Ironic.
                             Only set for InfiniBand interfaces.
                           type: string
                         ip:
                           description: |-
-                            The IP address of the interface. This will be an IPv4 or IPv6 address
+                            ip is the IP address of the interface. This will be an IPv4 or IPv6 address
                             if one is present.  If both IPv4 and IPv6 addresses are present in a
                             dual-stack environment, two nics will be output, one with each IP.
                           type: string
                         lldp:
-                          description: LLDP data for this interface
+                          description: lldp data for this interface
                           properties:
                             portID:
-                              description: The switch port ID from LLDP
+                              description: portID is the switch port ID from LLDP
                               type: string
                             switchID:
-                              description: The switch chassis ID from LLDP
+                              description: switchID is the switch chassis ID from
+                                LLDP
                               type: string
                             switchSystemName:
-                              description: The switch system name from LLDP
+                              description: switchSystemName is the switch system name
+                                from LLDP
                               type: string
                           type: object
                         mac:
-                          description: The device MAC address
+                          description: mac is the device MAC address.
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
                         model:
-                          description: The vendor and product IDs of the NIC, e.g.
-                            "0x8086 0x1572"
+                          description: model is the vendor and product IDs of the
+                            NIC, e.g. "0x8086 0x1572"
                           type: string
                         name:
-                          description: The name of the network interface, e.g. "en0"
+                          description: name is the name of the network interface,
+                            e.g. "en0"
                           type: string
                         pciAddress:
-                          description: The NIC PCI address
+                          description: pciAddress is the NIC PCI address
                           type: string
                         pxe:
-                          description: Whether the NIC is PXE Bootable
+                          description: pxe indicates whether the NIC is PXE bootable.
                           type: boolean
                         speedGbps:
-                          description: The speed of the device in Gigabits per second
+                          description: speedGbps is the speed of the device in Gigabits
+                            per second
                           type: integer
                         vlanId:
-                          description: The untagged VLAN ID
+                          description: vlanId is the untagged VLAN ID
                           format: int32
                           maximum: 4094
                           minimum: 0
                           type: integer
                         vlans:
-                          description: The VLANs available
+                          description: vlans is the list of available VLANs.
                           items:
                             description: VLAN represents the name and ID of a VLAN.
                             properties:
                               id:
-                                description: VLANID is a 12-bit 802.1Q VLAN identifier
+                                description: id is the VLAN ID.
                                 format: int32
                                 maximum: 4094
                                 minimum: 0
                                 type: integer
                               name:
+                                description: name is the VLAN name.
                                 type: string
                             type: object
                           type: array
                       type: object
                     type: array
                   ramMebibytes:
-                    description: The host's amount of memory in Mebibytes.
+                    description: ramMebibytes is the host's amount of memory in Mebibytes.
                     type: integer
                   storage:
-                    description: List of storage (disk, SSD, etc.) available to the
-                      host.
+                    description: storage is the list of storage (disk, SSD, etc.)
+                      available to the host.
                     items:
                       description: Storage describes one storage device (disk, SSD,
                         etc.) on the host.
                       properties:
                         alternateNames:
                           description: |-
-                            A list of alternate Linux device names of the disk, e.g. "/dev/sda".
+                            alternateNames is a list of alternate Linux device names of the disk, e.g. "/dev/sda".
                             Note that this list is not exhaustive, and names may not be stable
                             across reboots.
                           items:
                             type: string
                           type: array
                         hctl:
-                          description: The SCSI location of the device
+                          description: hctl is the SCSI location of the device
                           type: string
                         model:
-                          description: Hardware model
+                          description: model is the hardware model of the device.
                           type: string
                         name:
                           description: |-
-                            A Linux device name of the disk, e.g.
+                            name is a Linux device name of the disk, e.g.
                             "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
                             that is stable across reboots if one is available.
                           type: string
                         rotational:
                           description: |-
-                            Whether this disk represents rotational storage.
+                            rotational indicates whether this disk represents rotational storage.
                             This field is not recommended for usage, please
                             prefer using 'Type' field instead, this field
                             will be deprecated eventually.
                           type: boolean
                         serialNumber:
-                          description: The serial number of the device
+                          description: serialNumber is the serial number of the device
                           type: string
                         sizeBytes:
-                          description: The size of the disk in Bytes
+                          description: sizeBytes is the size of the disk in Bytes
                           format: int64
                           type: integer
                         type:
-                          description: 'Device type, one of: HDD, SSD, NVME.'
+                          description: 'type is the device type, one of: HDD, SSD,
+                            NVME.'
                           enum:
                           - HDD
                           - SSD
                           - NVME
                           type: string
                         vendor:
-                          description: The name of the vendor of the device
+                          description: vendor is the name of the vendor of the device
                           type: string
                         wwn:
-                          description: The WWN of the device
+                          description: wwn is the WWN of the device
                           type: string
                         wwnVendorExtension:
-                          description: The WWN Vendor extension of the device
+                          description: wwnVendorExtension is the WWN Vendor extension
+                            of the device
                           type: string
                         wwnWithExtension:
-                          description: The WWN with the extension
+                          description: wwnWithExtension is the WWN with the extension
                           type: string
                       type: object
                     type: array
                   systemVendor:
-                    description: System vendor information.
+                    description: systemVendor holds system vendor information.
                     properties:
                       manufacturer:
+                        description: manufacturer is the system manufacturer.
                         type: string
                       productName:
+                        description: productName is the system product name.
                         type: string
                       serialNumber:
+                        description: serialNumber is the system serial number.
                         type: string
                     type: object
                 type: object

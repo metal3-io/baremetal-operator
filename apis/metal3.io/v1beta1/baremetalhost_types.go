@@ -97,44 +97,44 @@ const (
 // RootDeviceHints holds the hints for specifying the storage location
 // for the root filesystem for the image.
 type RootDeviceHints struct {
-	// A Linux device path like "/dev/vda", or a by-path link to it like
+	// devicePath is a Linux device path like "/dev/vda", or a by-path link to it like
 	// "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
 	// the actual value exactly.
 	DevicePath string `json:"devicePath,omitempty"`
 
-	// A SCSI bus address like 0:0:0:0. The hint must match the actual
+	// hctl is a SCSI bus address like 0:0:0:0. The hint must match the actual
 	// value exactly.
 	HCTL string `json:"hctl,omitempty"`
 
-	// A vendor-specific device identifier. The hint matches when it is a
+	// modelContains is a vendor-specific device identifier. The hint matches when it is a
 	// substring of the actual value.
 	ModelContains string `json:"modelContains,omitempty"`
 
-	// The name of the vendor or manufacturer of the device. The hint
+	// vendorContains is the name of the vendor or manufacturer of the device. The hint
 	// matches when it is a substring of the actual value.
 	VendorContains string `json:"vendorContains,omitempty"`
 
-	// Device serial number. The hint must match the actual value
+	// serialNumber is the device serial number. The hint must match the actual value
 	// exactly.
 	SerialNumber string `json:"serialNumber,omitempty"`
 
-	// The minimum size of the device in Gigabytes.
+	// minSizeGigabytes is the minimum size of the device in Gigabytes.
 	// +kubebuilder:validation:Minimum=0
 	MinSizeGigabytes int `json:"minSizeGigabytes,omitempty"`
 
-	// Unique storage identifier. The hint must match the actual value
+	// wwn is the unique storage identifier. The hint must match the actual value
 	// exactly.
 	WWN string `json:"wwn,omitempty"`
 
-	// Unique storage identifier with the vendor extension
+	// wwnWithExtension is the unique storage identifier with the vendor extension
 	// appended. The hint must match the actual value exactly.
 	WWNWithExtension string `json:"wwnWithExtension,omitempty"`
 
-	// Unique vendor storage identifier. The hint must match the
+	// wwnVendorExtension is the unique vendor storage identifier. The hint must match the
 	// actual value exactly.
 	WWNVendorExtension string `json:"wwnVendorExtension,omitempty"`
 
-	// True if the device should use spinning media, false otherwise.
+	// rotational is true if the device should use spinning media, false otherwise.
 	Rotational *bool `json:"rotational,omitempty"`
 }
 
@@ -368,15 +368,15 @@ const (
 // the bare metal controller module on host.
 type BMCDetails struct {
 
-	// Address holds the URL for accessing the controller on the network.
+	// address holds the URL for accessing the controller on the network.
 	// The scheme part designates the driver to use with the host.
 	Address string `json:"address"`
 
-	// The name of the secret containing the BMC credentials (requires
+	// credentialsName is the name of the secret containing the BMC credentials (requires
 	// keys "username" and "password").
 	CredentialsName string `json:"credentialsName"`
 
-	// DisableCertificateVerification disables verification of server
+	// disableCertificateVerification disables verification of server
 	// certificates when using HTTPS to connect to the BMC. This is
 	// required when the server certificate is self-signed, but is
 	// insecure because it allows a man-in-the-middle to intercept the
@@ -386,72 +386,72 @@ type BMCDetails struct {
 
 // HardwareRAIDVolume defines the desired configuration of volume in hardware RAID.
 type HardwareRAIDVolume struct {
-	// Size of the logical disk to be created in GiB. If unspecified or
+	// sizeGibibytes is the size of the logical disk to be created in GiB. If unspecified or
 	// set be 0, the maximum capacity of disk will be used for logical
 	// disk.
 	// +kubebuilder:validation:Minimum=0
 	SizeGibibytes *int `json:"sizeGibibytes,omitempty"`
 
-	// RAID level for the logical disk. The following levels are supported:
+	// level is the RAID level for the logical disk. The following levels are supported:
 	// 0, 1, 2, 5, 6, 1+0, 5+0, 6+0 (drivers may support only some of them).
 	// +kubebuilder:validation:Enum="0";"1";"2";"5";"6";"1+0";"5+0";"6+0"
 	Level string `json:"level" required:"true"`
 
-	// Name of the volume. Should be unique within the Node. If not
+	// name of the volume. Should be unique within the Node. If not
 	// specified, the name will be auto-generated.
 	// +kubebuilder:validation:MaxLength=64
 	Name string `json:"name,omitempty"`
 
-	// Select disks with only rotational (if set to true) or solid-state
+	// rotational selects disks with only rotational (if set to true) or solid-state
 	// (if set to false) storage. By default, any disks can be picked.
 	Rotational *bool `json:"rotational,omitempty"`
 
-	// Integer, number of physical disks to use for the logical disk.
+	// numberOfPhysicalDisks is the number of physical disks to use for the logical disk.
 	// Defaults to minimum number of disks required for the particular RAID
 	// level.
 	// +kubebuilder:validation:Minimum=1
 	NumberOfPhysicalDisks *int `json:"numberOfPhysicalDisks,omitempty"`
 
-	// The name of the RAID controller to use.
+	// controller is the name of the RAID controller to use.
 	Controller string `json:"controller,omitempty"`
 
-	// Optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
+	// physicalDisks is an optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
 	// by the hardware RAID controller, and the format is hardware specific.
 	PhysicalDisks []string `json:"physicalDisks,omitempty"`
 }
 
 // SoftwareRAIDVolume defines the desired configuration of volume in software RAID.
 type SoftwareRAIDVolume struct {
-	// Setting this to true, causes installer to consider this volume as root device for installation.
+	// rootVolume set to true causes the installer to consider this volume as the root device for installation.
 	// This can only be set for one of the volumes.
 	// +optional
 	// +default=false
 	RootVolume bool `json:"rootVolume,omitempty"`
 
-	// Size of the logical disk to be created in GiB.
+	// sizeGibibytes is the size of the logical disk to be created in GiB.
 	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
 	// +kubebuilder:validation:Minimum=0
 	SizeGibibytes *int `json:"sizeGibibytes,omitempty"`
 
-	// RAID level for the logical disk. The following levels are supported:
+	// level is the RAID level for the logical disk. The following levels are supported:
 	// 0, 1 and 1+0.
 	// +kubebuilder:validation:Enum="0";"1";"1+0"
 	Level string `json:"level" required:"true"`
 
-	// A list of device hints, the number of items should be greater than or equal to 2.
+	// physicalDisks is a list of device hints, the number of items should be greater than or equal to 2.
 	// +kubebuilder:validation:MinItems=2
 	PhysicalDisks []RootDeviceHints `json:"physicalDisks,omitempty"`
 }
 
 // RAIDConfig contains the configuration that are required to config RAID in Bare Metal server.
 type RAIDConfig struct {
-	// The list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
+	// hardwareRAIDVolumes is the list of logical disks for hardware RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// You can set the value of this field to `[]` to clear all the hardware RAID configurations.
 	// +optional
 	// +nullable
 	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"`
 
-	// The list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
+	// softwareRAIDVolumes is the list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// If HardwareRAIDVolumes is set this item will be invalid.
 	// The number of created Software RAID devices must be 1 or 2.
 	// If there is only one Software RAID device, it has to be a RAID-1.
@@ -467,36 +467,36 @@ type RAIDConfig struct {
 
 // SwitchPortIdentifier defines the attributes required to identify a switch port.
 type SwitchPortIdentifier struct {
-	// SwitchID is expected to be the management MAC address of the switch
+	// switchID is expected to be the management MAC address of the switch
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
 	SwitchID string `json:"switchID"`
 
-	// PortID is expected to be the configuration name of the port in the
+	// portID is expected to be the configuration name of the port in the
 	// switch management system.
 	PortID string `json:"portID"`
 
-	// SwitchSystemName is expected to be the common name for the switch
+	// switchSystemName is expected to be the common name for the switch
 	SwitchSystemName string `json:"switchSystemName,omitempty"`
 }
 
 // SwitchPortConfig represents the switchport configuration for individual
 // node ports.
 type SwitchPortConfig struct {
-	// Mode is the switch port mode (access or trunk)
+	// mode is the switch port mode (access or trunk)
 	Mode SwitchPortMode `json:"mode"`
-	// NativeVLAN is the native/untagged VLAN ID
+	// nativeVLAN is the native/untagged VLAN ID
 	NativeVLAN int `json:"nativeVLAN"`
-	// AllowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
+	// allowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
 	// +optional
 	AllowedVLANs []int `json:"allowedVLANs,omitempty"`
-	// MTU is the maximum transmission unit size
+	// mtu is the maximum transmission unit size
 	// +optional
 	MTU *int `json:"mtu,omitempty"`
 }
 
 // NetworkInterface defines the network configuration for a specific interface.
 type NetworkInterface struct {
-	// Name of the network interface (e.g., "eth0", "ens1f0")
+	// name of the network interface (e.g., "eth0", "ens1f0")
 	// This must match the name of a NIC discovered during inspection
 	// (see HardwareData resource).
 	// Mutually exclusive with MACAddress.
@@ -504,17 +504,17 @@ type NetworkInterface struct {
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._-]+$`
 	Name string `json:"name,omitempty"`
 
-	// MAC address of the network interface.  This must match the MAC address
+	// macAddress is the MAC address of the network interface. This must match the MAC address
 	// of a NIC discovered during inspection (see HardwareData resource).
 	// Mutually exclusive with Name.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
 	MACAddress string `json:"macAddress,omitempty"`
 
-	// HostNetworkAttachment references the HostNetworkAttachment for this interface
+	// hostNetworkAttachment references the HostNetworkAttachment for this interface
 	HostNetworkAttachment HostNetworkAttachmentRef `json:"hostNetworkAttachment"`
 
-	// SwitchPort defines the switch port on which this interface is attached.
+	// switchPort defines the switch port on which this interface is attached.
 	// This is intended to be a replacement for LLDP information if
 	// LLDP is not enabled on the neighboring switches or if inspection is not
 	// used on the BMH.  If LLDP information is acquired during inspection and
@@ -527,83 +527,83 @@ type NetworkInterface struct {
 
 // BareMetalHostSpec defines the desired state of BareMetalHost.
 type BareMetalHostSpec struct {
-	// Taints is the full, authoritative list of taints to apply to
+	// taints is the full, authoritative list of taints to apply to
 	// the corresponding Machine.
 	//
 	// Deprecated: the Taints field was never actually implemented.
 	// +optional
 	Taints []corev1.Taint `json:"taints,omitempty"`
 
-	// How do we connect to the BMC (Baseboard Management Controller) on
+	// bmc defines how to connect to the BMC (Baseboard Management Controller) on
 	// the host?
 	BMC BMCDetails `json:"bmc,omitempty"`
 
-	// RAID configuration for bare metal server. If set, the RAID settings
+	// raid configuration for bare metal server. If set, the RAID settings
 	// will be applied before the host is provisioned. If not, the current
 	// settings will not be modified. Only one of the sub-fields
 	// hardwareRAIDVolumes and softwareRAIDVolumes can be set at the same
 	// time.
 	RAID *RAIDConfig `json:"raid,omitempty"`
 
-	// Provide guidance about how to choose the device for the image
+	// rootDeviceHints provides guidance about how to choose the device for the image
 	// being provisioned. By default the first detected disk that is large
 	// enough to store the disk image is used.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// Select the method of initializing the hardware during boot.
+	// bootMode selects the method of initializing the hardware during boot.
 	// Defaults to UEFI. Legacy boot should only be used for hardware that
 	// does not support UEFI correctly. Set to UEFISecureBoot to turn
 	// secure boot on automatically after provisioning.
 	// +optional
 	BootMode BootMode `json:"bootMode,omitempty"`
 
-	// The MAC address of the NIC used for provisioning the host. In case
+	// bootMACAddress is the MAC address of the NIC used for provisioning the host. In case
 	// of network boot, this is the MAC address of the PXE booting
 	// interface. The MAC address of the BMC must never be used here!
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	BootMACAddress string `json:"bootMACAddress,omitempty"`
 
-	// Should the host be powered on? If the host is currently in a stable
+	// poweredOn indicates whether the host should be powered on. If the host is currently in a stable
 	// state (e.g. provisioned), its power state will be forced to match
 	// this value.
 	PoweredOn bool `json:"poweredOn"`
 
-	// ConsumerRef can be used to store information about something
+	// consumerRef can be used to store information about something
 	// that is using a host. When it is not empty, the host is
 	// considered "in use". The common use case is a link to a Machine
 	// resource when the host is used by Cluster API.
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
 
-	// Image holds the details of the image to be provisioned. Populating
+	// image holds the details of the image to be provisioned. Populating
 	// the image will cause the host to start provisioning.
 	Image *Image `json:"image,omitempty"`
 
-	// UserDataName is the name of the Secret containing the user data
+	// userDataName is the name of the Secret containing the user data
 	// which is passed to the Config Drive and interpreted by the
 	// first-boot software such as cloud-init. The format of user data is
 	// specific to the first-boot software.
 	UserDataName string `json:"userDataName,omitempty"`
 
-	// PreprovisioningNetworkDataName is the name of the Secret in the
+	// preprovisioningNetworkDataName is the name of the Secret in the
 	// local namespace containing network configuration which is passed to
 	// the preprovisioning image, and to the Config Drive if not overridden
 	// by specifying NetworkDataName.
 	PreprovisioningNetworkDataName string `json:"preprovisioningNetworkDataName,omitempty"`
 
-	// NetworkDataName is the name of the Secret containing network
+	// networkDataName is the name of the Secret containing network
 	// configuration which is passed to the Config Drive and interpreted
 	// by the first boot software such as cloud-init.
 	NetworkDataName string `json:"networkDataName,omitempty"`
 
-	// MetaDataName is the name of the Secret containing host metadata
+	// metaDataName is the name of the Secret containing host metadata
 	// which is passed to the Config Drive. By default, metadata will be
 	// generated for the host, so most users do not need to set this field.
 	MetaDataName string `json:"metaDataName,omitempty"`
 
-	// Description is a human-entered text used to help identify the host.
+	// description is a human-entered text used to help identify the host.
 	Description string `json:"description,omitempty"`
 
-	// ExternallyProvisioned means something else has provisioned the
+	// externallyProvisioned means something else has provisioned the
 	// image running on the host, and the operator should only manage
 	// the power status. This field is used for integration with already
 	// provisioned hosts and when pivoting hosts between clusters.
@@ -618,31 +618,31 @@ type BareMetalHostSpec struct {
 	// field as false.
 	ExternallyProvisioned bool `json:"externallyProvisioned,omitempty"`
 
-	// When set to disabled, automated cleaning will be skipped
+	// automatedCleaningMode controls automated cleaning. When set to disabled, automated cleaning will be skipped
 	// during provisioning and deprovisioning.
 	// +optional
 	// +default="metadata"
 	// +kubebuilder:validation:Optional
 	AutomatedCleaningMode AutomatedCleaningMode `json:"automatedCleaningMode,omitempty"`
 
-	// A custom deploy procedure. This is an advanced feature that allows
+	// customDeploy is a custom deploy procedure. This is an advanced feature that allows
 	// using a custom deploy step provided by a site-specific deployment
 	// ramdisk. Most users will want to use "image" instead. Setting this
 	// field triggers provisioning.
 	// +optional
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
 
-	// CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
+	// architecture is the CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
 	// eventually populated by inspection.
 	// +optional
 	Architecture string `json:"architecture,omitempty"`
 
-	// When set to true, power off of the node will be disabled,
+	// disablePowerOff controls power off of the node. When set to true, power off of the node will be disabled,
 	// instead, a reboot will be used in place of power on/off
 	// +optional
 	DisablePowerOff bool `json:"disablePowerOff,omitempty"`
 
-	// Specifies the mode for host inspection.
+	// inspectionMode specifies the mode for host inspection.
 	// "disabled" - no inspection will be performed
 	// "agent" - normal agent-based inspection will run
 	// "fast" - out-of-band inspection via BMC (Redfish), no ramdisk boot
@@ -650,7 +650,7 @@ type BareMetalHostSpec struct {
 	// +kubebuilder:validation:Enum=disabled;agent;fast
 	InspectionMode InspectionMode `json:"inspectionMode,omitempty"`
 
-	// NetworkInterfaces defines the network configuration for each interface.
+	// networkInterfaces defines the network configuration for each interface.
 	// This will be used to configure switch ports for the host.  Interface
 	// names must correspond to actual NICs discovered during inspection
 	// (see HardwareData resource).  They are referenced by either the name
@@ -687,26 +687,26 @@ const (
 // Image holds the details of an image either to provisioned or that
 // has been provisioned.
 type Image struct {
-	// URL is a location of an image to deploy.
+	// url is a location of an image to deploy.
 	URL string `json:"url"`
 
-	// Checksum is the checksum for the image. Required for all formats
+	// checksum is the checksum for the image. Required for all formats
 	// except for "live-iso" and OCI images (oci://).
 	Checksum string `json:"checksum,omitempty"`
 
-	// ChecksumType is the checksum algorithm for the image, e.g sha256 or sha512.
+	// checksumType is the checksum algorithm for the image, e.g sha256 or sha512.
 	// The special value "auto" can be used to detect the algorithm from the checksum.
 	// If missing, the algorithm is detected from the checksum, same as "auto".
 	// MD5 is not supported as an explicit type; use "auto" for MD5 checksums.
 	ChecksumType ChecksumType `json:"checksumType,omitempty"`
 
-	// Format contains the format of the image (raw, qcow2, ...).
+	// format contains the format of the image (raw, qcow2, ...).
 	// When set to "live-iso", an ISO 9660 image referenced by the url will
 	// be live-booted and not deployed to disk.
 	// +kubebuilder:validation:Enum=raw;qcow2;vdi;vmdk;live-iso
 	DiskFormat *string `json:"format,omitempty"`
 
-	// OCIAuthSecretName optionally names a Docker-config secret containing
+	// ociAuthSecretName optionally names a Docker-config secret containing
 	// registry credentials for oci:// images. Must be in the same namespace
 	// as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
 	// Only used when Image.URL has the oci:// scheme.
@@ -727,7 +727,7 @@ func (image *Image) IsOCI() bool {
 
 // Custom deploy is a description of a customized deploy process.
 type CustomDeploy struct {
-	// Custom deploy method name.
+	// method is the custom deploy method name.
 	// This name is specific to the deploy ramdisk used. If you don't have
 	// a custom deploy ramdisk, you shouldn't use CustomDeploy.
 	Method string `json:"method"`
@@ -736,8 +736,10 @@ type CustomDeploy struct {
 // CredentialsStatus contains the reference and version of the last
 // set of BMC credentials the controller was able to validate.
 type CredentialsStatus struct {
+	// credentials is a reference to the secret containing the credentials.
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
-	Version   string                  `json:"credentialsVersion,omitempty"`
+	// credentialsVersion is the resource version of the credentials secret.
+	Version string `json:"credentialsVersion,omitempty"`
 }
 
 // RebootMode defines known variations of reboot modes.
@@ -752,8 +754,10 @@ const (
 
 // RebootAnnotationArguments defines the arguments of the RebootAnnotation type.
 type RebootAnnotationArguments struct {
-	Mode  RebootMode `json:"mode"`
-	Force bool       `json:"force"`
+	// mode selects how the host is rebooted, hard or soft.
+	Mode RebootMode `json:"mode"`
+	// force indicates whether the reboot is forced.
+	Force bool `json:"force"`
 }
 
 type DetachedDeleteAction string
@@ -764,10 +768,10 @@ const (
 )
 
 type DetachedAnnotationArguments struct {
-	// DeleteAction indicates the desired delete logic when the detached annotation is present
+	// deleteAction indicates the desired delete logic when the detached annotation is present
 	DeleteAction DetachedDeleteAction `json:"deleteAction,omitempty"`
 
-	// Force indicates if detaching should be forced regardless of the host's state
+	// force indicates if detaching should be forced regardless of the host's state
 	// +optional
 	Force bool `json:"force,omitempty"`
 }
@@ -791,8 +795,10 @@ func (cs CredentialsStatus) Match(secret corev1.Secret) bool {
 // OperationMetric contains metadata about an operation (inspection,
 // provisioning, etc.) used for tracking metrics.
 type OperationMetric struct {
+	// start is the time the operation started.
 	// +nullable
 	Start metav1.Time `json:"start,omitempty"`
+	// end is the time the operation ended.
 	// +nullable
 	End metav1.Time `json:"end,omitempty"`
 }
@@ -809,25 +815,29 @@ func (om OperationMetric) Duration() time.Duration {
 // OperationHistory holds information about operations performed on a
 // host.
 type OperationHistory struct {
-	Register    OperationMetric `json:"register,omitempty"`
-	Inspect     OperationMetric `json:"inspect,omitempty"`
-	Provision   OperationMetric `json:"provision,omitempty"`
+	// register holds the metrics of the registration operation.
+	Register OperationMetric `json:"register,omitempty"`
+	// inspect holds the metrics of the inspection operation.
+	Inspect OperationMetric `json:"inspect,omitempty"`
+	// provision holds the metrics of the provisioning operation.
+	Provision OperationMetric `json:"provision,omitempty"`
+	// deprovision holds the metrics of the deprovisioning operation.
 	Deprovision OperationMetric `json:"deprovision,omitempty"`
 }
 
 // AppliedNetworkAttachmentConfig records the port configuration that was last successfully
 // applied to an Ironic port for a network interface.
 type AppliedNetworkAttachmentConfig struct {
-	// Name is the network interface name (e.g., "eno1np0")
+	// name is the network interface name (e.g., "eno1np0")
 	Name string `json:"name"`
-	// MACAddress is the resolved MAC address of the interface when the
+	// macAddress is the resolved MAC address of the interface when the
 	// configuration was applied. It identifies the port during recovery even
 	// if later inspection reports a different interface name.
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
 	MACAddress string `json:"macAddress"`
-	// SwitchPortConfig is the switch port configuration that was applied
+	// switchPortConfig is the switch port configuration that was applied
 	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
-	// SwitchPort is the identifier of the switch port that was
+	// switchPort is the identifier of the switch port that was
 	// configured.  If not provided then LLDP information will be used.
 	// +optional
 	SwitchPort *SwitchPortIdentifier `json:"switchPort,omitempty"`
@@ -838,53 +848,53 @@ type BareMetalHostStatus struct {
 	// Important: Run "make generate manifests" to regenerate code
 	// after modifying this file
 
-	// Conditions defines current service state of the BareMetalHost.
+	// conditions defines current service state of the BareMetalHost.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=32
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// OperationalStatus holds the status of the host
+	// operationalStatus holds the status of the host
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached;servicing
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
-	// ErrorType indicates the type of failure encountered when the
+	// errorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
 	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error;detach error;servicing error;secret access error
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
-	// LastUpdated identifies when this status was last observed.
+	// lastUpdated identifies when this status was last observed.
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
-	// Information tracked by the provisioner.
+	// provisioning holds information tracked by the provisioner.
 	Provisioning ProvisionStatus `json:"provisioning"`
 
-	// The last credentials we were able to validate as working.
+	// goodCredentials is the last credentials we were able to validate as working.
 	GoodCredentials CredentialsStatus `json:"goodCredentials,omitempty"`
 
-	// The last credentials we sent to the provisioning backend.
+	// triedCredentials is the last credentials we sent to the provisioning backend.
 	TriedCredentials CredentialsStatus `json:"triedCredentials,omitempty"`
 
-	// The last error message reported by the provisioning subsystem.
+	// errorMessage is the last error message reported by the provisioning subsystem.
 	ErrorMessage string `json:"errorMessage"`
 
-	// The currently detected power state of the host. This field may get
+	// poweredOn is the currently detected power state of the host. This field may get
 	// briefly out of sync with the actual state of the hardware while
 	// provisioning processes are running.
 	PoweredOn bool `json:"poweredOn"`
 
-	// OperationHistory holds information about operations performed
+	// operationHistory holds information about operations performed
 	// on this host.
 	OperationHistory OperationHistory `json:"operationHistory,omitempty"`
 
-	// ErrorCount records how many times the host has encoutered an error since the last successful operation
+	// errorCount records how many times the host has encoutered an error since the last successful operation
 	// +optional
 	// +default=0
 	ErrorCount int `json:"errorCount,omitempty"`
 
-	// ProvisioningFailCount records how many times provisioning has failed
+	// provisioningFailCount records how many times provisioning has failed
 	// consecutively for the current image. Unlike ErrorCount, it is not reset
 	// on deprovisioning and is only cleared on successful provisioning or when
 	// a new image is specified.
@@ -892,13 +902,13 @@ type BareMetalHostStatus struct {
 	// +default=0
 	ProvisioningFailCount int `json:"provisioningFailCount,omitempty"`
 
-	// LastAttemptedImage stores the full image spec of the last provisioning
+	// lastAttemptedImage stores the full image spec of the last provisioning
 	// attempt, used to detect user-initiated image changes (URL, checksum,
 	// format, etc.) that should reset the provisioning retry limit counter.
 	// +optional
 	LastAttemptedImage *Image `json:"lastAttemptedImage,omitempty"`
 
-	// AppliedNetworkAttachmentConfigs stores the resolved port configurations that were
+	// appliedNetworkAttachmentConfigs stores the resolved port configurations that were
 	// last successfully applied to Ironic ports. This records the actual
 	// VLAN/MTU/mode values (not HNA references) so that drift detection
 	// can identify changes to HostNetworkAttachment specs or deletions.
@@ -908,27 +918,27 @@ type BareMetalHostStatus struct {
 
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
-	// An indicator for what the provisioner is doing with the host.
+	// state is an indicator for what the provisioner is doing with the host.
 	State ProvisioningState `json:"state"`
 
-	// The hosts's ID from the underlying provisioning tool (e.g. the
+	// id is the host's ID from the underlying provisioning tool (e.g. the
 	// Ironic node UUID).
 	ID string `json:"id"`
 
-	// Image holds the details of the last image successfully
+	// image holds the details of the last image successfully
 	// provisioned to the host.
 	Image Image `json:"image,omitempty"`
 
-	// The root device hints used to provision the host.
+	// rootDeviceHints is the root device hints used to provision the host.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// BootMode indicates the boot mode used to provision the host.
+	// bootMode indicates the boot mode used to provision the host.
 	BootMode BootMode `json:"bootMode,omitempty"`
 
-	// The RAID configuration that has been applied.
+	// raid is the RAID configuration that has been applied.
 	RAID *RAIDConfig `json:"raid,omitempty"`
 
-	// Custom deploy procedure applied to the host.
+	// customDeploy is the custom deploy procedure applied to the host.
 	CustomDeploy *CustomDeploy `json:"customDeploy,omitempty"`
 }
 
@@ -947,10 +957,13 @@ type ProvisionStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 // +kubebuilder:object:root=true
 type BareMetalHost struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object metadata.
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BareMetalHostSpec   `json:"spec,omitempty"`
+	// spec is the desired state of the BareMetalHost.
+	Spec BareMetalHostSpec `json:"spec,omitempty"`
+	// status is the observed state of the BareMetalHost.
 	Status BareMetalHostStatus `json:"status,omitempty"`
 }
 

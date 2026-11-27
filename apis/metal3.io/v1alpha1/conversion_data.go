@@ -38,13 +38,20 @@ import (
 const DataAnnotation = "metal3.io/conversion-data"
 
 // MarshalData stores the source object as json data in the destination object annotations map.
-// It ignores the metadata of the source object.
-func MarshalData(src metav1.Object, dst metav1.Object) error {
+// It ignores the metadata of the source object, except for the annotations
+// named in keepAnnotations: a conversion may need those to tell how the
+// original object expressed something. Annotations can be large, so only the
+// ones that are actually needed are stored.
+func MarshalData(src metav1.Object, dst metav1.Object, keepAnnotations ...string) error {
 	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(src)
 	if err != nil {
 		return err
 	}
 	delete(u, "metadata")
+
+	if kept := keptAnnotations(src, keepAnnotations); len(kept) > 0 {
+		u["metadata"] = map[string]interface{}{"annotations": kept}
+	}
 
 	data, err := json.Marshal(u)
 	if err != nil {
@@ -57,6 +64,19 @@ func MarshalData(src metav1.Object, dst metav1.Object) error {
 	annotations[DataAnnotation] = string(data)
 	dst.SetAnnotations(annotations)
 	return nil
+}
+
+// keptAnnotations returns the annotations of src named in keys, leaving out the
+// ones it does not have.
+func keptAnnotations(src metav1.Object, keys []string) map[string]interface{} {
+	annotations := src.GetAnnotations()
+	kept := make(map[string]interface{}, len(keys))
+	for _, key := range keys {
+		if value, present := annotations[key]; present {
+			kept[key] = value
+		}
+	}
+	return kept
 }
 
 // UnmarshalData retrieves the data from the annotation set by MarshalData and

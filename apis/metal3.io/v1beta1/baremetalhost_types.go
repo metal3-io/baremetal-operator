@@ -70,11 +70,9 @@ const (
 	// is disabled.
 	HardwareDetailsAnnotation = InspectAnnotationPrefix + "/hardwaredetails"
 
-	// InspectAnnotationValueDisabled is a constant string="disabled"
-	// This is particularly useful to check if inspect annotation is disabled
-	// inspect.metal3.io=disabled.
-	//
-	// Deprecated: use InspectionMode instead.
+	// InspectAnnotationValueDisabled is not usable as of the v1beta1 API
+	// version: set spec.inspectionMode to "disabled" instead. The constant
+	// remains so that the conversion can translate it.
 	InspectAnnotationValueDisabled = "disabled"
 )
 
@@ -1049,17 +1047,10 @@ func (host *BareMetalHost) CredentialsKey() types.NamespacedName {
 	}
 }
 
-// InspectionDisabled returns true if inspection is disabled via either
-// the inspect.metal3.io annotation or the inspectionMode field.
+// InspectionDisabled returns true if inspection is disabled via the
+// inspectionMode field.
 func (host *BareMetalHost) InspectionDisabled() bool {
-	// Check the new InspectionMode field first
-	if host.Spec.InspectionMode == InspectionModeDisabled {
-		return true
-	}
-
-	// Fall back to the legacy annotation for backward compatibility
-	annotations := host.GetAnnotations()
-	return annotations[InspectAnnotationPrefix] == InspectAnnotationValueDisabled
+	return host.Spec.InspectionMode == InspectionModeDisabled
 }
 
 // NeedsProvisioning compares the settings with the provisioning

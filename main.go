@@ -34,6 +34,7 @@ import (
 	metal3apiv1beta1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1beta1"
 	metal3iocontroller "github.com/metal3-io/baremetal-operator/internal/controller/metal3.io"
 	webhooks "github.com/metal3-io/baremetal-operator/internal/webhooks/metal3.io/v1alpha1"
+	webhooksv1beta1 "github.com/metal3-io/baremetal-operator/internal/webhooks/metal3.io/v1beta1"
 	ppicontroller "github.com/metal3-io/baremetal-operator/pkg/controllers"
 	"github.com/metal3-io/baremetal-operator/pkg/features"
 	"github.com/metal3-io/baremetal-operator/pkg/hostclaim"
@@ -178,6 +179,14 @@ func setupWebhooks(mgr ctrl.Manager) {
 
 	if err := (&webhooks.HostFirmwareComponents{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HostFirmwareComponents")
+		os.Exit(1)
+	}
+
+	// Rules that only apply to v1beta1 and therefore need the object in its
+	// original version. The v1alpha1 webhooks above are also called for
+	// v1beta1 requests, since their matchPolicy is Equivalent.
+	if err := (&webhooksv1beta1.BareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "BareMetalHost/v1beta1")
 		os.Exit(1)
 	}
 }

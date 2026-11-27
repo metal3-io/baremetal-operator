@@ -1,6 +1,5 @@
 /*
 
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -59,12 +58,16 @@ const (
 // CPU describes one processor on the host.
 type CPU struct {
 	// arch is the CPU architecture, e.g. "x86_64".
+	// +kubebuilder:validation:MaxLength=64
 	Arch string `json:"arch,omitempty"`
 	// model is the CPU model name.
+	// +kubebuilder:validation:MaxLength=256
 	Model string `json:"model,omitempty"`
 	// clockMegahertz is the CPU clock speed in megahertz.
 	ClockMegahertz ClockSpeed `json:"clockMegahertz,omitempty"`
 	// flags is the list of CPU flags.
+	// +kubebuilder:validation:MaxItems=1024
+	// +kubebuilder:validation:items:MaxLength=256
 	Flags []string `json:"flags,omitempty"`
 	// threadCount is the number of CPU threads.
 	ThreadCount int32 `json:"threadCount,omitempty"`
@@ -75,11 +78,14 @@ type Storage struct {
 	// name is a Linux device name of the disk, e.g.
 	// "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
 	// that is stable across reboots if one is available.
+	// +kubebuilder:validation:MaxLength=1024
 	Name string `json:"name,omitempty"`
 
 	// alternateNames is a list of alternate Linux device names of the disk, e.g. "/dev/sda".
 	// Note that this list is not exhaustive, and names may not be stable
 	// across reboots.
+	// +kubebuilder:validation:MaxItems=256
+	// +kubebuilder:validation:items:MaxLength=1024
 	AlternateNames []string `json:"alternateNames,omitempty"`
 
 	// rotational indicates whether this disk represents rotational storage.
@@ -97,24 +103,31 @@ type Storage struct {
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
 
 	// vendor is the name of the vendor of the device
+	// +kubebuilder:validation:MaxLength=256
 	Vendor string `json:"vendor,omitempty"`
 
 	// model is the hardware model of the device.
+	// +kubebuilder:validation:MaxLength=256
 	Model string `json:"model,omitempty"`
 
 	// serialNumber is the serial number of the device
+	// +kubebuilder:validation:MaxLength=256
 	SerialNumber string `json:"serialNumber,omitempty"`
 
 	// wwn is the WWN of the device
+	// +kubebuilder:validation:MaxLength=256
 	WWN string `json:"wwn,omitempty"`
 
 	// wwnVendorExtension is the WWN Vendor extension of the device
+	// +kubebuilder:validation:MaxLength=256
 	WWNVendorExtension string `json:"wwnVendorExtension,omitempty"`
 
 	// wwnWithExtension is the WWN with the extension
+	// +kubebuilder:validation:MaxLength=256
 	WWNWithExtension string `json:"wwnWithExtension,omitempty"`
 
 	// hctl is the SCSI location of the device
+	// +kubebuilder:validation:MaxLength=256
 	HCTL string `json:"hctl,omitempty"`
 }
 
@@ -130,6 +143,7 @@ type VLAN struct {
 	ID VLANID `json:"id,omitempty"`
 
 	// name is the VLAN name.
+	// +kubebuilder:validation:MaxLength=256
 	Name string `json:"name,omitempty"`
 }
 
@@ -137,38 +151,46 @@ type VLAN struct {
 type LLDP struct {
 	// switchID is the switch chassis ID from LLDP
 	// +optional
+	// +kubebuilder:validation:MaxLength=256
 	SwitchID string `json:"switchID,omitempty"`
 
 	// portID is the switch port ID from LLDP
 	// +optional
+	// +kubebuilder:validation:MaxLength=256
 	PortID string `json:"portID,omitempty"`
 
 	// switchSystemName is the switch system name from LLDP
 	// +optional
+	// +kubebuilder:validation:MaxLength=256
 	SwitchSystemName string `json:"switchSystemName,omitempty"`
 }
 
 // NIC describes one network interface on the host.
 type NIC struct {
 	// name is the name of the network interface, e.g. "en0"
+	// +kubebuilder:validation:MaxLength=256
 	Name string `json:"name,omitempty"`
 
 	// model is the vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
+	// +kubebuilder:validation:MaxLength=256
 	Model string `json:"model,omitempty"`
 
 	// mac is the device MAC address.
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
+	// +kubebuilder:validation:MaxLength=17
 	MAC string `json:"mac,omitempty"`
 
 	// ip is the IP address of the interface. This will be an IPv4 or IPv6 address
 	// if one is present.  If both IPv4 and IPv6 addresses are present in a
 	// dual-stack environment, two nics will be output, one with each IP.
+	// +kubebuilder:validation:MaxLength=45
 	IP string `json:"ip,omitempty"`
 
 	// speedGbps is the speed of the device in Gigabits per second
 	SpeedGbps int32 `json:"speedGbps,omitempty"`
 
 	// vlans is the list of available VLANs.
+	// +kubebuilder:validation:MaxItems=4094
 	VLANs []VLAN `json:"vlans,omitempty"`
 
 	// vlanId is the untagged VLAN ID
@@ -184,11 +206,13 @@ type NIC struct {
 
 	// pciAddress is the NIC PCI address
 	// +optional
+	// +kubebuilder:validation:MaxLength=32
 	PCIAddress string `json:"pciAddress,omitempty"`
 
 	// infinibandClientID is the InfiniBand client ID of the interface, as discovered by Ironic.
 	// Only set for InfiniBand interfaces.
 	// +optional
+	// +kubebuilder:validation:MaxLength=256
 	InfinibandClientID string `json:"infinibandClientID,omitempty"`
 }
 
@@ -201,22 +225,28 @@ type Firmware struct {
 // BIOS describes the BIOS version on the host.
 type BIOS struct {
 	// date is the release/build date for this BIOS
+	// +kubebuilder:validation:MaxLength=64
 	Date string `json:"date,omitempty"`
 
 	// vendor is the vendor name for this BIOS
+	// +kubebuilder:validation:MaxLength=256
 	Vendor string `json:"vendor,omitempty"`
 
 	// version is the version of the BIOS
+	// +kubebuilder:validation:MaxLength=256
 	Version string `json:"version,omitempty"`
 }
 
 // HardwareSystemVendor stores details about the whole hardware system.
 type HardwareSystemVendor struct {
 	// manufacturer is the system manufacturer.
+	// +kubebuilder:validation:MaxLength=256
 	Manufacturer string `json:"manufacturer,omitempty"`
 	// productName is the system product name.
+	// +kubebuilder:validation:MaxLength=256
 	ProductName string `json:"productName,omitempty"`
 	// serialNumber is the system serial number.
+	// +kubebuilder:validation:MaxLength=256
 	SerialNumber string `json:"serialNumber,omitempty"`
 }
 
@@ -224,18 +254,23 @@ type HardwareSystemVendor struct {
 // the host via PCI device inspection.
 type Accelerator struct {
 	// vendorID is the PCI vendor ID of the device, e.g. "abcd".
+	// +kubebuilder:validation:MaxLength=64
 	VendorID string `json:"vendorID,omitempty"`
 
 	// deviceID is the PCI device ID of the device, e.g. "1234".
+	// +kubebuilder:validation:MaxLength=64
 	DeviceID string `json:"deviceID,omitempty"`
 
 	// type is the type of the accelerator device, e.g. "GPU".
+	// +kubebuilder:validation:MaxLength=64
 	Type string `json:"type,omitempty"`
 
 	// deviceInfo is a human readable description of the device.
+	// +kubebuilder:validation:MaxLength=512
 	DeviceInfo string `json:"deviceInfo,omitempty"`
 
 	// pciAddress is the PCI address of the device, e.g. "0000:3b:00.0".
+	// +kubebuilder:validation:MaxLength=32
 	PCIAddress string `json:"pciAddress,omitempty"`
 }
 
@@ -243,6 +278,7 @@ type Accelerator struct {
 // discovered on the host.
 type HardwareDetails struct {
 	// accelerators is the list of accelerators discovered on the host.
+	// +kubebuilder:validation:MaxItems=256
 	Accelerators []Accelerator `json:"accelerators,omitempty"`
 	// systemVendor holds system vendor information.
 	SystemVendor HardwareSystemVendor `json:"systemVendor,omitempty"`
@@ -251,12 +287,15 @@ type HardwareDetails struct {
 	// ramMebibytes is the host's amount of memory in Mebibytes.
 	RAMMebibytes int32 `json:"ramMebibytes,omitempty"`
 	// nics is the list of network interfaces for the host.
+	// +kubebuilder:validation:MaxItems=256
 	NIC []NIC `json:"nics,omitempty"`
 	// storage is the list of storage (disk, SSD, etc.) available to the host.
+	// +kubebuilder:validation:MaxItems=256
 	Storage []Storage `json:"storage,omitempty"`
 	// cpu holds details of the CPU(s) in the system.
 	CPU CPU `json:"cpu,omitempty"`
 	// hostname is the name of the host at the inspection time.
+	// +kubebuilder:validation:MaxLength=253
 	Hostname string `json:"hostname,omitempty"`
 }
 

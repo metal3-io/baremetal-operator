@@ -1684,6 +1684,7 @@ spec:
                 description: |-
                   architecture is the CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
                   eventually populated by inspection.
+                maxLength: 64
                 type: string
               automatedCleaningMode:
                 default: metadata
@@ -1703,11 +1704,13 @@ spec:
                     description: |-
                       address holds the URL for accessing the controller on the network.
                       The scheme part designates the driver to use with the host.
+                    maxLength: 2048
                     type: string
                   credentialsName:
                     description: |-
                       credentialsName is the name of the secret containing the BMC credentials (requires
                       keys "username" and "password").
+                    maxLength: 253
                     type: string
                   disableCertificateVerification:
                     description: |-
@@ -1726,6 +1729,7 @@ spec:
                   bootMACAddress is the MAC address of the NIC used for provisioning the host. In case
                   of network boot, this is the MAC address of the PXE booting
                   interface. The MAC address of the BMC must never be used here!
+                maxLength: 17
                 pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                 type: string
               bootMode:
@@ -1787,6 +1791,7 @@ spec:
                       method is the custom deploy method name.
                       This name is specific to the deploy ramdisk used. If you don't have
                       a custom deploy ramdisk, you shouldn't use CustomDeploy.
+                    maxLength: 256
                     type: string
                 required:
                 - method
@@ -1794,6 +1799,7 @@ spec:
               description:
                 description: description is a human-entered text used to help identify
                   the host.
+                maxLength: 4096
                 type: string
               disablePowerOff:
                 description: |-
@@ -1825,6 +1831,7 @@ spec:
                     description: |-
                       checksum is the checksum for the image. Required for all formats
                       except for "live-iso" and OCI images (oci://).
+                    maxLength: 2048
                     type: string
                   checksumType:
                     description: |-
@@ -1855,9 +1862,11 @@ spec:
                       registry credentials for oci:// images. Must be in the same namespace
                       as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
                       Only used when Image.URL has the oci:// scheme.
+                    maxLength: 253
                     type: string
                   url:
                     description: url is a location of an image to deploy.
+                    maxLength: 2048
                     type: string
                 required:
                 - url
@@ -1878,12 +1887,14 @@ spec:
                   metaDataName is the name of the Secret containing host metadata
                   which is passed to the Config Drive. By default, metadata will be
                   generated for the host, so most users do not need to set this field.
+                maxLength: 253
                 type: string
               networkDataName:
                 description: |-
                   networkDataName is the name of the Secret containing network
                   configuration which is passed to the Config Drive and interpreted
                   by the first boot software such as cloud-init.
+                maxLength: 253
                 type: string
               networkInterfaces:
                 description: |-
@@ -1918,6 +1929,7 @@ spec:
                         macAddress is the MAC address of the network interface. This must match the MAC address
                         of a NIC discovered during inspection (see HardwareData resource).
                         Mutually exclusive with Name.
+                      maxLength: 17
                       pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                       type: string
                     name:
@@ -1926,6 +1938,7 @@ spec:
                         This must match the name of a NIC discovered during inspection
                         (see HardwareData resource).
                         Mutually exclusive with MACAddress.
+                      maxLength: 256
                       pattern: ^[a-zA-Z0-9._-]+$
                       type: string
                     switchPort:
@@ -1942,15 +1955,18 @@ spec:
                           description: |-
                             portID is expected to be the configuration name of the port in the
                             switch management system.
+                          maxLength: 256
                           type: string
                         switchID:
                           description: switchID is expected to be the management MAC
                             address of the switch
+                          maxLength: 64
                           pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                           type: string
                         switchSystemName:
                           description: switchSystemName is expected to be the common
                             name for the switch
+                          maxLength: 253
                           type: string
                       required:
                       - portID
@@ -1959,6 +1975,7 @@ spec:
                   required:
                   - hostNetworkAttachment
                   type: object
+                maxItems: 256
                 type: array
               poweredOn:
                 description: |-
@@ -1972,6 +1989,7 @@ spec:
                   local namespace containing network configuration which is passed to
                   the preprovisioning image, and to the Config Drive if not overridden
                   by specifying NetworkDataName.
+                maxLength: 253
                 type: string
               raid:
                 description: |-
@@ -1992,6 +2010,7 @@ spec:
                         controller:
                           description: controller is the name of the RAID controller
                             to use.
+                          maxLength: 256
                           type: string
                         level:
                           description: |-
@@ -2026,7 +2045,9 @@ spec:
                             physicalDisks is an optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
                             by the hardware RAID controller, and the format is hardware specific.
                           items:
+                            maxLength: 1024
                             type: string
+                          maxItems: 256
                           type: array
                         rotational:
                           description: |-
@@ -2044,6 +2065,7 @@ spec:
                       required:
                       - level
                       type: object
+                    maxItems: 64
                     nullable: true
                     type: array
                   softwareRAIDVolumes:
@@ -2082,11 +2104,13 @@ spec:
                                   devicePath is a Linux device path like "/dev/vda", or a by-path link to it like
                                   "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
                                   the actual value exactly.
+                                maxLength: 1024
                                 type: string
                               hctl:
                                 description: |-
                                   hctl is a SCSI bus address like 0:0:0:0. The hint must match the actual
                                   value exactly.
+                                maxLength: 32
                                 type: string
                               minSizeGigabytes:
                                 description: minSizeGigabytes is the minimum size
@@ -2098,6 +2122,7 @@ spec:
                                 description: |-
                                   modelContains is a vendor-specific device identifier. The hint matches when it is a
                                   substring of the actual value.
+                                maxLength: 256
                                 type: string
                               rotational:
                                 description: rotational is true if the device should
@@ -2107,28 +2132,34 @@ spec:
                                 description: |-
                                   serialNumber is the device serial number. The hint must match the actual value
                                   exactly.
+                                maxLength: 256
                                 type: string
                               vendorContains:
                                 description: |-
                                   vendorContains is the name of the vendor or manufacturer of the device. The hint
                                   matches when it is a substring of the actual value.
+                                maxLength: 256
                                 type: string
                               wwn:
                                 description: |-
                                   wwn is the unique storage identifier. The hint must match the actual value
                                   exactly.
+                                maxLength: 256
                                 type: string
                               wwnVendorExtension:
                                 description: |-
                                   wwnVendorExtension is the unique vendor storage identifier. The hint must match the
                                   actual value exactly.
+                                maxLength: 256
                                 type: string
                               wwnWithExtension:
                                 description: |-
                                   wwnWithExtension is the unique storage identifier with the vendor extension
                                   appended. The hint must match the actual value exactly.
+                                maxLength: 256
                                 type: string
                             type: object
+                          maxItems: 256
                           minItems: 2
                           type: array
                         rootVolume:
@@ -2162,11 +2193,13 @@ spec:
                       devicePath is a Linux device path like "/dev/vda", or a by-path link to it like
                       "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
                       the actual value exactly.
+                    maxLength: 1024
                     type: string
                   hctl:
                     description: |-
                       hctl is a SCSI bus address like 0:0:0:0. The hint must match the actual
                       value exactly.
+                    maxLength: 32
                     type: string
                   minSizeGigabytes:
                     description: minSizeGigabytes is the minimum size of the device
@@ -2178,6 +2211,7 @@ spec:
                     description: |-
                       modelContains is a vendor-specific device identifier. The hint matches when it is a
                       substring of the actual value.
+                    maxLength: 256
                     type: string
                   rotational:
                     description: rotational is true if the device should use spinning
@@ -2187,26 +2221,31 @@ spec:
                     description: |-
                       serialNumber is the device serial number. The hint must match the actual value
                       exactly.
+                    maxLength: 256
                     type: string
                   vendorContains:
                     description: |-
                       vendorContains is the name of the vendor or manufacturer of the device. The hint
                       matches when it is a substring of the actual value.
+                    maxLength: 256
                     type: string
                   wwn:
                     description: |-
                       wwn is the unique storage identifier. The hint must match the actual value
                       exactly.
+                    maxLength: 256
                     type: string
                   wwnVendorExtension:
                     description: |-
                       wwnVendorExtension is the unique vendor storage identifier. The hint must match the
                       actual value exactly.
+                    maxLength: 256
                     type: string
                   wwnWithExtension:
                     description: |-
                       wwnWithExtension is the unique storage identifier with the vendor extension
                       appended. The hint must match the actual value exactly.
+                    maxLength: 256
                     type: string
                 type: object
               taints:
@@ -2241,6 +2280,7 @@ spec:
                   - effect
                   - key
                   type: object
+                maxItems: 100
                 type: array
               userDataName:
                 description: |-
@@ -2248,6 +2288,7 @@ spec:
                   which is passed to the Config Drive and interpreted by the
                   first-boot software such as cloud-init. The format of user data is
                   specific to the first-boot software.
+                maxLength: 253
                 type: string
             required:
             - poweredOn
@@ -2271,10 +2312,12 @@ spec:
                         macAddress is the resolved MAC address of the interface when the
                         configuration was applied. It identifies the port during recovery even
                         if later inspection reports a different interface name.
+                      maxLength: 17
                       pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                       type: string
                     name:
                       description: name is the network interface name (e.g., "eno1np0")
+                      maxLength: 256
                       type: string
                     switchPort:
                       description: |-
@@ -2285,15 +2328,18 @@ spec:
                           description: |-
                             portID is expected to be the configuration name of the port in the
                             switch management system.
+                          maxLength: 256
                           type: string
                         switchID:
                           description: switchID is expected to be the management MAC
                             address of the switch
+                          maxLength: 64
                           pattern: ^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$
                           type: string
                         switchSystemName:
                           description: switchSystemName is expected to be the common
                             name for the switch
+                          maxLength: 253
                           type: string
                       required:
                       - portID
@@ -2309,6 +2355,7 @@ spec:
                           items:
                             format: int32
                             type: integer
+                          maxItems: 4094
                           type: array
                         mode:
                           description: mode is the switch port mode (access or trunk)
@@ -2334,6 +2381,7 @@ spec:
                   - name
                   - switchPortConfig
                   type: object
+                maxItems: 256
                 type: array
               conditions:
                 description: conditions defines current service state of the BareMetalHost.
@@ -2405,6 +2453,7 @@ spec:
               errorMessage:
                 description: errorMessage is the last error message reported by the
                   provisioning subsystem.
+                maxLength: 32768
                 type: string
               errorType:
                 description: |-
@@ -2442,6 +2491,7 @@ spec:
                   credentialsVersion:
                     description: credentialsVersion is the resource version of the
                       credentials secret.
+                    maxLength: 256
                     type: string
                 type: object
               lastAttemptedImage:
@@ -2454,6 +2504,7 @@ spec:
                     description: |-
                       checksum is the checksum for the image. Required for all formats
                       except for "live-iso" and OCI images (oci://).
+                    maxLength: 2048
                     type: string
                   checksumType:
                     description: |-
@@ -2484,9 +2535,11 @@ spec:
                       registry credentials for oci:// images. Must be in the same namespace
                       as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
                       Only used when Image.URL has the oci:// scheme.
+                    maxLength: 253
                     type: string
                   url:
                     description: url is a location of an image to deploy.
+                    maxLength: 2048
                     type: string
                 required:
                 - url
@@ -2595,6 +2648,7 @@ spec:
                           method is the custom deploy method name.
                           This name is specific to the deploy ramdisk used. If you don't have
                           a custom deploy ramdisk, you shouldn't use CustomDeploy.
+                        maxLength: 256
                         type: string
                     required:
                     - method
@@ -2603,6 +2657,7 @@ spec:
                     description: |-
                       id is the host's ID from the underlying provisioning tool (e.g. the
                       Ironic node UUID).
+                    maxLength: 256
                     type: string
                   image:
                     description: |-
@@ -2613,6 +2668,7 @@ spec:
                         description: |-
                           checksum is the checksum for the image. Required for all formats
                           except for "live-iso" and OCI images (oci://).
+                        maxLength: 2048
                         type: string
                       checksumType:
                         description: |-
@@ -2643,9 +2699,11 @@ spec:
                           registry credentials for oci:// images. Must be in the same namespace
                           as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
                           Only used when Image.URL has the oci:// scheme.
+                        maxLength: 253
                         type: string
                       url:
                         description: url is a location of an image to deploy.
+                        maxLength: 2048
                         type: string
                     required:
                     - url
@@ -2664,6 +2722,7 @@ spec:
                             controller:
                               description: controller is the name of the RAID controller
                                 to use.
+                              maxLength: 256
                               type: string
                             level:
                               description: |-
@@ -2698,7 +2757,9 @@ spec:
                                 physicalDisks is an optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
                                 by the hardware RAID controller, and the format is hardware specific.
                               items:
+                                maxLength: 1024
                                 type: string
+                              maxItems: 256
                               type: array
                             rotational:
                               description: |-
@@ -2716,6 +2777,7 @@ spec:
                           required:
                           - level
                           type: object
+                        maxItems: 64
                         nullable: true
                         type: array
                       softwareRAIDVolumes:
@@ -2755,11 +2817,13 @@ spec:
                                       devicePath is a Linux device path like "/dev/vda", or a by-path link to it like
                                       "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
                                       the actual value exactly.
+                                    maxLength: 1024
                                     type: string
                                   hctl:
                                     description: |-
                                       hctl is a SCSI bus address like 0:0:0:0. The hint must match the actual
                                       value exactly.
+                                    maxLength: 32
                                     type: string
                                   minSizeGigabytes:
                                     description: minSizeGigabytes is the minimum size
@@ -2771,6 +2835,7 @@ spec:
                                     description: |-
                                       modelContains is a vendor-specific device identifier. The hint matches when it is a
                                       substring of the actual value.
+                                    maxLength: 256
                                     type: string
                                   rotational:
                                     description: rotational is true if the device
@@ -2780,28 +2845,34 @@ spec:
                                     description: |-
                                       serialNumber is the device serial number. The hint must match the actual value
                                       exactly.
+                                    maxLength: 256
                                     type: string
                                   vendorContains:
                                     description: |-
                                       vendorContains is the name of the vendor or manufacturer of the device. The hint
                                       matches when it is a substring of the actual value.
+                                    maxLength: 256
                                     type: string
                                   wwn:
                                     description: |-
                                       wwn is the unique storage identifier. The hint must match the actual value
                                       exactly.
+                                    maxLength: 256
                                     type: string
                                   wwnVendorExtension:
                                     description: |-
                                       wwnVendorExtension is the unique vendor storage identifier. The hint must match the
                                       actual value exactly.
+                                    maxLength: 256
                                     type: string
                                   wwnWithExtension:
                                     description: |-
                                       wwnWithExtension is the unique storage identifier with the vendor extension
                                       appended. The hint must match the actual value exactly.
+                                    maxLength: 256
                                     type: string
                                 type: object
+                              maxItems: 256
                               minItems: 2
                               type: array
                             rootVolume:
@@ -2833,11 +2904,13 @@ spec:
                           devicePath is a Linux device path like "/dev/vda", or a by-path link to it like
                           "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
                           the actual value exactly.
+                        maxLength: 1024
                         type: string
                       hctl:
                         description: |-
                           hctl is a SCSI bus address like 0:0:0:0. The hint must match the actual
                           value exactly.
+                        maxLength: 32
                         type: string
                       minSizeGigabytes:
                         description: minSizeGigabytes is the minimum size of the device
@@ -2849,6 +2922,7 @@ spec:
                         description: |-
                           modelContains is a vendor-specific device identifier. The hint matches when it is a
                           substring of the actual value.
+                        maxLength: 256
                         type: string
                       rotational:
                         description: rotational is true if the device should use spinning
@@ -2858,31 +2932,37 @@ spec:
                         description: |-
                           serialNumber is the device serial number. The hint must match the actual value
                           exactly.
+                        maxLength: 256
                         type: string
                       vendorContains:
                         description: |-
                           vendorContains is the name of the vendor or manufacturer of the device. The hint
                           matches when it is a substring of the actual value.
+                        maxLength: 256
                         type: string
                       wwn:
                         description: |-
                           wwn is the unique storage identifier. The hint must match the actual value
                           exactly.
+                        maxLength: 256
                         type: string
                       wwnVendorExtension:
                         description: |-
                           wwnVendorExtension is the unique vendor storage identifier. The hint must match the
                           actual value exactly.
+                        maxLength: 256
                         type: string
                       wwnWithExtension:
                         description: |-
                           wwnWithExtension is the unique storage identifier with the vendor extension
                           appended. The hint must match the actual value exactly.
+                        maxLength: 256
                         type: string
                     type: object
                   state:
                     description: state is an indicator for what the provisioner is
                       doing with the host.
+                    maxLength: 32
                     type: string
                 required:
                 - id
@@ -2918,6 +2998,7 @@ spec:
                   credentialsVersion:
                     description: credentialsVersion is the resource version of the
                       credentials secret.
+                    maxLength: 256
                     type: string
                 type: object
             required:

@@ -38,14 +38,16 @@ import (
 
 const switchConfigKey = "switch-configs.conf"
 
-// credentialConfigError indicates a switch's credentials secret exists but
-// is misconfigured (e.g., required key missing). The Owns() watch will
-// trigger a reconcile when the user fixes the secret data.
+// credentialConfigError indicates a switch has an invalid credentials reference
+// or a credentials secret that cannot be accessed or used.
 type credentialConfigError struct {
 	msg string
+	err error
 }
 
 func (e *credentialConfigError) Error() string { return e.msg }
+
+func (e *credentialConfigError) Unwrap() error { return e.err }
 
 // credentialSecretNotFoundError indicates a switch's credentials secret
 // does not exist. The Owns() watch cannot detect creation of a secret
@@ -129,8 +131,11 @@ func generateSwitchConfig(ctx context.Context, c client.Client, sm secretutils.S
 
 		if err := writeSwitchEntry(ctx, sm, sw, credentialsPath, result.configEntries, result.keyFiles); err != nil {
 			if errors.As(err, new(*credentialConfigError)) || errors.As(err, new(*credentialSecretNotFoundError)) {
-				logger.Info("skipping switch due to credential error",
-					"namespace", sw.Namespace, "switch", sw.Name, "error", err)
+				switchLogger := logger.WithValues("namespace", sw.Namespace, "switch", sw.Name, "error", err)
+				if cause := errors.Unwrap(err); cause != nil {
+					switchLogger = switchLogger.WithValues("cause", cause)
+				}
+				switchLogger.Info("skipping switch due to credential error")
 				result.errors[sw.UID] = err
 				continue
 			}
@@ -227,6 +232,11 @@ func writeSwitchEntry(ctx context.Context, sm secretutils.SecretManager, sw *met
 	secretNamespace := sw.Spec.Credentials.Namespace
 	if secretNamespace == "" {
 		secretNamespace = sw.Namespace
+	} else if secretNamespace != sw.Namespace {
+		// AcquireSecret sets an owner reference, which requires the same namespace.
+		return &credentialConfigError{
+			msg: fmt.Sprintf("credentials secret %s/%s must be in the switch namespace %s", secretNamespace, secretName, sw.Namespace),
+		}
 	}
 
 	// Fetch credentials from secret
@@ -236,13 +246,20 @@ func writeSwitchEntry(ctx context.Context, sm secretutils.SecretManager, sw *met
 	}
 	secret, err := sm.AcquireSecret(ctx, secretKey, sw, false)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
+		switch {
+		case k8serrors.IsNotFound(err):
 			return &credentialSecretNotFoundError{
 				msg: fmt.Sprintf("credentials secret %s/%s not found", secretNamespace, secretName),
 			}
+		case k8serrors.IsForbidden(err):
+			return &credentialConfigError{
+				msg: fmt.Sprintf("access to credentials secret %s/%s is forbidden", secretNamespace, secretName),
+				err: err,
+			}
+		default:
+			return fmt.Errorf("failed to get credentials secret %s/%s: %w",
+				secretNamespace, secretName, err)
 		}
-		return fmt.Errorf("failed to get credentials secret %s/%s: %w",
-			secretNamespace, secretName, err)
 	}
 
 	// Username (required for all credential types)

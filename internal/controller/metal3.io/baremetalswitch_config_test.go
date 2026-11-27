@@ -19,14 +19,17 @@ package controllers
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1128,6 +1131,134 @@ func TestReconcileConditions(t *testing.T) {
 			g.Expect(cond.Reason).To(Equal(tt.expectReason))
 			g.Expect(cond.Message).To(ContainSubstring(tt.expectMessage))
 			g.Expect(cond.ObservedGeneration).To(Equal(updatedSwitch.Generation))
+		})
+	}
+}
+
+func TestReconcileSkipsSwitchWithInaccessibleCredentials(t *testing.T) {
+	g := NewWithT(t)
+	scheme := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(metal3api.AddToScheme(scheme)).To(Succeed())
+
+	tests := []struct {
+		name            string
+		secretNamespace string
+		deniedOperation string
+		expectedMessage string
+		expectedLog     string
+	}{
+		{
+			name:            "credential secret in a different namespace",
+			secretNamespace: "other-ns",
+			expectedMessage: "credentials secret other-ns/bad-creds must be in the switch namespace test-ns",
+		},
+		{
+			name:            "credential secret read forbidden in the switch namespace",
+			secretNamespace: "test-ns",
+			deniedOperation: "read",
+			expectedMessage: "access to credentials secret test-ns/bad-creds is forbidden",
+			expectedLog:     "failed to fetch secret bad-creds",
+		},
+		{
+			name:            "credential secret update forbidden in the switch namespace",
+			secretNamespace: "test-ns",
+			deniedOperation: "update",
+			expectedMessage: "access to credentials secret test-ns/bad-creds is forbidden",
+			expectedLog:     "failed to update secret bad-creds",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			badSwitch := &metal3api.BareMetalSwitch{
+				ObjectMeta: metav1.ObjectMeta{Name: "bad-switch", Namespace: "test-ns", UID: "bad-switch-uid"},
+				Spec: metal3api.BareMetalSwitchSpec{
+					Address:     "192.168.1.1",
+					MACAddress:  "00:00:5e:00:53:01",
+					DeviceType:  "cisco_ios",
+					Credentials: &corev1.SecretReference{Name: "bad-creds", Namespace: tt.secretNamespace},
+				},
+			}
+			badSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "bad-creds", Namespace: tt.secretNamespace},
+				Data:       map[string][]byte{"username": []byte("admin"), "password": []byte("password")},
+			}
+			goodSwitch := &metal3api.BareMetalSwitch{
+				ObjectMeta: metav1.ObjectMeta{Name: "good-switch", Namespace: "test-ns", UID: "good-switch-uid"},
+				Spec: metal3api.BareMetalSwitchSpec{
+					Address:     "192.168.1.2",
+					MACAddress:  "aa:bb:cc:dd:ee:ff",
+					DeviceType:  "netmiko_dell_os10",
+					Credentials: &corev1.SecretReference{Name: "good-creds", Namespace: "test-ns"},
+				},
+			}
+			goodSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "good-creds", Namespace: "test-ns"},
+				Data:       map[string][]byte{"username": []byte("admin"), "ssh-privatekey": []byte("good-key")},
+			}
+			configSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: testSwitchConfigsSecretName, Namespace: "test-ns"}}
+			credentialSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: testSwitchCredentialSecretName, Namespace: "test-ns"}}
+
+			badSecretKey := client.ObjectKeyFromObject(badSecret)
+			denial := errors.New(tt.deniedOperation + " denied by test policy")
+			readAttempted := false
+			c := fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(badSwitch, goodSwitch, badSecret, goodSecret, configSecret, credentialSecret).
+				WithStatusSubresource(&metal3api.BareMetalSwitch{}).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if _, isSecret := obj.(*corev1.Secret); isSecret && key == badSecretKey {
+							readAttempted = true
+							if tt.deniedOperation == "read" {
+								return k8serrors.NewForbidden(corev1.Resource("secrets"), key.Name, denial)
+							}
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+					Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						if _, isSecret := obj.(*corev1.Secret); isSecret && client.ObjectKeyFromObject(obj) == badSecretKey && tt.deniedOperation == "update" {
+							return k8serrors.NewForbidden(corev1.Resource("secrets"), obj.GetName(), denial)
+						}
+						return c.Update(ctx, obj, opts...)
+					},
+				}).Build()
+			var logs strings.Builder
+			logger := funcr.New(func(_, args string) { logs.WriteString(args + "\n") }, funcr.Options{})
+			r := &BareMetalSwitchReconciler{
+				Client:                     c,
+				Log:                        logger,
+				APIReader:                  c,
+				SwitchConfigsSecretName:    testSwitchConfigsSecretName,
+				SwitchCredentialSecretName: testSwitchCredentialSecretName,
+				SwitchCredentialPath:       testSwitchCredentialPath,
+				SwitchSecretsNamespace:     "test-ns",
+			}
+
+			badSwitchKey := client.ObjectKeyFromObject(badSwitch)
+			result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: badSwitchKey})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(result.RequeueAfter).To(Equal(bareMetalSwitchReconcileInterval))
+			g.Expect(readAttempted).To(Equal(tt.deniedOperation != ""))
+			if tt.expectedLog != "" {
+				g.Expect(logs.String()).To(ContainSubstring(tt.expectedLog))
+				g.Expect(logs.String()).To(ContainSubstring(denial.Error()))
+			}
+
+			g.Expect(c.Get(t.Context(), badSwitchKey, badSwitch)).To(Succeed())
+			condition := meta.FindStatusCondition(badSwitch.Status.Conditions, string(metal3api.SwitchConditionValid))
+			g.Expect(condition).NotTo(BeNil())
+			g.Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+			g.Expect(condition.Reason).To(Equal("CredentialError"))
+			g.Expect(condition.Message).To(Equal(tt.expectedMessage))
+
+			g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(configSecret), configSecret)).To(Succeed())
+			config := string(configSecret.Data[switchConfigKey])
+			g.Expect(config).To(ContainSubstring("[switch:good-switch]"))
+			g.Expect(config).To(ContainSubstring("key_file=" + testSwitchCredentialPath + "/aa-bb-cc-dd-ee-ff.key"))
+			g.Expect(config).NotTo(ContainSubstring("[switch:bad-switch]"))
+			g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(credentialSecret), credentialSecret)).To(Succeed())
+			g.Expect(credentialSecret.Data).To(Equal(map[string][]byte{"aa-bb-cc-dd-ee-ff.key": []byte("good-key")}))
 		})
 	}
 }

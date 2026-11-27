@@ -25,9 +25,9 @@ linters:
             enable:
             - commentstart
             - conditions
+            - conflictingmarkers
             - defaultorrequired
             - defaults
-
             - duplicatemarkers
             - integers
             - jsontags
@@ -43,7 +43,13 @@ linters:
               isFirstField: Warn # Require conditions to be the first field in the status struct.
               usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.
               useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
-
+            conflictingmarkers:
+              conflicts:
+              - name: "default_vs_required"
+                sets:
+                - [ "default", "kubebuilder:default" ]
+                - [ "required", "kubebuilder:validation:Required", "k8s:required" ]
+                description: "A field with a default value cannot be required"
 issues:
   uniq-by-line: false
   max-issues-per-linter: 0

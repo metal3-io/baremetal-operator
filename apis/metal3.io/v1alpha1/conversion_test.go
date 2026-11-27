@@ -20,6 +20,7 @@ import (
 	"maps"
 	"math/rand"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -58,8 +59,31 @@ func TestFuzzyConversion(t *testing.T) {
 	t.Run("for HardwareData", fuzzTestFunc(fuzzTestFuncInput{
 		hub:         &metal3apiv1beta1.HardwareData{},
 		spoke:       &HardwareData{},
-		fuzzerFuncs: []fuzzer.FuzzerFuncs{int32RangeFuzzerFuncs},
+		fuzzerFuncs: []fuzzer.FuzzerFuncs{int32RangeFuzzerFuncs, nicModelFuzzerFuncs},
 	}))
+}
+
+// nicModelFuzzerFuncs makes the fuzzer produce NIC models the way they are
+// built from the Ironic inventory: PCI vendor and device IDs, either of which
+// may be unknown. Random strings with spaces cannot be split back losslessly.
+func nicModelFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	pciID := func(c randfill.Continue) string {
+		if c.Bool() {
+			return ""
+		}
+		return "0x" + strconv.FormatInt(int64(c.Intn(0x10000)), 16)
+	}
+	return []interface{}{
+		func(in *NIC, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.Model = strings.TrimLeft(pciID(c)+" "+pciID(c), " ")
+		},
+		func(in *metal3apiv1beta1.NIC, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.Vendor = pciID(c)
+			in.DeviceID = pciID(c)
+		},
+	}
 }
 
 // checksumTypeFuzzerFuncs makes the fuzzer produce the known checksum types,

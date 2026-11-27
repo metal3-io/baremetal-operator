@@ -12,6 +12,7 @@ import (
 
 	metal3api "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/metal3-io/baremetal-operator/pkg/hardwareutils/bmc"
+	"github.com/metal3-io/baremetal-operator/pkg/hostclaim"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner"
 	"github.com/metal3-io/baremetal-operator/pkg/provisioner/fixture"
 	"github.com/metal3-io/baremetal-operator/pkg/secretutils"
@@ -4387,5 +4388,132 @@ func createDockerConfigJSONSecretForTest(t *testing.T, name, ns string, auths ma
 		Data: map[string][]byte{
 			corev1.DockerConfigJsonKey: dockerConfigJSON,
 		},
+	}
+}
+
+func TestGetHostClaimIfExists(t *testing.T) {
+	name := "bmh"
+	hc := metal3api.HostClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hostclaim",
+			Namespace: "ns",
+		},
+		Status: metal3api.HostClaimStatus{
+			BareMetalHost: &metal3api.ObjectReference{
+				Namespace: namespace,
+				Name:      name,
+			},
+		},
+	}
+	testCases := []struct {
+		Scenario       string
+		Host           *metal3api.BareMetalHost
+		HostClaim      *metal3api.HostClaim
+		ErrExpected    bool
+		FoundHostClaim bool
+	}{
+		{
+			Scenario: "getHostClaim finds nothing (no consumerRef)",
+			Host: newHost(name,
+				&metal3api.BareMetalHostSpec{}),
+		},
+		{
+			Scenario: "getHostClaim finds nothing (bad kind)",
+			Host: newHost(name,
+				&metal3api.BareMetalHostSpec{
+					ConsumerRef: &corev1.ObjectReference{
+						Kind:       "BareMetalHost",
+						Namespace:  "ns",
+						Name:       "hostclaim",
+						APIVersion: "metal3.io/v1alpha1",
+					},
+				}),
+			HostClaim: &hc,
+		},
+		{
+			Scenario: "getHostClaim finds nothing (bad group)",
+			Host: newHost(name,
+				&metal3api.BareMetalHostSpec{
+					ConsumerRef: &corev1.ObjectReference{
+						Kind:       hostclaim.HostClaimKind,
+						Namespace:  "ns",
+						Name:       "hostclaim",
+						APIVersion: "other.io/v1alpha1",
+					},
+				}),
+			HostClaim: &hc,
+		},
+		{
+			Scenario: "getHostClaim returns nil (does not exist)",
+			Host: newHost(name,
+				&metal3api.BareMetalHostSpec{
+					ConsumerRef: &corev1.ObjectReference{
+						Kind:       hostclaim.HostClaimKind,
+						Namespace:  "other",
+						Name:       "ref",
+						APIVersion: "metal3.io/v1alpha1",
+					},
+				}),
+			HostClaim: &hc,
+		},
+		{
+			Scenario: "getHostClaim fails (bad back link)",
+			Host: newHost(name,
+				&metal3api.BareMetalHostSpec{
+					ConsumerRef: &corev1.ObjectReference{
+						Kind:       hostclaim.HostClaimKind,
+						Name:       "hostclaim",
+						Namespace:  "ns",
+						APIVersion: "metal3.io/v1alpha1",
+					},
+				}),
+			HostClaim: &metal3api.HostClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hostclaim",
+					Namespace: "ns",
+				},
+				Status: metal3api.HostClaimStatus{
+					BareMetalHost: &metal3api.ObjectReference{
+						Namespace: namespace,
+						Name:      "other",
+					},
+				},
+			},
+		},
+		{
+			Scenario: "getHostClaim succeeds",
+			Host: newHost(name,
+				&metal3api.BareMetalHostSpec{
+					ConsumerRef: &corev1.ObjectReference{
+						Kind:       hostclaim.HostClaimKind,
+						Name:       "hostclaim",
+						Namespace:  "ns",
+						APIVersion: "metal3.io/versionignored",
+					},
+				}),
+			HostClaim:      &hc,
+			FoundHostClaim: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			initObjs := []runtime.Object{tc.Host}
+			if tc.HostClaim != nil {
+				initObjs = append(initObjs, tc.HostClaim)
+			}
+			r := newTestReconciler(t, initObjs...)
+			ctx := context.TODO()
+			hostClaim, err := r.getHostClaimIfExists(ctx, tc.Host)
+			if (err != nil) != tc.ErrExpected {
+				t.Fatal("return error not as expected", err)
+			}
+			if tc.FoundHostClaim && hostClaim == nil {
+				t.Fatal("hostClaim should be given back")
+			}
+			if !tc.FoundHostClaim && hostClaim != nil {
+				t.Fatal("hostClaim should not be returned (wrong invariants)")
+			}
+		})
 	}
 }

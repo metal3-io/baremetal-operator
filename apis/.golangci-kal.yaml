@@ -27,11 +27,11 @@ linters:
             - conditions
             - defaultorrequired
             - defaults
-
             - duplicatemarkers
             - integers
             - jsontags
             - nodurations
+            - nofloats
             - nomaps
             - nophase
             - notimestamp
@@ -43,7 +43,10 @@ linters:
               isFirstField: Warn # Require conditions to be the first field in the status struct.
               usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.
               useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
-
+  exclusions:
+    rules:
+    - path: metal3.io/v1beta1/hardwaredata_types.go
+      text: "nofloats:.*ClockSpeed"
 issues:
   uniq-by-line: false
   max-issues-per-linter: 0

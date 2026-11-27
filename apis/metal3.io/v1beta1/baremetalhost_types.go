@@ -426,7 +426,7 @@ type SoftwareRAIDVolume struct {
 	// This can only be set for one of the volumes.
 	// +optional
 	// +default=false
-	RootVolume bool `json:"rootVolume,omitempty"`
+	RootVolume bool `json:"rootVolume,omitempty"` //nolint:kubeapilinter // false is the default and means unset; a pointer would not round-trip through v1alpha1
 
 	// sizeGibibytes is the size of the logical disk to be created in GiB.
 	// If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
@@ -449,7 +449,7 @@ type RAIDConfig struct {
 	// You can set the value of this field to `[]` to clear all the hardware RAID configurations.
 	// +optional
 	// +nullable
-	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"`
+	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"` //nolint:kubeapilinter // nil means keep the existing RAID config and [] means clear it, so omitempty would change behavior
 
 	// softwareRAIDVolumes is the list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
 	// If HardwareRAIDVolumes is set this item will be invalid.
@@ -462,7 +462,7 @@ type RAIDConfig struct {
 	// +kubebuilder:validation:MaxItems=2
 	// +optional
 	// +nullable
-	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"`
+	SoftwareRAIDVolumes []SoftwareRAIDVolume `json:"softwareRAIDVolumes"` //nolint:kubeapilinter // nil means keep the existing RAID config and [] means clear it, so omitempty would change behavior
 }
 
 // SwitchPortIdentifier defines the attributes required to identify a switch port.
@@ -502,6 +502,7 @@ type NetworkInterface struct {
 	// Mutually exclusive with MACAddress.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._-]+$`
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
 	// macAddress is the MAC address of the network interface. This must match the MAC address
@@ -509,6 +510,7 @@ type NetworkInterface struct {
 	// Mutually exclusive with Name.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
+	// +kubebuilder:validation:MinLength=17
 	MACAddress string `json:"macAddress,omitempty"`
 
 	// hostNetworkAttachment references the HostNetworkAttachment for this interface
@@ -635,12 +637,13 @@ type BareMetalHostSpec struct {
 	// architecture is the CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
 	// eventually populated by inspection.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Architecture string `json:"architecture,omitempty"`
 
 	// disablePowerOff controls power off of the node. When set to true, power off of the node will be disabled,
 	// instead, a reboot will be used in place of power on/off
 	// +optional
-	DisablePowerOff bool `json:"disablePowerOff,omitempty"`
+	DisablePowerOff bool `json:"disablePowerOff,omitempty"` //nolint:kubeapilinter // false is the default and means unset; a pointer would not round-trip through v1alpha1
 
 	// inspectionMode specifies the mode for host inspection.
 	// "disabled" - no inspection will be performed
@@ -773,7 +776,7 @@ type DetachedAnnotationArguments struct {
 
 	// force indicates if detaching should be forced regardless of the host's state
 	// +optional
-	Force bool `json:"force,omitempty"`
+	Force bool `json:"force,omitempty"` //nolint:kubeapilinter // false is the default and means unset; a pointer would not round-trip through v1alpha1
 }
 
 // Match compares the saved status information with the name and
@@ -892,7 +895,7 @@ type BareMetalHostStatus struct {
 	// errorCount records how many times the host has encoutered an error since the last successful operation
 	// +optional
 	// +default=0
-	ErrorCount int32 `json:"errorCount,omitempty"`
+	ErrorCount int32 `json:"errorCount,omitempty"` //nolint:kubeapilinter // 0 is the default and means no errors; a pointer would not round-trip through v1alpha1
 
 	// provisioningFailCount records how many times provisioning has failed
 	// consecutively for the current image. Unlike ErrorCount, it is not reset
@@ -900,7 +903,7 @@ type BareMetalHostStatus struct {
 	// a new image is specified.
 	// +optional
 	// +default=0
-	ProvisioningFailCount int32 `json:"provisioningFailCount,omitempty"`
+	ProvisioningFailCount int32 `json:"provisioningFailCount,omitempty"` //nolint:kubeapilinter // 0 is the default and means no failures; a pointer would not round-trip through v1alpha1
 
 	// lastAttemptedImage stores the full image spec of the last provisioning
 	// attempt, used to detect user-initiated image changes (URL, checksum,

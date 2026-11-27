@@ -137,14 +137,17 @@ type VLAN struct {
 type LLDP struct {
 	// switchID is the switch chassis ID from LLDP
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SwitchID string `json:"switchID,omitempty"`
 
 	// portID is the switch port ID from LLDP
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	PortID string `json:"portID,omitempty"`
 
 	// switchSystemName is the switch system name from LLDP
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SwitchSystemName string `json:"switchSystemName,omitempty"`
 }
 
@@ -184,11 +187,13 @@ type NIC struct {
 
 	// pciAddress is the NIC PCI address
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	PCIAddress string `json:"pciAddress,omitempty"`
 
 	// infinibandClientID is the InfiniBand client ID of the interface, as discovered by Ironic.
 	// Only set for InfiniBand interfaces.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	InfinibandClientID string `json:"infinibandClientID,omitempty"`
 }
 

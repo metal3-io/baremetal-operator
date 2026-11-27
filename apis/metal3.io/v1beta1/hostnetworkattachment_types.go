@@ -26,6 +26,7 @@ type HostNetworkAttachmentRef struct {
 	// namespace of the HostNetworkAttachment (defaults to BMH namespace)
 	// +optional
 	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace,omitempty"`
 }
 

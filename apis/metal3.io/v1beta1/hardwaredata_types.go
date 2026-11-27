@@ -59,14 +59,19 @@ const (
 // CPU describes one processor on the host.
 type CPU struct {
 	// arch is the CPU architecture, e.g. "x86_64".
+	// +optional
 	Arch string `json:"arch,omitempty"`
 	// model is the CPU model name.
+	// +optional
 	Model string `json:"model,omitempty"`
 	// clockMegahertz is the CPU clock speed in megahertz.
+	// +optional
 	ClockMegahertz ClockSpeed `json:"clockMegahertz,omitempty"`
 	// flags is the list of CPU flags.
+	// +optional
 	Flags []string `json:"flags,omitempty"`
 	// threadCount is the number of CPU threads.
+	// +optional
 	ThreadCount int32 `json:"threadCount,omitempty"`
 }
 
@@ -75,46 +80,57 @@ type Storage struct {
 	// name is a Linux device name of the disk, e.g.
 	// "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
 	// that is stable across reboots if one is available.
+	// +optional
 	Name string `json:"name,omitempty"`
 
 	// alternateNames is a list of alternate Linux device names of the disk, e.g. "/dev/sda".
 	// Note that this list is not exhaustive, and names may not be stable
 	// across reboots.
+	// +optional
 	AlternateNames []string `json:"alternateNames,omitempty"`
 
 	// rotational indicates whether this disk represents rotational storage.
 	// This field is not recommended for usage, please
 	// prefer using 'Type' field instead, this field
 	// will be deprecated eventually.
+	// +optional
 	Rotational bool `json:"rotational,omitempty"`
 
 	// type is the device type, one of: HDD, SSD, NVME.
-	// +kubebuilder:validation:Optional
+	// +optional
 	// +kubebuilder:validation:Enum=HDD;SSD;NVME;
 	Type DiskType `json:"type,omitempty"`
 
 	// sizeBytes is the size of the disk in Bytes
+	// +optional
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
 
 	// vendor is the name of the vendor of the device
+	// +optional
 	Vendor string `json:"vendor,omitempty"`
 
 	// model is the hardware model of the device.
+	// +optional
 	Model string `json:"model,omitempty"`
 
 	// serialNumber is the serial number of the device
+	// +optional
 	SerialNumber string `json:"serialNumber,omitempty"`
 
 	// wwn is the WWN of the device
+	// +optional
 	WWN string `json:"wwn,omitempty"`
 
 	// wwnVendorExtension is the WWN Vendor extension of the device
+	// +optional
 	WWNVendorExtension string `json:"wwnVendorExtension,omitempty"`
 
 	// wwnWithExtension is the WWN with the extension
+	// +optional
 	WWNWithExtension string `json:"wwnWithExtension,omitempty"`
 
 	// hctl is the SCSI location of the device
+	// +optional
 	HCTL string `json:"hctl,omitempty"`
 }
 
@@ -127,9 +143,11 @@ type VLANID int32
 // VLAN represents the name and ID of a VLAN.
 type VLAN struct {
 	// id is the VLAN ID.
+	// +optional
 	ID VLANID `json:"id,omitempty"`
 
 	// name is the VLAN name.
+	// +optional
 	Name string `json:"name,omitempty"`
 }
 
@@ -151,31 +169,39 @@ type LLDP struct {
 // NIC describes one network interface on the host.
 type NIC struct {
 	// name is the name of the network interface, e.g. "en0"
+	// +optional
 	Name string `json:"name,omitempty"`
 
 	// model is the vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
+	// +optional
 	Model string `json:"model,omitempty"`
 
 	// mac is the device MAC address.
+	// +optional
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	MAC string `json:"mac,omitempty"`
 
 	// ip is the IP address of the interface. This will be an IPv4 or IPv6 address
 	// if one is present.  If both IPv4 and IPv6 addresses are present in a
 	// dual-stack environment, two nics will be output, one with each IP.
+	// +optional
 	IP string `json:"ip,omitempty"`
 
 	// speedGbps is the speed of the device in Gigabits per second
+	// +optional
 	SpeedGbps int32 `json:"speedGbps,omitempty"`
 
 	// vlans is the list of available VLANs.
+	// +optional
 	VLANs []VLAN `json:"vlans,omitempty"`
 
 	// vlanId is the untagged VLAN ID
+	// +optional
 	//nolint:tagliatelle
 	VLANID VLANID `json:"vlanId,omitempty"`
 
 	// pxe indicates whether the NIC is PXE bootable.
+	// +optional
 	PXE bool `json:"pxe,omitempty"`
 
 	// lldp data for this interface
@@ -195,28 +221,35 @@ type NIC struct {
 // Firmware describes the firmware on the host.
 type Firmware struct {
 	// bios is the BIOS for this firmware
+	// +optional
 	BIOS BIOS `json:"bios,omitempty"`
 }
 
 // BIOS describes the BIOS version on the host.
 type BIOS struct {
 	// date is the release/build date for this BIOS
+	// +optional
 	Date string `json:"date,omitempty"`
 
 	// vendor is the vendor name for this BIOS
+	// +optional
 	Vendor string `json:"vendor,omitempty"`
 
 	// version is the version of the BIOS
+	// +optional
 	Version string `json:"version,omitempty"`
 }
 
 // HardwareSystemVendor stores details about the whole hardware system.
 type HardwareSystemVendor struct {
 	// manufacturer is the system manufacturer.
+	// +optional
 	Manufacturer string `json:"manufacturer,omitempty"`
 	// productName is the system product name.
+	// +optional
 	ProductName string `json:"productName,omitempty"`
 	// serialNumber is the system serial number.
+	// +optional
 	SerialNumber string `json:"serialNumber,omitempty"`
 }
 
@@ -224,18 +257,23 @@ type HardwareSystemVendor struct {
 // the host via PCI device inspection.
 type Accelerator struct {
 	// vendorID is the PCI vendor ID of the device, e.g. "abcd".
+	// +optional
 	VendorID string `json:"vendorID,omitempty"`
 
 	// deviceID is the PCI device ID of the device, e.g. "1234".
+	// +optional
 	DeviceID string `json:"deviceID,omitempty"`
 
 	// type is the type of the accelerator device, e.g. "GPU".
+	// +optional
 	Type string `json:"type,omitempty"`
 
 	// deviceInfo is a human readable description of the device.
+	// +optional
 	DeviceInfo string `json:"deviceInfo,omitempty"`
 
 	// pciAddress is the PCI address of the device, e.g. "0000:3b:00.0".
+	// +optional
 	PCIAddress string `json:"pciAddress,omitempty"`
 }
 
@@ -243,26 +281,35 @@ type Accelerator struct {
 // discovered on the host.
 type HardwareDetails struct {
 	// accelerators is the list of accelerators discovered on the host.
+	// +optional
 	Accelerators []Accelerator `json:"accelerators,omitempty"`
 	// systemVendor holds system vendor information.
+	// +optional
 	SystemVendor HardwareSystemVendor `json:"systemVendor,omitempty"`
 	// firmware holds system firmware information.
+	// +optional
 	Firmware Firmware `json:"firmware,omitempty"`
 	// ramMebibytes is the host's amount of memory in Mebibytes.
+	// +optional
 	RAMMebibytes int32 `json:"ramMebibytes,omitempty"`
 	// nics is the list of network interfaces for the host.
+	// +optional
 	NIC []NIC `json:"nics,omitempty"`
 	// storage is the list of storage (disk, SSD, etc.) available to the host.
+	// +optional
 	Storage []Storage `json:"storage,omitempty"`
 	// cpu holds details of the CPU(s) in the system.
+	// +optional
 	CPU CPU `json:"cpu,omitempty"`
 	// hostname is the name of the host at the inspection time.
+	// +optional
 	Hostname string `json:"hostname,omitempty"`
 }
 
 // HardwareDataSpec defines the desired state of HardwareData.
 type HardwareDataSpec struct {
 	// hardware is the hardware discovered on the host during its inspection.
+	// +optional
 	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
 }
 
@@ -274,9 +321,11 @@ type HardwareDataSpec struct {
 type HardwareData struct {
 	metav1.TypeMeta `json:",inline"`
 	// metadata is the standard object metadata.
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds the hardware data discovered on the host.
+	// +optional
 	Spec HardwareDataSpec `json:"spec,omitempty"`
 }
 

@@ -36,6 +36,7 @@ linters:
             - notimestamp
             - requiredfields
             - statussubresource
+            - statusoptional
             - uniquemarkers
           lintersConfig:
             conditions:

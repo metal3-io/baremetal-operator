@@ -2927,10 +2927,8 @@ spec:
                     type: string
                 type: object
             required:
-            - errorMessage
             - operationalStatus
             - poweredOn
-            - provisioning
             type: object
         type: object
     served: true

@@ -857,11 +857,13 @@ type BareMetalHostStatus struct {
 
 	// operationalStatus holds the status of the host
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached;servicing
+	// +required
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
 	// errorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
 	// +kubebuilder:validation:Enum=provisioned registration error;registration error;inspection error;preparation error;provisioning error;power management error;detach error;servicing error;secret access error
+	// +optional
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// lastUpdated identifies when this status was last observed.
@@ -869,24 +871,30 @@ type BareMetalHostStatus struct {
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
 	// provisioning holds information tracked by the provisioner.
+	// +optional
 	Provisioning ProvisionStatus `json:"provisioning"`
 
 	// goodCredentials is the last credentials we were able to validate as working.
+	// +optional
 	GoodCredentials CredentialsStatus `json:"goodCredentials,omitempty"`
 
 	// triedCredentials is the last credentials we sent to the provisioning backend.
+	// +optional
 	TriedCredentials CredentialsStatus `json:"triedCredentials,omitempty"`
 
 	// errorMessage is the last error message reported by the provisioning subsystem.
-	ErrorMessage string `json:"errorMessage"`
+	// +optional
+	ErrorMessage string `json:"errorMessage,omitempty"`
 
 	// poweredOn is the currently detected power state of the host. This field may get
 	// briefly out of sync with the actual state of the hardware while
 	// provisioning processes are running.
+	// +required
 	PoweredOn bool `json:"poweredOn"`
 
 	// operationHistory holds information about operations performed
 	// on this host.
+	// +optional
 	OperationHistory OperationHistory `json:"operationHistory,omitempty"`
 
 	// errorCount records how many times the host has encoutered an error since the last successful operation

@@ -93,7 +93,8 @@ func (m *PoolManager) ensurePoolActive(existingPool *libvirt.StoragePool, cfg vb
 		}
 	}
 
-	log.Printf("Pool %s already exists\n", cfg.Name)
+	// No status message here: EnsurePool runs once per VM during a lab create,
+	// so announcing an already-existing pool would repeat for every VM.
 	return m.getPoolInfo(existingPool, cfg)
 }
 

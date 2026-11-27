@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 
 	vbmctlapi "github.com/metal3-io/baremetal-operator/test/vbmctl/pkg/api"
@@ -44,8 +45,7 @@ func newConfigInitCmd() *cobra.Command {
 				return fmt.Errorf("failed to save config: %w", err)
 			}
 
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Created config file: %s\n", output)
+			log.Printf("Created config file: %s", output)
 			return nil
 		},
 	}
@@ -65,36 +65,28 @@ func newConfigViewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Libvirt URI: %s\n", cfg.Spec.Libvirt.URI)
-			//nolint:forbidigo // CLI output is intentional
-			fmt.Printf("Storage Pool: %s at %s\n", cfg.Spec.Pool.Name, cfg.Spec.Pool.Path)
+			log.Printf("Libvirt URI: %s", cfg.Spec.Libvirt.URI)
+			log.Printf("Storage Pool: %s at %s", cfg.Spec.Pool.Name, cfg.Spec.Pool.Path)
 
 			if len(cfg.Spec.VMs) > 0 {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Println("Configured VMs:")
+				log.Printf("Configured VMs:")
 				for _, vm := range cfg.Spec.VMs {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("  - %s (memory: %dMB, vcpus: %d)\n", vm.Name, vm.Memory, vm.VCPUs)
+					log.Printf("  - %s (memory: %dMB, vcpus: %d)", vm.Name, vm.Memory, vm.VCPUs)
 				}
 			}
 
 			if cfg.Spec.ImageServer != nil {
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("Image Server:\n  Image: %s\n  Host Port: %d\n  Container Port: %d\n  Data Dir: %s\n  Container Name: %s\n",
+				log.Printf("Image Server:\n  Image: %s\n  Host Port: %d\n  Container Port: %d\n  Data Dir: %s\n  Container Name: %s",
 					cfg.Spec.ImageServer.Image,
 					cfg.Spec.ImageServer.Port,
 					cfg.Spec.ImageServer.ContainerPort,
 					cfg.Spec.ImageServer.DataDir,
 					cfg.Spec.ImageServer.ContainerName)
 				for _, m := range cfg.Spec.ImageServer.ExtraMounts {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("  Extra Mount: %s -> %s (readOnly: %t)\n", m.HostPath, m.ContainerPath, m.ReadOnly)
+					log.Printf("  Extra Mount: %s -> %s (readOnly: %t)\n", m.HostPath, m.ContainerPath, m.ReadOnly)
 				}
 				for _, p := range cfg.Spec.ImageServer.ExtraPorts {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("  Extra Port: %d -> %d\n", p.HostPort, p.ContainerPort)
+					log.Printf("  Extra Port: %d -> %d\n", p.HostPort, p.ContainerPort)
 				}
 			}
 
@@ -104,14 +96,12 @@ func newConfigViewCmd() *cobra.Command {
 				if cfg.Spec.BMCEmulator.Type == vbmctlapi.BMCEmulatorTypeSushyTools {
 					sushyConfig = &cfg.Spec.BMCEmulator.SushyToolsConfig
 				}
-				//nolint:forbidigo // CLI output is intentional
-				fmt.Printf("BMC Emulator:\n  Emulator Type: %s\n  Image: %s\n",
+				log.Printf("BMC Emulator:\n  Emulator Type: %s\n  Image: %s",
 					cfg.Spec.BMCEmulator.Type,
 					cfg.Spec.BMCEmulator.Image)
 
 				if sushyConfig != nil {
-					//nolint:forbidigo // CLI output is intentional
-					fmt.Printf("  Config File: %s\n  Listening: %s\n",
+					log.Printf("  Config File: %s\n  Listening: %s",
 						func() string {
 							if sushyConfig.ConfigFile == "" {
 								return "(not specified)"

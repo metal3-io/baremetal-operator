@@ -220,7 +220,7 @@ var _ = Describe("Associate a hostclaim to a BMH and delete the claim.", Label("
 			checkNoConsumer(specName, bmh)
 			WaitForHostClaimDeleted(ctx, clusterProxy.GetClient(), hostClaim, e2eConfig.GetIntervals(specName, "wait-deleted")...)
 
-			By("Creating a claim with forged BMH link")
+			By("Creating a claim with forged BMH link (manual disassociation policy, default)")
 			hostClaim = &metal3api.HostClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      specName,
@@ -236,14 +236,14 @@ var _ = Describe("Associate a hostclaim to a BMH and delete the claim.", Label("
 			Expect(clusterProxy.GetClient().Create(ctx, hostClaim)).To(Succeed())
 			toCleanupClaim = append(toCleanupClaim, hostClaim)
 			Expect(clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(hostClaim), hostClaim)).To(Succeed())
-			patch := client.MergeFrom(hostClaim.DeepCopy())
+			statusPatch := client.MergeFrom(hostClaim.DeepCopy())
 			hostClaim.Status.BareMetalHost = &metal3api.ObjectReference{
 				Namespace: bmh.Namespace,
 				Name:      bmh.Name,
 			}
-			Expect(clusterProxy.GetClient().Status().Patch(ctx, hostClaim, patch)).To(Succeed())
+			Expect(clusterProxy.GetClient().Status().Patch(ctx, hostClaim, statusPatch)).To(Succeed())
 
-			By("Wait for association to fail and BareMetalHost reference reset to nil")
+			By("Waiting for the claim to be fenced: no association, DisassociatedLabel set")
 			WaitForHostClaimCondition(ctx, WaitForHostClaimConditionInput{
 				Client:        clusterProxy.GetClient(),
 				HostClaim:     hostClaim,
@@ -254,8 +254,23 @@ var _ = Describe("Associate a hostclaim to a BMH and delete the claim.", Label("
 			Eventually(func(g Gomega) {
 				g.Expect(clusterProxy.GetClient().Get(ctx, keyHostClaim, hostClaim)).To(Succeed())
 				g.Expect(hostClaim.Status.BareMetalHost).To(BeNil())
+				g.Expect(hostClaim.Labels).To(HaveKey(metal3api.DisassociatedLabel))
 			}, e2eConfig.GetIntervals(specName, "wait-associated")...).Should(Succeed())
 
+			By("Waiting for the BMH to be Available so it is a valid reassociation target")
+			WaitForBmhInProvisioningState(ctx, WaitForBmhInProvisioningStateInput{
+				Client: clusterProxy.GetClient(),
+				Bmh:    *bmh,
+				State:  metal3api.StateAvailable,
+			}, e2eConfig.GetIntervals(specName, "wait-available")...)
+
+			By("Widening the selector and clearing the DisassociatedLabel; waiting for reassociation")
+			Expect(clusterProxy.GetClient().Get(ctx, keyHostClaim, hostClaim)).To(Succeed())
+			recoveryPatch := client.MergeFrom(hostClaim.DeepCopy())
+			hostClaim.Spec.HostSelector.MatchLabels = map[string]string{selectorLabel: selectorValue}
+			delete(hostClaim.Labels, metal3api.DisassociatedLabel)
+			Expect(clusterProxy.GetClient().Patch(ctx, hostClaim, recoveryPatch)).To(Succeed())
+			checkAssociation(specName, hostClaim, bmh)
 		})
 
 		AfterEach(func() {

@@ -27,11 +27,11 @@ linters:
             - conditions
             - defaultorrequired
             - defaults
-
             - duplicatemarkers
             - jsontags
             - nodurations
             - nomaps
+            - nonullable
             - nophase
             - notimestamp
             - requiredfields

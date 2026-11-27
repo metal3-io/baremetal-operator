@@ -18,7 +18,7 @@ package v1beta1
 // HostNetworkAttachmentRef references a HostNetworkAttachment for interface configuration.
 type HostNetworkAttachmentRef struct {
 	// name of the HostNetworkAttachment resource
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name,omitempty"`

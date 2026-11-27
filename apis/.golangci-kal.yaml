@@ -27,8 +27,8 @@ linters:
             - conditions
             - defaultorrequired
             - defaults
-
             - duplicatemarkers
+            - forbiddenmarkers
             - integers
             - jsontags
             - nodurations
@@ -39,6 +39,12 @@ linters:
             - statussubresource
             - uniquemarkers
           lintersConfig:
+            forbiddenmarkers:
+              markers:
+              # We don't want to do any defaulting (including OpenAPI) anymore on API fields because we prefer
+              # to have a clear signal on user intent. This also allows us to easily change the default behavior if necessary.
+              - identifier: "kubebuilder:default"
+              - identifier: "default"
             conditions:
               isFirstField: Warn # Require conditions to be the first field in the status struct.
               usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.

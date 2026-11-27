@@ -1696,7 +1696,6 @@ spec:
                   eventually populated by inspection.
                 type: string
               automatedCleaningMode:
-                default: metadata
                 description: |-
                   automatedCleaningMode controls automated cleaning. When set to disabled, automated cleaning will be skipped
                   during provisioning and deprovisioning.
@@ -2142,7 +2141,6 @@ spec:
                           minItems: 2
                           type: array
                         rootVolume:
-                          default: false
                           description: |-
                             rootVolume set to true causes the installer to consider this volume as the root device for installation.
                             This can only be set for one of the volumes.
@@ -2407,7 +2405,6 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               errorCount:
-                default: 0
                 description: errorCount records how many times the host has encoutered
                   an error since the last successful operation
                 format: int32
@@ -2815,7 +2812,6 @@ spec:
                               minItems: 2
                               type: array
                             rootVolume:
-                              default: false
                               description: |-
                                 rootVolume set to true causes the installer to consider this volume as the root device for installation.
                                 This can only be set for one of the volumes.
@@ -2899,7 +2895,6 @@ spec:
                 - state
                 type: object
               provisioningFailCount:
-                default: 0
                 description: |-
                   provisioningFailCount records how many times provisioning has failed
                   consecutively for the current image. Unlike ErrorCount, it is not reset

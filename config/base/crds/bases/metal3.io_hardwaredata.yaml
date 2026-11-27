@@ -309,30 +309,37 @@ spec:
                         deviceID:
                           description: deviceID is the PCI device ID of the device,
                             e.g. "1234".
+                          maxLength: 64
                           type: string
                         deviceInfo:
                           description: deviceInfo is a human readable description
                             of the device.
+                          maxLength: 512
                           type: string
                         pciAddress:
                           description: pciAddress is the PCI address of the device,
                             e.g. "0000:3b:00.0".
+                          maxLength: 32
                           type: string
                         type:
                           description: type is the type of the accelerator device,
                             e.g. "GPU".
+                          maxLength: 64
                           type: string
                         vendorID:
                           description: vendorID is the PCI vendor ID of the device,
                             e.g. "abcd".
+                          maxLength: 64
                           type: string
                       type: object
+                    maxItems: 256
                     type: array
                   cpu:
                     description: cpu holds details of the CPU(s) in the system.
                     properties:
                       arch:
                         description: arch is the CPU architecture, e.g. "x86_64".
+                        maxLength: 64
                         type: string
                       clockMegahertz:
                         description: clockMegahertz is the CPU clock speed in megahertz.
@@ -341,10 +348,13 @@ spec:
                       flags:
                         description: flags is the list of CPU flags.
                         items:
+                          maxLength: 256
                           type: string
+                        maxItems: 1024
                         type: array
                       model:
                         description: model is the CPU model name.
+                        maxLength: 256
                         type: string
                       threadCount:
                         description: threadCount is the number of CPU threads.
@@ -359,18 +369,22 @@ spec:
                         properties:
                           date:
                             description: date is the release/build date for this BIOS
+                            maxLength: 64
                             type: string
                           vendor:
                             description: vendor is the vendor name for this BIOS
+                            maxLength: 256
                             type: string
                           version:
                             description: version is the version of the BIOS
+                            maxLength: 256
                             type: string
                         type: object
                     type: object
                   hostname:
                     description: hostname is the name of the host at the inspection
                       time.
+                    maxLength: 253
                     type: string
                   nics:
                     description: nics is the list of network interfaces for the host.
@@ -381,42 +395,51 @@ spec:
                           description: |-
                             infinibandClientID is the InfiniBand client ID of the interface, as discovered by Ironic.
                             Only set for InfiniBand interfaces.
+                          maxLength: 256
                           type: string
                         ip:
                           description: |-
                             ip is the IP address of the interface. This will be an IPv4 or IPv6 address
                             if one is present.  If both IPv4 and IPv6 addresses are present in a
                             dual-stack environment, two nics will be output, one with each IP.
+                          maxLength: 45
                           type: string
                         lldp:
                           description: lldp data for this interface
                           properties:
                             portID:
                               description: portID is the switch port ID from LLDP
+                              maxLength: 256
                               type: string
                             switchID:
                               description: switchID is the switch chassis ID from
                                 LLDP
+                              maxLength: 256
                               type: string
                             switchSystemName:
                               description: switchSystemName is the switch system name
                                 from LLDP
+                              maxLength: 256
                               type: string
                           type: object
                         mac:
                           description: mac is the device MAC address.
+                          maxLength: 17
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
                         model:
                           description: model is the vendor and product IDs of the
                             NIC, e.g. "0x8086 0x1572"
+                          maxLength: 256
                           type: string
                         name:
                           description: name is the name of the network interface,
                             e.g. "en0"
+                          maxLength: 256
                           type: string
                         pciAddress:
                           description: pciAddress is the NIC PCI address
+                          maxLength: 32
                           type: string
                         pxe:
                           description: pxe indicates whether the NIC is PXE bootable.
@@ -445,10 +468,13 @@ spec:
                                 type: integer
                               name:
                                 description: name is the VLAN name.
+                                maxLength: 256
                                 type: string
                             type: object
+                          maxItems: 4094
                           type: array
                       type: object
+                    maxItems: 256
                     type: array
                   ramMebibytes:
                     description: ramMebibytes is the host's amount of memory in Mebibytes.
@@ -467,19 +493,24 @@ spec:
                             Note that this list is not exhaustive, and names may not be stable
                             across reboots.
                           items:
+                            maxLength: 1024
                             type: string
+                          maxItems: 256
                           type: array
                         hctl:
                           description: hctl is the SCSI location of the device
+                          maxLength: 256
                           type: string
                         model:
                           description: model is the hardware model of the device.
+                          maxLength: 256
                           type: string
                         name:
                           description: |-
                             name is a Linux device name of the disk, e.g.
                             "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". This will be a name
                             that is stable across reboots if one is available.
+                          maxLength: 1024
                           type: string
                         rotational:
                           description: |-
@@ -490,6 +521,7 @@ spec:
                           type: boolean
                         serialNumber:
                           description: serialNumber is the serial number of the device
+                          maxLength: 256
                           type: string
                         sizeBytes:
                           description: sizeBytes is the size of the disk in Bytes
@@ -505,30 +537,38 @@ spec:
                           type: string
                         vendor:
                           description: vendor is the name of the vendor of the device
+                          maxLength: 256
                           type: string
                         wwn:
                           description: wwn is the WWN of the device
+                          maxLength: 256
                           type: string
                         wwnVendorExtension:
                           description: wwnVendorExtension is the WWN Vendor extension
                             of the device
+                          maxLength: 256
                           type: string
                         wwnWithExtension:
                           description: wwnWithExtension is the WWN with the extension
+                          maxLength: 256
                           type: string
                       type: object
+                    maxItems: 256
                     type: array
                   systemVendor:
                     description: systemVendor holds system vendor information.
                     properties:
                       manufacturer:
                         description: manufacturer is the system manufacturer.
+                        maxLength: 256
                         type: string
                       productName:
                         description: productName is the system product name.
+                        maxLength: 256
                         type: string
                       serialNumber:
                         description: serialNumber is the system serial number.
+                        maxLength: 256
                         type: string
                     type: object
                 type: object

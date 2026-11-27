@@ -27,10 +27,10 @@ linters:
             - conditions
             - defaultorrequired
             - defaults
-
             - duplicatemarkers
             - integers
             - jsontags
+            - maxlength
             - nodurations
             - nomaps
             - nophase

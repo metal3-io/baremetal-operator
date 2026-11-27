@@ -100,22 +100,27 @@ type RootDeviceHints struct {
 	// devicePath is a Linux device path like "/dev/vda", or a by-path link to it like
 	// "/dev/disk/by-path/pci-0000:01:00.0-scsi-0:2:0:0". The hint must match
 	// the actual value exactly.
+	// +kubebuilder:validation:MaxLength=1024
 	DevicePath string `json:"devicePath,omitempty"`
 
 	// hctl is a SCSI bus address like 0:0:0:0. The hint must match the actual
 	// value exactly.
+	// +kubebuilder:validation:MaxLength=32
 	HCTL string `json:"hctl,omitempty"`
 
 	// modelContains is a vendor-specific device identifier. The hint matches when it is a
 	// substring of the actual value.
+	// +kubebuilder:validation:MaxLength=256
 	ModelContains string `json:"modelContains,omitempty"`
 
 	// vendorContains is the name of the vendor or manufacturer of the device. The hint
 	// matches when it is a substring of the actual value.
+	// +kubebuilder:validation:MaxLength=256
 	VendorContains string `json:"vendorContains,omitempty"`
 
 	// serialNumber is the device serial number. The hint must match the actual value
 	// exactly.
+	// +kubebuilder:validation:MaxLength=256
 	SerialNumber string `json:"serialNumber,omitempty"`
 
 	// minSizeGigabytes is the minimum size of the device in Gigabytes.
@@ -124,14 +129,17 @@ type RootDeviceHints struct {
 
 	// wwn is the unique storage identifier. The hint must match the actual value
 	// exactly.
+	// +kubebuilder:validation:MaxLength=256
 	WWN string `json:"wwn,omitempty"`
 
 	// wwnWithExtension is the unique storage identifier with the vendor extension
 	// appended. The hint must match the actual value exactly.
+	// +kubebuilder:validation:MaxLength=256
 	WWNWithExtension string `json:"wwnWithExtension,omitempty"`
 
 	// wwnVendorExtension is the unique vendor storage identifier. The hint must match the
 	// actual value exactly.
+	// +kubebuilder:validation:MaxLength=256
 	WWNVendorExtension string `json:"wwnVendorExtension,omitempty"`
 
 	// rotational is true if the device should use spinning media, false otherwise.
@@ -370,10 +378,12 @@ type BMCDetails struct {
 
 	// address holds the URL for accessing the controller on the network.
 	// The scheme part designates the driver to use with the host.
+	// +kubebuilder:validation:MaxLength=2048
 	Address string `json:"address"`
 
 	// credentialsName is the name of the secret containing the BMC credentials (requires
 	// keys "username" and "password").
+	// +kubebuilder:validation:MaxLength=253
 	CredentialsName string `json:"credentialsName"`
 
 	// disableCertificateVerification disables verification of server
@@ -413,10 +423,13 @@ type HardwareRAIDVolume struct {
 	NumberOfPhysicalDisks *int32 `json:"numberOfPhysicalDisks,omitempty"`
 
 	// controller is the name of the RAID controller to use.
+	// +kubebuilder:validation:MaxLength=256
 	Controller string `json:"controller,omitempty"`
 
 	// physicalDisks is an optional list of physical disk names to be used for the hardware RAID volumes. The disk names are interpreted
 	// by the hardware RAID controller, and the format is hardware specific.
+	// +kubebuilder:validation:MaxItems=256
+	// +kubebuilder:validation:items:MaxLength=1024
 	PhysicalDisks []string `json:"physicalDisks,omitempty"`
 }
 
@@ -440,6 +453,7 @@ type SoftwareRAIDVolume struct {
 
 	// physicalDisks is a list of device hints, the number of items should be greater than or equal to 2.
 	// +kubebuilder:validation:MinItems=2
+	// +kubebuilder:validation:MaxItems=256
 	PhysicalDisks []RootDeviceHints `json:"physicalDisks,omitempty"`
 }
 
@@ -449,6 +463,7 @@ type RAIDConfig struct {
 	// You can set the value of this field to `[]` to clear all the hardware RAID configurations.
 	// +optional
 	// +nullable
+	// +kubebuilder:validation:MaxItems=64
 	HardwareRAIDVolumes []HardwareRAIDVolume `json:"hardwareRAIDVolumes"`
 
 	// softwareRAIDVolumes is the list of logical disks for software RAID, if rootDeviceHints isn't used, first volume is root volume.
@@ -469,13 +484,16 @@ type RAIDConfig struct {
 type SwitchPortIdentifier struct {
 	// switchID is expected to be the management MAC address of the switch
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
+	// +kubebuilder:validation:MaxLength=64
 	SwitchID string `json:"switchID"`
 
 	// portID is expected to be the configuration name of the port in the
 	// switch management system.
+	// +kubebuilder:validation:MaxLength=256
 	PortID string `json:"portID"`
 
 	// switchSystemName is expected to be the common name for the switch
+	// +kubebuilder:validation:MaxLength=253
 	SwitchSystemName string `json:"switchSystemName,omitempty"`
 }
 
@@ -488,6 +506,7 @@ type SwitchPortConfig struct {
 	NativeVLAN int32 `json:"nativeVLAN"`
 	// allowedVLANs is the list of allowed tagged VLAN IDs (trunk mode)
 	// +optional
+	// +kubebuilder:validation:MaxItems=4094
 	AllowedVLANs []int32 `json:"allowedVLANs,omitempty"`
 	// mtu is the maximum transmission unit size
 	// +optional
@@ -502,6 +521,7 @@ type NetworkInterface struct {
 	// Mutually exclusive with MACAddress.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._-]+$`
+	// +kubebuilder:validation:MaxLength=256
 	Name string `json:"name,omitempty"`
 
 	// macAddress is the MAC address of the network interface. This must match the MAC address
@@ -509,6 +529,7 @@ type NetworkInterface struct {
 	// Mutually exclusive with Name.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
+	// +kubebuilder:validation:MaxLength=17
 	MACAddress string `json:"macAddress,omitempty"`
 
 	// hostNetworkAttachment references the HostNetworkAttachment for this interface
@@ -532,6 +553,7 @@ type BareMetalHostSpec struct {
 	//
 	// Deprecated: the Taints field was never actually implemented.
 	// +optional
+	// +kubebuilder:validation:MaxItems=100
 	Taints []corev1.Taint `json:"taints,omitempty"`
 
 	// bmc defines how to connect to the BMC (Baseboard Management Controller) on
@@ -561,6 +583,7 @@ type BareMetalHostSpec struct {
 	// of network boot, this is the MAC address of the PXE booting
 	// interface. The MAC address of the BMC must never be used here!
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
+	// +kubebuilder:validation:MaxLength=17
 	BootMACAddress string `json:"bootMACAddress,omitempty"`
 
 	// poweredOn indicates whether the host should be powered on. If the host is currently in a stable
@@ -582,25 +605,30 @@ type BareMetalHostSpec struct {
 	// which is passed to the Config Drive and interpreted by the
 	// first-boot software such as cloud-init. The format of user data is
 	// specific to the first-boot software.
+	// +kubebuilder:validation:MaxLength=253
 	UserDataName string `json:"userDataName,omitempty"`
 
 	// preprovisioningNetworkDataName is the name of the Secret in the
 	// local namespace containing network configuration which is passed to
 	// the preprovisioning image, and to the Config Drive if not overridden
 	// by specifying NetworkDataName.
+	// +kubebuilder:validation:MaxLength=253
 	PreprovisioningNetworkDataName string `json:"preprovisioningNetworkDataName,omitempty"`
 
 	// networkDataName is the name of the Secret containing network
 	// configuration which is passed to the Config Drive and interpreted
 	// by the first boot software such as cloud-init.
+	// +kubebuilder:validation:MaxLength=253
 	NetworkDataName string `json:"networkDataName,omitempty"`
 
 	// metaDataName is the name of the Secret containing host metadata
 	// which is passed to the Config Drive. By default, metadata will be
 	// generated for the host, so most users do not need to set this field.
+	// +kubebuilder:validation:MaxLength=253
 	MetaDataName string `json:"metaDataName,omitempty"`
 
 	// description is a human-entered text used to help identify the host.
+	// +kubebuilder:validation:MaxLength=4096
 	Description string `json:"description,omitempty"`
 
 	// externallyProvisioned means something else has provisioned the
@@ -635,6 +663,7 @@ type BareMetalHostSpec struct {
 	// architecture is the CPU architecture of the host, e.g. "x86_64" or "aarch64". If unset,
 	// eventually populated by inspection.
 	// +optional
+	// +kubebuilder:validation:MaxLength=64
 	Architecture string `json:"architecture,omitempty"`
 
 	// disablePowerOff controls power off of the node. When set to true, power off of the node will be disabled,
@@ -656,6 +685,7 @@ type BareMetalHostSpec struct {
 	// (see HardwareData resource).  They are referenced by either the name
 	// or MAC address of the NIC.
 	// +optional
+	// +kubebuilder:validation:MaxItems=256
 	NetworkInterfaces []NetworkInterface `json:"networkInterfaces,omitempty"`
 }
 
@@ -688,10 +718,12 @@ const (
 // has been provisioned.
 type Image struct {
 	// url is a location of an image to deploy.
+	// +kubebuilder:validation:MaxLength=2048
 	URL string `json:"url"`
 
 	// checksum is the checksum for the image. Required for all formats
 	// except for "live-iso" and OCI images (oci://).
+	// +kubebuilder:validation:MaxLength=2048
 	Checksum string `json:"checksum,omitempty"`
 
 	// checksumType is the checksum algorithm for the image, e.g sha256 or sha512.
@@ -710,6 +742,7 @@ type Image struct {
 	// registry credentials for oci:// images. Must be in the same namespace
 	// as the BareMetalHost. Allowed types: kubernetes.io/dockerconfigjson|dockercfg.
 	// Only used when Image.URL has the oci:// scheme.
+	// +kubebuilder:validation:MaxLength=253
 	OCIAuthSecretName *string `json:"ociAuthSecretName,omitempty"`
 }
 
@@ -730,6 +763,7 @@ type CustomDeploy struct {
 	// method is the custom deploy method name.
 	// This name is specific to the deploy ramdisk used. If you don't have
 	// a custom deploy ramdisk, you shouldn't use CustomDeploy.
+	// +kubebuilder:validation:MaxLength=256
 	Method string `json:"method"`
 }
 
@@ -739,6 +773,7 @@ type CredentialsStatus struct {
 	// credentials is a reference to the secret containing the credentials.
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
 	// credentialsVersion is the resource version of the credentials secret.
+	// +kubebuilder:validation:MaxLength=256
 	Version string `json:"credentialsVersion,omitempty"`
 }
 
@@ -755,6 +790,7 @@ const (
 // RebootAnnotationArguments defines the arguments of the RebootAnnotation type.
 type RebootAnnotationArguments struct {
 	// mode selects how the host is rebooted, hard or soft.
+	// +kubebuilder:validation:MaxLength=4
 	Mode RebootMode `json:"mode"`
 	// force indicates whether the reboot is forced.
 	Force bool `json:"force"`
@@ -769,6 +805,7 @@ const (
 
 type DetachedAnnotationArguments struct {
 	// deleteAction indicates the desired delete logic when the detached annotation is present
+	// +kubebuilder:validation:MaxLength=6
 	DeleteAction DetachedDeleteAction `json:"deleteAction,omitempty"`
 
 	// force indicates if detaching should be forced regardless of the host's state
@@ -829,11 +866,13 @@ type OperationHistory struct {
 // applied to an Ironic port for a network interface.
 type AppliedNetworkAttachmentConfig struct {
 	// name is the network interface name (e.g., "eno1np0")
+	// +kubebuilder:validation:MaxLength=256
 	Name string `json:"name"`
 	// macAddress is the resolved MAC address of the interface when the
 	// configuration was applied. It identifies the port during recovery even
 	// if later inspection reports a different interface name.
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$`
+	// +kubebuilder:validation:MaxLength=17
 	MACAddress string `json:"macAddress"`
 	// switchPortConfig is the switch port configuration that was applied
 	SwitchPortConfig SwitchPortConfig `json:"switchPortConfig"`
@@ -878,6 +917,7 @@ type BareMetalHostStatus struct {
 	TriedCredentials CredentialsStatus `json:"triedCredentials,omitempty"`
 
 	// errorMessage is the last error message reported by the provisioning subsystem.
+	// +kubebuilder:validation:MaxLength=32768
 	ErrorMessage string `json:"errorMessage"`
 
 	// poweredOn is the currently detected power state of the host. This field may get
@@ -913,16 +953,19 @@ type BareMetalHostStatus struct {
 	// VLAN/MTU/mode values (not HNA references) so that drift detection
 	// can identify changes to HostNetworkAttachment specs or deletions.
 	// +optional
+	// +kubebuilder:validation:MaxItems=256
 	AppliedNetworkAttachmentConfigs []AppliedNetworkAttachmentConfig `json:"appliedNetworkAttachmentConfigs,omitempty"`
 }
 
 // ProvisionStatus holds the state information for a single target.
 type ProvisionStatus struct {
 	// state is an indicator for what the provisioner is doing with the host.
+	// +kubebuilder:validation:MaxLength=32
 	State ProvisioningState `json:"state"`
 
 	// id is the host's ID from the underlying provisioning tool (e.g. the
 	// Ironic node UUID).
+	// +kubebuilder:validation:MaxLength=256
 	ID string `json:"id"`
 
 	// image holds the details of the last image successfully

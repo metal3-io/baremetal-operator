@@ -72,11 +72,20 @@ func (a *ipmiAccessDetails) DisableCertificateVerification() bool {
 // the kernel and ramdisk locations).
 func (a *ipmiAccessDetails) DriverInfo(bmcCreds Credentials) map[string]interface{} {
 	result := map[string]interface{}{
+		"ipmi_username": bmcCreds.Username,
+		"ipmi_password": bmcCreds.Password,
+		"ipmi_address":  a.hostname,
+	}
+	return addDriverInfoSettings(result, a.DriverInfoSettings())
+}
+
+// DriverInfoSettings returns the DriverInfo fields other than the address and
+// the credentials.
+func (a *ipmiAccessDetails) DriverInfoSettings() map[string]interface{} {
+	result := map[string]interface{}{
 		"ipmi_port":       a.portNum,
-		"ipmi_username":   bmcCreds.Username,
-		"ipmi_password":   bmcCreds.Password,
-		"ipmi_address":    a.hostname,
 		"ipmi_priv_level": a.privilegelevel,
+		"ipmi_verify_ca":  nil,
 	}
 
 	if a.disableCertificateVerification {

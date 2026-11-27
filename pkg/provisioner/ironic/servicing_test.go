@@ -24,6 +24,7 @@ func (r *BIOSTestBMC) NeedsMAC() bool                                { return fa
 func (r *BIOSTestBMC) Driver() string                                { return "bios-test" }
 func (r *BIOSTestBMC) DisableCertificateVerification() bool          { return false }
 func (r *BIOSTestBMC) DriverInfo(bmc.Credentials) (i map[string]any) { return }
+func (r *BIOSTestBMC) DriverInfoSettings() (i map[string]any)        { return }
 func (r *BIOSTestBMC) SupportsISOPreprovisioningImage() bool         { return false }
 func (r *BIOSTestBMC) BIOSInterface() string                         { return "" }
 func (r *BIOSTestBMC) BootInterface() string                         { return "" }

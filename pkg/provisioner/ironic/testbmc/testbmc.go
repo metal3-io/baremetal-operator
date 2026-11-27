@@ -50,10 +50,24 @@ func (a *testAccessDetails) DisableCertificateVerification() bool {
 // the kernel and ramdisk locations).
 func (a *testAccessDetails) DriverInfo(bmcCreds bmc.Credentials) map[string]any {
 	result := map[string]any{
-		"test_port":     "42",
 		"test_username": bmcCreds.Username,
 		"test_password": bmcCreds.Password,
 		"test_address":  a.hostname,
+	}
+	for key, value := range a.DriverInfoSettings() {
+		if value != nil {
+			result[key] = value
+		}
+	}
+	return result
+}
+
+// DriverInfoSettings returns the DriverInfo fields other than the address and
+// the credentials.
+func (a *testAccessDetails) DriverInfoSettings() map[string]any {
+	result := map[string]any{
+		"test_port":      "42",
+		"test_verify_ca": nil,
 	}
 
 	if a.disableCertificateVerification {

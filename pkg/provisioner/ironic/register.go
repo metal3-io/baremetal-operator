@@ -157,6 +157,12 @@ func (p *ironicProvisioner) Register(ctx context.Context, data provisioner.Manag
 		if credentialsChanged || bmcAddressChanged {
 			p.log.Info("Updating driver info because the credentials and/or the BMC address changed")
 			updater.SetTopLevelOpt("driver_info", driverInfo, ironicNode.DriverInfo)
+		} else {
+			// The address check above only looks at the host part of the
+			// address. Apply changes to the other BMC settings (port, system
+			// ID, certificate verification) one field at a time, leaving the
+			// rest of driver_info alone.
+			updater.SetDriverInfoOpts(bmcAccess.DriverInfoSettings(), ironicNode)
 		}
 
 		// The updater only updates disable_power_off if it has changed

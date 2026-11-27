@@ -38,21 +38,23 @@ func getVLANs(lldp map[string]any) (vlans []metal3api.VLAN, vlanid metal3api.VLA
 	if lldp == nil {
 		return
 	}
-	if spvs, ok := lldp["switch_port_vlans"]; ok {
-		if data, ok := spvs.([]map[string]any); ok {
-			vlans = make([]metal3api.VLAN, len(data))
-			for i, vlan := range data {
-				vid, _ := vlan["id"].(int)
-				name, _ := vlan["name"].(string)
-				vlans[i] = metal3api.VLAN{
-					ID:   metal3api.VLANID(vid), //#nosec G115:gosec
-					Name: name,
-				}
+	// The LLDP data comes from JSON, so lists are []any and numbers are float64.
+	if data, ok := lldp["switch_port_vlans"].([]any); ok {
+		for _, entry := range data {
+			vlan, ok := entry.(map[string]any)
+			if !ok {
+				continue
 			}
+			vid, _ := vlan["id"].(float64)
+			name, _ := vlan["name"].(string)
+			vlans = append(vlans, metal3api.VLAN{
+				ID:   metal3api.VLANID(vid),
+				Name: name,
+			})
 		}
 	}
-	if vid, ok := lldp["switch_port_untagged_vlan_id"].(int); ok {
-		vlanid = metal3api.VLANID(vid) //#nosec G115:gosec
+	if vid, ok := lldp["switch_port_untagged_vlan_id"].(float64); ok {
+		vlanid = metal3api.VLANID(vid)
 	}
 	return
 }

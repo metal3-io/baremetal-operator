@@ -454,7 +454,7 @@ func (in *HardwareRAIDVolume) DeepCopyInto(out *HardwareRAIDVolume) {
 	*out = *in
 	if in.SizeGibibytes != nil {
 		in, out := &in.SizeGibibytes, &out.SizeGibibytes
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Rotational != nil {
@@ -464,7 +464,7 @@ func (in *HardwareRAIDVolume) DeepCopyInto(out *HardwareRAIDVolume) {
 	}
 	if in.NumberOfPhysicalDisks != nil {
 		in, out := &in.NumberOfPhysicalDisks, &out.NumberOfPhysicalDisks
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PhysicalDisks != nil {
@@ -736,7 +736,7 @@ func (in *SoftwareRAIDVolume) DeepCopyInto(out *SoftwareRAIDVolume) {
 	*out = *in
 	if in.SizeGibibytes != nil {
 		in, out := &in.SizeGibibytes, &out.SizeGibibytes
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PhysicalDisks != nil {
@@ -783,12 +783,12 @@ func (in *SwitchPortConfig) DeepCopyInto(out *SwitchPortConfig) {
 	*out = *in
 	if in.AllowedVLANs != nil {
 		in, out := &in.AllowedVLANs, &out.AllowedVLANs
-		*out = make([]int, len(*in))
+		*out = make([]int32, len(*in))
 		copy(*out, *in)
 	}
 	if in.MTU != nil {
 		in, out := &in.MTU, &out.MTU
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }

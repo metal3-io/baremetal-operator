@@ -2029,6 +2029,7 @@ spec:
                             numberOfPhysicalDisks is the number of physical disks to use for the logical disk.
                             Defaults to minimum number of disks required for the particular RAID
                             level.
+                          format: int32
                           minimum: 1
                           type: integer
                         physicalDisks:
@@ -2048,6 +2049,7 @@ spec:
                             sizeGibibytes is the size of the logical disk to be created in GiB. If unspecified or
                             set be 0, the maximum capacity of disk will be used for logical
                             disk.
+                          format: int32
                           minimum: 0
                           type: integer
                       required:
@@ -2100,6 +2102,7 @@ spec:
                               minSizeGigabytes:
                                 description: minSizeGigabytes is the minimum size
                                   of the device in Gigabytes.
+                                format: int32
                                 minimum: 0
                                 type: integer
                               modelContains:
@@ -2149,6 +2152,7 @@ spec:
                           description: |-
                             sizeGibibytes is the size of the logical disk to be created in GiB.
                             If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                          format: int32
                           minimum: 0
                           type: integer
                       required:
@@ -2178,6 +2182,7 @@ spec:
                   minSizeGigabytes:
                     description: minSizeGigabytes is the minimum size of the device
                       in Gigabytes.
+                    format: int32
                     minimum: 0
                     type: integer
                   modelContains:
@@ -2313,6 +2318,7 @@ spec:
                           description: allowedVLANs is the list of allowed tagged
                             VLAN IDs (trunk mode)
                           items:
+                            format: int32
                             type: integer
                           type: array
                         mode:
@@ -2324,9 +2330,11 @@ spec:
                           type: string
                         mtu:
                           description: mtu is the maximum transmission unit size
+                          format: int32
                           type: integer
                         nativeVLAN:
                           description: nativeVLAN is the native/untagged VLAN ID
+                          format: int32
                           type: integer
                       required:
                       - mode
@@ -2403,6 +2411,7 @@ spec:
                 default: 0
                 description: errorCount records how many times the host has encoutered
                   an error since the last successful operation
+                format: int32
                 type: integer
               errorMessage:
                 description: errorMessage is the last error message reported by the
@@ -2692,6 +2701,7 @@ spec:
                                 numberOfPhysicalDisks is the number of physical disks to use for the logical disk.
                                 Defaults to minimum number of disks required for the particular RAID
                                 level.
+                              format: int32
                               minimum: 1
                               type: integer
                             physicalDisks:
@@ -2711,6 +2721,7 @@ spec:
                                 sizeGibibytes is the size of the logical disk to be created in GiB. If unspecified or
                                 set be 0, the maximum capacity of disk will be used for logical
                                 disk.
+                              format: int32
                               minimum: 0
                               type: integer
                           required:
@@ -2764,6 +2775,7 @@ spec:
                                   minSizeGigabytes:
                                     description: minSizeGigabytes is the minimum size
                                       of the device in Gigabytes.
+                                    format: int32
                                     minimum: 0
                                     type: integer
                                   modelContains:
@@ -2813,6 +2825,7 @@ spec:
                               description: |-
                                 sizeGibibytes is the size of the logical disk to be created in GiB.
                                 If unspecified or set be 0, the maximum capacity of disk will be used for logical disk.
+                              format: int32
                               minimum: 0
                               type: integer
                           required:
@@ -2840,6 +2853,7 @@ spec:
                       minSizeGigabytes:
                         description: minSizeGigabytes is the minimum size of the device
                           in Gigabytes.
+                        format: int32
                         minimum: 0
                         type: integer
                       modelContains:
@@ -2892,6 +2906,7 @@ spec:
                   consecutively for the current image. Unlike ErrorCount, it is not reset
                   on deprovisioning and is only cleared on successful provisioning or when
                   a new image is specified.
+                format: int32
                 type: integer
               triedCredentials:
                 description: triedCredentials is the last credentials we sent to the

@@ -411,7 +411,12 @@ func Convert_v1beta1_Accelerator_To_v1alpha1_Accelerator(in *v1beta1.Accelerator
 }
 
 func autoConvert_v1alpha1_AppliedNetworkAttachmentConfig_To_v1beta1_AppliedNetworkAttachmentConfig(in *AppliedNetworkAttachmentConfig, out *v1beta1.AppliedNetworkAttachmentConfig, s conversion.Scope) error {
-	*out = *(*v1beta1.AppliedNetworkAttachmentConfig)(unsafe.Pointer(in))
+	out.Name = in.Name
+	out.MACAddress = in.MACAddress
+	if err := Convert_v1alpha1_SwitchPortConfig_To_v1beta1_SwitchPortConfig(&in.SwitchPortConfig, &out.SwitchPortConfig, s); err != nil {
+		return err
+	}
+	out.SwitchPort = (*v1beta1.SwitchPortIdentifier)(unsafe.Pointer(in.SwitchPort))
 	return nil
 }
 
@@ -421,7 +426,12 @@ func Convert_v1alpha1_AppliedNetworkAttachmentConfig_To_v1beta1_AppliedNetworkAt
 }
 
 func autoConvert_v1beta1_AppliedNetworkAttachmentConfig_To_v1alpha1_AppliedNetworkAttachmentConfig(in *v1beta1.AppliedNetworkAttachmentConfig, out *AppliedNetworkAttachmentConfig, s conversion.Scope) error {
-	*out = *(*AppliedNetworkAttachmentConfig)(unsafe.Pointer(in))
+	out.Name = in.Name
+	out.MACAddress = in.MACAddress
+	if err := Convert_v1beta1_SwitchPortConfig_To_v1alpha1_SwitchPortConfig(&in.SwitchPortConfig, &out.SwitchPortConfig, s); err != nil {
+		return err
+	}
+	out.SwitchPort = (*SwitchPortIdentifier)(unsafe.Pointer(in.SwitchPort))
 	return nil
 }
 
@@ -668,8 +678,8 @@ func autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in 
 	if err := Convert_v1alpha1_OperationHistory_To_v1beta1_OperationHistory(&in.OperationHistory, &out.OperationHistory, s); err != nil {
 		return err
 	}
-	out.ErrorCount = in.ErrorCount
-	out.ProvisioningFailCount = in.ProvisioningFailCount
+	out.ErrorCount = int32(in.ErrorCount)
+	out.ProvisioningFailCount = int32(in.ProvisioningFailCount)
 	if in.LastAttemptedImage != nil {
 		in, out := &in.LastAttemptedImage, &out.LastAttemptedImage
 		*out = new(v1beta1.Image)
@@ -680,7 +690,17 @@ func autoConvert_v1alpha1_BareMetalHostStatus_To_v1beta1_BareMetalHostStatus(in 
 		out.LastAttemptedImage = nil
 	}
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
-	out.AppliedNetworkAttachmentConfigs = *(*[]v1beta1.AppliedNetworkAttachmentConfig)(unsafe.Pointer(&in.AppliedNetworkAttachmentConfigs))
+	if in.AppliedNetworkAttachmentConfigs != nil {
+		in, out := &in.AppliedNetworkAttachmentConfigs, &out.AppliedNetworkAttachmentConfigs
+		*out = make([]v1beta1.AppliedNetworkAttachmentConfig, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_AppliedNetworkAttachmentConfig_To_v1beta1_AppliedNetworkAttachmentConfig(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.AppliedNetworkAttachmentConfigs = nil
+	}
 	return nil
 }
 
@@ -703,8 +723,8 @@ func autoConvert_v1beta1_BareMetalHostStatus_To_v1alpha1_BareMetalHostStatus(in 
 	if err := Convert_v1beta1_OperationHistory_To_v1alpha1_OperationHistory(&in.OperationHistory, &out.OperationHistory, s); err != nil {
 		return err
 	}
-	out.ErrorCount = in.ErrorCount
-	out.ProvisioningFailCount = in.ProvisioningFailCount
+	out.ErrorCount = int(in.ErrorCount)
+	out.ProvisioningFailCount = int(in.ProvisioningFailCount)
 	if in.LastAttemptedImage != nil {
 		in, out := &in.LastAttemptedImage, &out.LastAttemptedImage
 		*out = new(Image)
@@ -714,7 +734,17 @@ func autoConvert_v1beta1_BareMetalHostStatus_To_v1alpha1_BareMetalHostStatus(in 
 	} else {
 		out.LastAttemptedImage = nil
 	}
-	out.AppliedNetworkAttachmentConfigs = *(*[]AppliedNetworkAttachmentConfig)(unsafe.Pointer(&in.AppliedNetworkAttachmentConfigs))
+	if in.AppliedNetworkAttachmentConfigs != nil {
+		in, out := &in.AppliedNetworkAttachmentConfigs, &out.AppliedNetworkAttachmentConfigs
+		*out = make([]AppliedNetworkAttachmentConfig, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_AppliedNetworkAttachmentConfig_To_v1alpha1_AppliedNetworkAttachmentConfig(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.AppliedNetworkAttachmentConfigs = nil
+	}
 	return nil
 }
 
@@ -933,8 +963,18 @@ func autoConvert_v1alpha1_HardwareDetails_To_v1beta1_HardwareDetails(in *Hardwar
 	if err := Convert_v1alpha1_Firmware_To_v1beta1_Firmware(&in.Firmware, &out.Firmware, s); err != nil {
 		return err
 	}
-	out.RAMMebibytes = in.RAMMebibytes
-	out.NIC = *(*[]v1beta1.NIC)(unsafe.Pointer(&in.NIC))
+	out.RAMMebibytes = int32(in.RAMMebibytes)
+	if in.NIC != nil {
+		in, out := &in.NIC, &out.NIC
+		*out = make([]v1beta1.NIC, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_NIC_To_v1beta1_NIC(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.NIC = nil
+	}
 	out.Storage = *(*[]v1beta1.Storage)(unsafe.Pointer(&in.Storage))
 	if err := Convert_v1alpha1_CPU_To_v1beta1_CPU(&in.CPU, &out.CPU, s); err != nil {
 		return err
@@ -956,8 +996,18 @@ func autoConvert_v1beta1_HardwareDetails_To_v1alpha1_HardwareDetails(in *v1beta1
 	if err := Convert_v1beta1_Firmware_To_v1alpha1_Firmware(&in.Firmware, &out.Firmware, s); err != nil {
 		return err
 	}
-	out.RAMMebibytes = in.RAMMebibytes
-	out.NIC = *(*[]NIC)(unsafe.Pointer(&in.NIC))
+	out.RAMMebibytes = int(in.RAMMebibytes)
+	if in.NIC != nil {
+		in, out := &in.NIC, &out.NIC
+		*out = make([]NIC, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_NIC_To_v1alpha1_NIC(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.NIC = nil
+	}
 	out.Storage = *(*[]Storage)(unsafe.Pointer(&in.Storage))
 	if err := Convert_v1beta1_CPU_To_v1alpha1_CPU(&in.CPU, &out.CPU, s); err != nil {
 		return err
@@ -972,7 +1022,25 @@ func Convert_v1beta1_HardwareDetails_To_v1alpha1_HardwareDetails(in *v1beta1.Har
 }
 
 func autoConvert_v1alpha1_HardwareRAIDVolume_To_v1beta1_HardwareRAIDVolume(in *HardwareRAIDVolume, out *v1beta1.HardwareRAIDVolume, s conversion.Scope) error {
-	*out = *(*v1beta1.HardwareRAIDVolume)(unsafe.Pointer(in))
+	if in.SizeGibibytes != nil {
+		in, out := &in.SizeGibibytes, &out.SizeGibibytes
+		*out = new(int32)
+		**out = int32(**in)
+	} else {
+		out.SizeGibibytes = nil
+	}
+	out.Level = in.Level
+	out.Name = in.Name
+	out.Rotational = (*bool)(unsafe.Pointer(in.Rotational))
+	if in.NumberOfPhysicalDisks != nil {
+		in, out := &in.NumberOfPhysicalDisks, &out.NumberOfPhysicalDisks
+		*out = new(int32)
+		**out = int32(**in)
+	} else {
+		out.NumberOfPhysicalDisks = nil
+	}
+	out.Controller = in.Controller
+	out.PhysicalDisks = *(*[]string)(unsafe.Pointer(&in.PhysicalDisks))
 	return nil
 }
 
@@ -982,7 +1050,25 @@ func Convert_v1alpha1_HardwareRAIDVolume_To_v1beta1_HardwareRAIDVolume(in *Hardw
 }
 
 func autoConvert_v1beta1_HardwareRAIDVolume_To_v1alpha1_HardwareRAIDVolume(in *v1beta1.HardwareRAIDVolume, out *HardwareRAIDVolume, s conversion.Scope) error {
-	*out = *(*HardwareRAIDVolume)(unsafe.Pointer(in))
+	if in.SizeGibibytes != nil {
+		in, out := &in.SizeGibibytes, &out.SizeGibibytes
+		*out = new(int)
+		**out = int(**in)
+	} else {
+		out.SizeGibibytes = nil
+	}
+	out.Level = in.Level
+	out.Name = in.Name
+	out.Rotational = (*bool)(unsafe.Pointer(in.Rotational))
+	if in.NumberOfPhysicalDisks != nil {
+		in, out := &in.NumberOfPhysicalDisks, &out.NumberOfPhysicalDisks
+		*out = new(int)
+		**out = int(**in)
+	} else {
+		out.NumberOfPhysicalDisks = nil
+	}
+	out.Controller = in.Controller
+	out.PhysicalDisks = *(*[]string)(unsafe.Pointer(&in.PhysicalDisks))
 	return nil
 }
 
@@ -1075,7 +1161,17 @@ func Convert_v1beta1_LLDP_To_v1alpha1_LLDP(in *v1beta1.LLDP, out *LLDP, s conver
 }
 
 func autoConvert_v1alpha1_NIC_To_v1beta1_NIC(in *NIC, out *v1beta1.NIC, s conversion.Scope) error {
-	*out = *(*v1beta1.NIC)(unsafe.Pointer(in))
+	out.Name = in.Name
+	out.Model = in.Model
+	out.MAC = in.MAC
+	out.IP = in.IP
+	out.SpeedGbps = int32(in.SpeedGbps)
+	out.VLANs = *(*[]v1beta1.VLAN)(unsafe.Pointer(&in.VLANs))
+	out.VLANID = v1beta1.VLANID(in.VLANID)
+	out.PXE = in.PXE
+	out.LLDP = (*v1beta1.LLDP)(unsafe.Pointer(in.LLDP))
+	out.PCIAddress = in.PCIAddress
+	out.InfinibandClientID = in.InfinibandClientID
 	return nil
 }
 
@@ -1085,7 +1181,17 @@ func Convert_v1alpha1_NIC_To_v1beta1_NIC(in *NIC, out *v1beta1.NIC, s conversion
 }
 
 func autoConvert_v1beta1_NIC_To_v1alpha1_NIC(in *v1beta1.NIC, out *NIC, s conversion.Scope) error {
-	*out = *(*NIC)(unsafe.Pointer(in))
+	out.Name = in.Name
+	out.Model = in.Model
+	out.MAC = in.MAC
+	out.IP = in.IP
+	out.SpeedGbps = int(in.SpeedGbps)
+	out.VLANs = *(*[]VLAN)(unsafe.Pointer(&in.VLANs))
+	out.VLANID = VLANID(in.VLANID)
+	out.PXE = in.PXE
+	out.LLDP = (*LLDP)(unsafe.Pointer(in.LLDP))
+	out.PCIAddress = in.PCIAddress
+	out.InfinibandClientID = in.InfinibandClientID
 	return nil
 }
 
@@ -1219,7 +1325,17 @@ func Convert_v1beta1_ProvisionStatus_To_v1alpha1_ProvisionStatus(in *v1beta1.Pro
 }
 
 func autoConvert_v1alpha1_RAIDConfig_To_v1beta1_RAIDConfig(in *RAIDConfig, out *v1beta1.RAIDConfig, s conversion.Scope) error {
-	out.HardwareRAIDVolumes = *(*[]v1beta1.HardwareRAIDVolume)(unsafe.Pointer(&in.HardwareRAIDVolumes))
+	if in.HardwareRAIDVolumes != nil {
+		in, out := &in.HardwareRAIDVolumes, &out.HardwareRAIDVolumes
+		*out = make([]v1beta1.HardwareRAIDVolume, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_HardwareRAIDVolume_To_v1beta1_HardwareRAIDVolume(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.HardwareRAIDVolumes = nil
+	}
 	if in.SoftwareRAIDVolumes != nil {
 		in, out := &in.SoftwareRAIDVolumes, &out.SoftwareRAIDVolumes
 		*out = make([]v1beta1.SoftwareRAIDVolume, len(*in))
@@ -1240,7 +1356,17 @@ func Convert_v1alpha1_RAIDConfig_To_v1beta1_RAIDConfig(in *RAIDConfig, out *v1be
 }
 
 func autoConvert_v1beta1_RAIDConfig_To_v1alpha1_RAIDConfig(in *v1beta1.RAIDConfig, out *RAIDConfig, s conversion.Scope) error {
-	out.HardwareRAIDVolumes = *(*[]HardwareRAIDVolume)(unsafe.Pointer(&in.HardwareRAIDVolumes))
+	if in.HardwareRAIDVolumes != nil {
+		in, out := &in.HardwareRAIDVolumes, &out.HardwareRAIDVolumes
+		*out = make([]HardwareRAIDVolume, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_HardwareRAIDVolume_To_v1alpha1_HardwareRAIDVolume(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.HardwareRAIDVolumes = nil
+	}
 	if in.SoftwareRAIDVolumes != nil {
 		in, out := &in.SoftwareRAIDVolumes, &out.SoftwareRAIDVolumes
 		*out = make([]SoftwareRAIDVolume, len(*in))
@@ -1286,7 +1412,7 @@ func autoConvert_v1alpha1_RootDeviceHints_To_v1beta1_RootDeviceHints(in *RootDev
 	// WARNING: in.Model requires manual conversion: does not exist in peer-type
 	// WARNING: in.Vendor requires manual conversion: does not exist in peer-type
 	out.SerialNumber = in.SerialNumber
-	out.MinSizeGigabytes = in.MinSizeGigabytes
+	out.MinSizeGigabytes = int32(in.MinSizeGigabytes)
 	out.WWN = in.WWN
 	out.WWNWithExtension = in.WWNWithExtension
 	out.WWNVendorExtension = in.WWNVendorExtension
@@ -1300,7 +1426,7 @@ func autoConvert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *v1beta1
 	// WARNING: in.ModelContains requires manual conversion: does not exist in peer-type
 	// WARNING: in.VendorContains requires manual conversion: does not exist in peer-type
 	out.SerialNumber = in.SerialNumber
-	out.MinSizeGigabytes = in.MinSizeGigabytes
+	out.MinSizeGigabytes = int(in.MinSizeGigabytes)
 	out.WWN = in.WWN
 	out.WWNWithExtension = in.WWNWithExtension
 	out.WWNVendorExtension = in.WWNVendorExtension
@@ -1310,7 +1436,13 @@ func autoConvert_v1beta1_RootDeviceHints_To_v1alpha1_RootDeviceHints(in *v1beta1
 
 func autoConvert_v1alpha1_SoftwareRAIDVolume_To_v1beta1_SoftwareRAIDVolume(in *SoftwareRAIDVolume, out *v1beta1.SoftwareRAIDVolume, s conversion.Scope) error {
 	out.RootVolume = in.RootVolume
-	out.SizeGibibytes = (*int)(unsafe.Pointer(in.SizeGibibytes))
+	if in.SizeGibibytes != nil {
+		in, out := &in.SizeGibibytes, &out.SizeGibibytes
+		*out = new(int32)
+		**out = int32(**in)
+	} else {
+		out.SizeGibibytes = nil
+	}
 	out.Level = in.Level
 	if in.PhysicalDisks != nil {
 		in, out := &in.PhysicalDisks, &out.PhysicalDisks
@@ -1333,7 +1465,13 @@ func Convert_v1alpha1_SoftwareRAIDVolume_To_v1beta1_SoftwareRAIDVolume(in *Softw
 
 func autoConvert_v1beta1_SoftwareRAIDVolume_To_v1alpha1_SoftwareRAIDVolume(in *v1beta1.SoftwareRAIDVolume, out *SoftwareRAIDVolume, s conversion.Scope) error {
 	out.RootVolume = in.RootVolume
-	out.SizeGibibytes = (*int)(unsafe.Pointer(in.SizeGibibytes))
+	if in.SizeGibibytes != nil {
+		in, out := &in.SizeGibibytes, &out.SizeGibibytes
+		*out = new(int)
+		**out = int(**in)
+	} else {
+		out.SizeGibibytes = nil
+	}
 	out.Level = in.Level
 	if in.PhysicalDisks != nil {
 		in, out := &in.PhysicalDisks, &out.PhysicalDisks
@@ -1375,7 +1513,24 @@ func Convert_v1beta1_Storage_To_v1alpha1_Storage(in *v1beta1.Storage, out *Stora
 }
 
 func autoConvert_v1alpha1_SwitchPortConfig_To_v1beta1_SwitchPortConfig(in *SwitchPortConfig, out *v1beta1.SwitchPortConfig, s conversion.Scope) error {
-	*out = *(*v1beta1.SwitchPortConfig)(unsafe.Pointer(in))
+	out.Mode = v1beta1.SwitchPortMode(in.Mode)
+	out.NativeVLAN = int32(in.NativeVLAN)
+	if in.AllowedVLANs != nil {
+		in, out := &in.AllowedVLANs, &out.AllowedVLANs
+		*out = make([]int32, len(*in))
+		for i := range *in {
+			(*out)[i] = int32((*in)[i])
+		}
+	} else {
+		out.AllowedVLANs = nil
+	}
+	if in.MTU != nil {
+		in, out := &in.MTU, &out.MTU
+		*out = new(int32)
+		**out = int32(**in)
+	} else {
+		out.MTU = nil
+	}
 	return nil
 }
 
@@ -1385,7 +1540,24 @@ func Convert_v1alpha1_SwitchPortConfig_To_v1beta1_SwitchPortConfig(in *SwitchPor
 }
 
 func autoConvert_v1beta1_SwitchPortConfig_To_v1alpha1_SwitchPortConfig(in *v1beta1.SwitchPortConfig, out *SwitchPortConfig, s conversion.Scope) error {
-	*out = *(*SwitchPortConfig)(unsafe.Pointer(in))
+	out.Mode = SwitchPortMode(in.Mode)
+	out.NativeVLAN = int(in.NativeVLAN)
+	if in.AllowedVLANs != nil {
+		in, out := &in.AllowedVLANs, &out.AllowedVLANs
+		*out = make([]int, len(*in))
+		for i := range *in {
+			(*out)[i] = int((*in)[i])
+		}
+	} else {
+		out.AllowedVLANs = nil
+	}
+	if in.MTU != nil {
+		in, out := &in.MTU, &out.MTU
+		*out = new(int)
+		**out = int(**in)
+	} else {
+		out.MTU = nil
+	}
 	return nil
 }
 
